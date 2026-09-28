@@ -234,9 +234,12 @@
   }
 
   // --- CLOUD BACKEND & GOOGLE AUTH (SUPABASE) ---
+  const DEFAULT_SUPABASE_URL = 'https://miipmgzjxpyokchrctdj.supabase.co';
+  const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1paXBtZ3pqeHB5b2tjaHJjdGRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1NjYyMjMsImV4cCI6MjEwNjE0MjIyM30.SfEbfXimbA7VTZrRYzgJLezH6fv64QWR6yYuHnbHUMQ';
+
   async function initCloudBackend() {
-    let url = localStorage.getItem('autoshort_supabase_url') || '';
-    let key = localStorage.getItem('autoshort_supabase_key') || '';
+    let url = localStorage.getItem('autoshort_supabase_url') || DEFAULT_SUPABASE_URL;
+    let key = localStorage.getItem('autoshort_supabase_key') || DEFAULT_SUPABASE_KEY;
 
     // If not in localStorage, check if configured via /api/config on Vercel
     if (!url || !key) {
