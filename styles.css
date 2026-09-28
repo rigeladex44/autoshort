@@ -1,16 +1,16 @@
 /* ==========================================================
-   AUTOSHORT DESIGN SYSTEM
+   AUTOSHORT MODERN DESIGN SYSTEM
    Focused: 1. Shortlink, 2. Social Preview Editor, 3. 1-7 Days Analytics
    ========================================================== */
 
 :root {
   /* Dark Theme (Default) */
   --bg-body: #090d16;
-  --bg-card: rgba(18, 24, 38, 0.8);
-  --bg-card-hover: rgba(26, 35, 54, 0.9);
+  --bg-card: rgba(18, 24, 38, 0.85);
+  --bg-card-hover: rgba(26, 35, 54, 0.95);
   --bg-card-solid: #111827;
   --bg-input: rgba(10, 14, 23, 0.85);
-  --bg-modal: #0f1523;
+  --bg-modal: #0d121f;
   
   --border-color: rgba(255, 255, 255, 0.08);
   --border-focus: rgba(99, 102, 241, 0.6);
@@ -113,6 +113,7 @@ a:hover {
   z-index: 100;
   background: var(--bg-card);
   backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
   border-bottom: 1px solid var(--border-color);
   padding: 14px 20px;
 }
@@ -123,6 +124,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 16px;
 }
 
 .nav-brand {
@@ -159,7 +161,7 @@ a:hover {
 .nav-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 /* Buttons */
@@ -226,6 +228,7 @@ a:hover {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-radius: var(--radius-lg);
   padding: 30px;
   margin-bottom: 28px;
@@ -514,7 +517,7 @@ a:hover {
   min-width: 0;
 }
 
-/* Social thumbnail preview inside link card */
+/* Thumbnail preview inside card */
 .link-preview-thumb {
   width: 70px;
   height: 70px;
@@ -677,17 +680,21 @@ a:hover {
   font-size: 0.9rem;
 }
 
-/* Modals */
+/* ==========================================================
+   MODALS SYSTEM (PERFECT SCROLLING & FIXED FOOTER)
+   ========================================================== */
 .modal-backdrop {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(8px);
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 16px;
+  overflow: hidden;
 }
 
 .modal-dialog {
@@ -701,9 +708,24 @@ a:hover {
   flex-direction: column;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
+  position: relative;
 }
+
 .modal-dialog.modal-lg {
-  max-width: 900px;
+  max-width: 920px;
+}
+
+.modal-dialog.modal-md {
+  max-width: 620px;
+}
+
+/* Crucial: Makes form flex-column so .modal-body scrolls correctly! */
+.modal-dialog form {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .modal-header {
@@ -712,6 +734,9 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0;
+  background: var(--bg-modal);
+  z-index: 5;
 }
 .modal-header h3 {
   font-size: 1.15rem;
@@ -735,6 +760,23 @@ a:hover {
   padding: 24px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Custom Sleek Scrollbar */
+.modal-body::-webkit-scrollbar {
+  width: 7px;
+}
+.modal-body::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+}
+.modal-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+.modal-body::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
 }
 
 .modal-footer {
@@ -744,14 +786,26 @@ a:hover {
   align-items: center;
   justify-content: flex-end;
   gap: 12px;
-  background: var(--bg-input);
+  background: var(--bg-modal);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 5;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.2);
 }
 
 /* Split View Modal (Form on left, Live WhatsApp Card Preview on right) */
 .modal-split-view {
   display: grid;
-  grid-template-columns: 1.1fr 0.9fr;
-  gap: 28px;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 26px;
+  align-items: start;
+}
+
+.form-column {
+  min-width: 0;
+}
+.preview-column {
+  min-width: 0;
 }
 
 .form-group {
@@ -795,10 +849,10 @@ a:hover {
 .form-divider {
   display: flex;
   align-items: center;
-  margin: 20px 0 16px;
-  padding-top: 16px;
+  margin: 18px 0 14px;
+  padding-top: 14px;
   border-top: 1px dashed var(--border-color);
-  font-size: 0.88rem;
+  font-size: 0.85rem;
   font-weight: 700;
   color: var(--accent-cyan);
 }
@@ -853,7 +907,7 @@ a:hover {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 .btn-preset-img {
   background: var(--bg-input);
@@ -870,7 +924,7 @@ a:hover {
 }
 
 /* ==========================================================
-   2. WHATSAPP CHAT BUBBLE LIVE PREVIEW
+   WHATSAPP CHAT BUBBLE LIVE PREVIEW
    ========================================================== */
 .preview-sticky-wrap {
   position: sticky;
@@ -987,7 +1041,7 @@ a:hover {
 }
 
 /* ==========================================================
-   3. ANALYTICS MODAL & 1-7 DAYS DATE FILTER
+   ANALYTICS MODAL & 1-7 DAYS DATE FILTER
    ========================================================== */
 .date-filter-panel {
   background: var(--bg-input);
