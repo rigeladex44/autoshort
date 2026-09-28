@@ -28,110 +28,112 @@ function escapeHtml(str) {
 }
 
 export default async function handler(req, res) {
-  const { slug } = req.query;
+  try {
+    const { slug } = req.query;
 
-  if (!slug) {
-    res.writeHead(302, { Location: '/' });
-    return res.end();
-  }
-
-  const cleanSlug = String(slug).trim().toLowerCase();
-  const userAgent = req.headers['user-agent'] || '';
-  const referer = req.headers['referer'] || req.headers['referrer'] || 'Direct';
-  const country = req.headers['x-vercel-ip-country'] || 'Unknown';
-  const city = req.headers['x-vercel-ip-city'] || 'Unknown';
-
-  const supabaseUrl = process.env.SUPABASE_URL || 'https://miipmgzjxpyokchrctdj.supabase.co';
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1paXBtZ3pqeHB5b2tjaHJjdGRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1NjYyMjMsImV4cCI6MjEwNjE0MjIyM30.SfEbfXimbA7VTZrRYzgJLezH6fv64QWR6yYuHnbHUMQ';
-  const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-  let link = null;
-
-  // 1. Check Supabase
-  if (supabaseUrl && supabaseKey) {
-    try {
-      const response = await fetch(`${supabaseUrl}/rest/v1/links?slug=eq.${encodeURIComponent(cleanSlug)}&select=*`, {
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`
-        }
-      });
-      if (response.ok) {
-        const links = await response.json();
-        if (links && links.length > 0) link = links[0];
-      }
-    } catch (e) {
-      console.error('Supabase lookup error:', e);
-    }
-  }
-
-  // 2. Check Upstash Redis
-  if (!link && upstashUrl && upstashToken) {
-    try {
-      const upstashResp = await fetch(`${upstashUrl}/get/link:${encodeURIComponent(cleanSlug)}`, {
-        headers: { Authorization: `Bearer ${upstashToken}` }
-      });
-      const data = await upstashResp.json();
-      if (data && data.result) {
-        link = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-      }
-    } catch (e) {
-      console.error('Upstash lookup error:', e);
-    }
-  }
-
-  // If link found from cloud DB
-  if (link && link.destination_url) {
-    // Check if paused
-    if (link.is_active === false) {
-      res.writeHead(302, { Location: `/redirect.html?slug=${encodeURIComponent(cleanSlug)}&paused=true` });
+    if (!slug) {
+      res.writeHead(302, { Location: '/' });
       return res.end();
     }
 
-    // Log click if not a crawler bot
-    if (!isSocialBot(userAgent)) {
-      if (supabaseUrl && supabaseKey && link.id) {
-        fetch(`${supabaseUrl}/rest/v1/links?id=eq.${link.id}`, {
-          method: 'PATCH',
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ clicks: (link.clicks || 0) + 1, last_clicked_at: new Date().toISOString() })
-        }).catch(console.error);
+    const cleanSlug = String(slug).trim().toLowerCase();
+    const userAgent = req.headers['user-agent'] || '';
+    const referer = req.headers['referer'] || req.headers['referrer'] || 'Direct';
+    const country = req.headers['x-vercel-ip-country'] || 'Unknown';
+    const city = req.headers['x-vercel-ip-city'] || 'Unknown';
 
-        fetch(`${supabaseUrl}/rest/v1/clicks`, {
-          method: 'POST',
-          headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            link_id: link.id,
-            slug: cleanSlug,
-            referer: referer,
-            country: country,
-            city: city,
-            user_agent: userAgent,
-            clicked_at: new Date().toISOString()
-          })
-        }).catch(console.error);
-      } else if (upstashUrl && upstashToken) {
-        fetch(`${upstashUrl}/incr/clicks:${encodeURIComponent(cleanSlug)}`, {
-          headers: { Authorization: `Bearer ${upstashToken}` }
-        }).catch(console.error);
+    const supabaseUrl = process.env.SUPABASE_URL || 'https://miipmgzjxpyokchrctdj.supabase.co';
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1paXBtZ3pqeHB5b2tjaHJjdGRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1NjYyMjMsImV4cCI6MjEwNjE0MjIyM30.SfEbfXimbA7VTZrRYzgJLezH6fv64QWR6yYuHnbHUMQ';
+    const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
+    const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+
+    let link = null;
+
+    // 1. Check Supabase
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const response = await fetch(`${supabaseUrl}/rest/v1/links?slug=eq.${encodeURIComponent(cleanSlug)}&select=*`, {
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`
+          }
+        });
+        if (response.ok) {
+          const links = await response.json();
+          if (links && links.length > 0) link = links[0];
+        }
+      } catch (e) {
+        console.error('Supabase lookup error:', e);
       }
     }
 
-    // Check if social preview metadata exists (or if request is from WhatsApp/Telegram bot)
-    const previewTitle = link.og_title || link.title || cleanSlug;
-    const host = process.env.CUSTOM_DOMAIN || req.headers['host'] || 'rigeel.id';
-    const shortUrl = `https://${host}/${cleanSlug}`;
-
-    let previewImageUrl = link.og_image || '';
-    if (previewImageUrl.startsWith('data:image/')) {
-      previewImageUrl = `https://${host}/api/image?slug=${encodeURIComponent(cleanSlug)}`;
+    // 2. Check Upstash Redis fallback
+    if (!link && upstashUrl && upstashToken) {
+      try {
+        const upstashResp = await fetch(`${upstashUrl}/get/link:${encodeURIComponent(cleanSlug)}`, {
+          headers: { Authorization: `Bearer ${upstashToken}` }
+        });
+        const data = await upstashResp.json();
+        if (data && data.result) {
+          link = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+        }
+      } catch (e) {
+        console.error('Upstash lookup error:', e);
+      }
     }
 
-    // If social bot or has custom preview, return HTML with OG tags
-    if (isSocialBot(userAgent) || previewImageUrl || link.og_title) {
-      res.setHeader('Content-Type', 'text/html; charset=utf-8');
-      return res.status(200).send(`<!DOCTYPE html>
+    // If link found from database
+    if (link && link.destination_url) {
+      // Check if link is paused
+      if (link.is_active === false) {
+        res.writeHead(302, { Location: `/redirect.html?slug=${encodeURIComponent(cleanSlug)}&paused=true` });
+        return res.end();
+      }
+
+      // Log click asynchronously (if not a crawler bot)
+      if (!isSocialBot(userAgent)) {
+        if (supabaseUrl && supabaseKey && link.id) {
+          fetch(`${supabaseUrl}/rest/v1/links?id=eq.${link.id}`, {
+            method: 'PATCH',
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ clicks: (link.clicks || 0) + 1, last_clicked_at: new Date().toISOString() })
+          }).catch(console.error);
+
+          fetch(`${supabaseUrl}/rest/v1/clicks`, {
+            method: 'POST',
+            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              link_id: link.id,
+              slug: cleanSlug,
+              referer: referer,
+              country: country,
+              city: city,
+              user_agent: userAgent,
+              clicked_at: new Date().toISOString()
+            })
+          }).catch(console.error);
+        } else if (upstashUrl && upstashToken) {
+          fetch(`${upstashUrl}/incr/clicks:${encodeURIComponent(cleanSlug)}`, {
+            headers: { Authorization: `Bearer ${upstashToken}` }
+          }).catch(console.error);
+        }
+      }
+
+      // Check if social preview metadata exists
+      const previewTitle = link.og_title || link.title || cleanSlug;
+      const previewDesc = link.og_description || '';
+      const host = process.env.CUSTOM_DOMAIN || req.headers['host'] || 'rigeel.id';
+      const shortUrl = `https://${host}/${cleanSlug}`;
+
+      let previewImageUrl = link.og_image || '';
+      if (previewImageUrl.startsWith('data:image/')) {
+        previewImageUrl = `https://${host}/api/image?slug=${encodeURIComponent(cleanSlug)}`;
+      }
+
+      // If social bot (WhatsApp, Telegram, Facebook, etc.), return HTML with OpenGraph tags
+      if (isSocialBot(userAgent)) {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8');
+        return res.status(200).send(`<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="utf-8">
@@ -151,7 +153,7 @@ export default async function handler(req, res) {
   <meta name="twitter:description" content="${escapeHtml(previewDesc)}">
   ${previewImageUrl ? `<meta name="twitter:image" content="${escapeHtml(previewImageUrl)}">` : ''}
 
-  <!-- Automatic Redirect for Human Browsers -->
+  <!-- Automatic Redirect -->
   <meta http-equiv="refresh" content="0; url=${escapeHtml(link.destination_url)}">
 </head>
 <body style="font-family:sans-serif; background:#090d16; color:#fff; text-align:center; padding:50px 20px;">
@@ -159,19 +161,24 @@ export default async function handler(req, res) {
   <script>window.location.replace(${JSON.stringify(link.destination_url)});</script>
 </body>
 </html>`);
+      }
+
+      // Direct instant HTTP 307 Redirect for human browsers (Chrome, Safari, etc.)
+      res.writeHead(307, {
+        Location: link.destination_url,
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
+      });
+      return res.end();
     }
 
-    // Direct HTTP 307 Redirect for normal humans
-    res.writeHead(307, {
-      Location: link.destination_url,
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    // 3. Fallback to client-side redirect page (for Local Storage / Zero-Config mode)
+    res.writeHead(302, {
+      Location: `/redirect.html?slug=${encodeURIComponent(cleanSlug)}`
     });
     return res.end();
+  } catch (err) {
+    console.error('Fatal redirect error:', err);
+    res.writeHead(302, { Location: '/' });
+    return res.end();
   }
-
-  // 3. Fallback to client-side redirect page (for Local Storage / Zero-Config mode)
-  res.writeHead(302, {
-    Location: `/redirect.html?slug=${encodeURIComponent(cleanSlug)}`
-  });
-  return res.end();
 }
