@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mengalihkan... | AutoShort</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --card-bg: rgba(18, 24, 38, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --primary: #6366f1;
+      --primary-glow: rgba(99, 102, 241, 0.35);
+      --accent: #06b6d4;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --success: #10b981;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 20% 15%, rgba(99, 102, 241, 0.15) 0%, transparent 40%),
+        radial-gradient(circle at 80% 85%, rgba(6, 182, 212, 0.12) 0%, transparent 40%);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .redirect-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 40px 32px;
+      max-width: 480px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px var(--primary-glow);
+      position: relative;
+      overflow: hidden;
+      animation: fadeIn 0.4s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .brand-logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 1.25rem;
+      letter-spacing: -0.5px;
+      margin-bottom: 24px;
+      color: #fff;
+      text-decoration: none;
+    }
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      background: linear-gradient(135deg, #6366f1, #06b6d4);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 18px;
+      box-shadow: 0 0 16px rgba(99, 102, 241, 0.5);
+    }
+    .spinner-ring {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 20px;
+      border: 4px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--primary);
+      border-right-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .status-icon {
+      width: 64px;
+      height: 64px;
+      margin: 0 auto 20px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+    }
+    .status-icon.danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .status-icon.warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .status-icon.lock { background: rgba(99, 102, 241, 0.15); color: var(--primary); border: 1px solid rgba(99, 102, 241, 0.3); }
+
+    h2 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 20px;
+    }
+    .slug-badge {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 6px 14px;
+      border-radius: 8px;
+      color: #38bdf8;
+      font-size: 0.9rem;
+      margin-bottom: 20px;
+    }
+    .input-box {
+      width: 100%;
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(0, 0, 0, 0.3);
+      color: #fff;
+      font-size: 1rem;
+      margin-bottom: 16px;
+      outline: none;
+      transition: all 0.2s;
+    }
+    .input-box:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px var(--primary-glow);
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px 20px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 12px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: white;
+      box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #4f46e5, #4338ca);
+      transform: translateY(-1px);
+    }
+    .btn-outline {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: var(--text-main);
+      margin-top: 10px;
+    }
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .destination-preview {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-top: 16px;
+      word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="redirect-card" id="cardContent">
+    <a href="/" class="brand-logo">
+      <div class="brand-icon"><i class="fa-solid fa-bolt"></i></div>
+      <span>Auto<span style="color:#06b6d4;">Short</span></span>
+    </a>
+
+    <!-- Default Loading State -->
+    <div id="stateLoading">
+      <div class="spinner-ring"></div>
+      <h2>Mengalihkan Tautan...</h2>
+      <p>Mohon tunggu sebentar, Anda sedang dialihkan ke tujuan.</p>
+      <div class="slug-badge" id="slugDisplay">/loading</div>
+      <div class="destination-preview" id="destPreview">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i>
+        <span id="destUrlText">Menghubungkan ke server...</span>
+      </div>
+    </div>
+
+    <!-- Password Protected State -->
+    <div id="stateProtected" style="display: none;">
+      <div class="status-icon lock">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h2>Tautan Dilindungi Kata Sandi</h2>
+      <p>Pembuat tautan memproteksi tautan ini dengan PIN / Password. Masukkan kata sandi untuk melanjutkan.</p>
+      <input type="password" id="passwordInput" class="input-box" placeholder="Masukkan kata sandi..." autofocus />
+      <button class="btn btn-primary" id="btnSubmitPassword">
+        <i class="fa-solid fa-unlock"></i> Buka Tautan
+      </button>
+      <div id="passwordError" style="color: var(--danger); font-size: 0.85rem; margin-top: 10px; display: none;">
+        Kata sandi salah. Silakan coba lagi.
+      </div>
+    </div>
+
+    <!-- Expired State -->
+    <div id="stateExpired" style="display: none;">
+      <div class="status-icon warning">
+        <i class="fa-regular fa-clock"></i>
+      </div>
+      <h2>Tautan Telah Kedaluwarsa</h2>
+      <p>Tautan ini sudah melewati batas waktu aktif (expired) yang ditentukan oleh pemiliknya.</p>
+      <a href="/" class="btn btn-outline">
+        <i class="fa-solid fa-house"></i> Kembali ke Beranda
+      </a>
+    </div>
+
+    <!-- Paused State -->
+    <div id="statePaused" style="display: none;">
+      <div class="status-icon warning">
+        <i class="fa-solid fa-circle-pause"></i>
+      </div>
+      <h2>Tautan Sedang Dinonaktifkan</h2>
+      <p>Tautan ini sedang dijeda sementara oleh pemiliknya.</p>
+      <a href="/" class="btn btn-outline">
+        <i class="fa-solid fa-house"></i> Kembali ke Beranda
+      </a>
+    </div>
+
+    <!-- Not Found State -->
+    <div id="stateNotFound" style="display: none;">
+      <div class="status-icon danger">
+        <i class="fa-solid fa-circle-exclamation"></i>
+      </div>
+      <h2>Tautan Tidak Ditemukan</h2>
+      <p>Slug short link ini belum dibuat atau telah dihapus.</p>
+      <div class="slug-badge" id="notFoundSlug">/404</div>
+      <a href="/" class="btn btn-primary">
+        <i class="fa-solid fa-plus"></i> Buat Short Link Ini Sekarang
+      </a>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const urlParams = new URLSearchParams(window.location.search);
+      let slug = urlParams.get('slug') || '';
+      
+      // If path is /slug directly (fallback)
+      if (!slug) {
+        const pathSegments = window.location.pathname.split('/').filter(Boolean);
+        if (pathSegments.length > 0 && !pathSegments[0].includes('.')) {
+          slug = pathSegments[0];
+        }
+      }
+
+      slug = slug.trim().toLowerCase();
+
+      const elLoading = document.getElementById('stateLoading');
+      const elProtected = document.getElementById('stateProtected');
+      const elExpired = document.getElementById('stateExpired');
+      const elPaused = document.getElementById('statePaused');
+      const elNotFound = document.getElementById('stateNotFound');
+      const slugDisplay = document.getElementById('slugDisplay');
+      const notFoundSlug = document.getElementById('notFoundSlug');
+      const destUrlText = document.getElementById('destUrlText');
+
+      if (slugDisplay) slugDisplay.textContent = '/' + (slug || 'shortlink');
+      if (notFoundSlug) notFoundSlug.textContent = '/' + (slug || '404');
+
+      // Check query flag states first (from server redirect)
+      if (urlParams.get('expired') === 'true') {
+        showState(elExpired);
+        return;
+      }
+      if (urlParams.get('paused') === 'true') {
+        showState(elPaused);
+        return;
+      }
+      if (urlParams.get('protected') === 'true') {
+        showState(elProtected);
+        setupPasswordCheck(null);
+        return;
+      }
+
+      // Check local storage for hybrid / client-side storage
+      const storedLinks = JSON.parse(localStorage.getItem('autoshort_links') || '[]');
+      const link = storedLinks.find(item => item.slug && item.slug.toLowerCase() === slug);
+
+      if (link) {
+        handleLink(link);
+      } else {
+        // Try checking /api/links if backend is online
+        fetch('/api/links')
+          .then(res => res.json())
+          .then(data => {
+            if (data.links && Array.isArray(data.links)) {
+              const remoteLink = data.links.find(item => item.slug && item.slug.toLowerCase() === slug);
+              if (remoteLink) {
+                handleLink(remoteLink);
+                return;
+              }
+            }
+            showState(elNotFound);
+          })
+          .catch(() => {
+            showState(elNotFound);
+          });
+      }
+
+      function handleLink(linkData) {
+        // 1. Check if paused
+        if (linkData.is_active === false) {
+          showState(elPaused);
+          return;
+        }
+
+        // 2. Check if expired
+        if (linkData.expires_at && new Date(linkData.expires_at) < new Date()) {
+          showState(elExpired);
+          return;
+        }
+
+        // 3. Check password
+        if (linkData.password) {
+          showState(elProtected);
+          setupPasswordCheck(linkData);
+          return;
+        }
+
+        // 4. Do Redirect
+        executeRedirect(linkData);
+      }
+
+      function executeRedirect(linkData) {
+        let dest = linkData.destination_url;
+        if (!/^https?:\/\//i.test(dest)) {
+          dest = 'https://' + dest;
+        }
+
+        destUrlText.textContent = dest;
+
+        // Log click to LocalStorage
+        try {
+          const links = JSON.parse(localStorage.getItem('autoshort_links') || '[]');
+          const idx = links.findIndex(l => l.id === linkData.id || l.slug === linkData.slug);
+          if (idx !== -1) {
+            links[idx].clicks = (links[idx].clicks || 0) + 1;
+            links[idx].last_clicked_at = new Date().toISOString();
+            localStorage.setItem('autoshort_links', JSON.stringify(links));
+          }
+
+          // Record click log
+          const clicksHistory = JSON.parse(localStorage.getItem('autoshort_clicks') || '[]');
+          const ref = document.referrer ? new URL(document.referrer).hostname.replace('www.', '') : 'Direct';
+          clicksHistory.push({
+            id: 'clk_' + Date.now(),
+            slug: linkData.slug,
+            link_id: linkData.id,
+            referer: ref,
+            clicked_at: new Date().toISOString(),
+            user_agent: navigator.userAgent
+          });
+          if (clicksHistory.length > 2000) clicksHistory.shift();
+          localStorage.setItem('autoshort_clicks', JSON.stringify(clicksHistory));
+        } catch (e) {
+          console.error('Local click tracking error:', e);
+        }
+
+        setTimeout(() => {
+          window.location.replace(dest);
+        }, 600);
+      }
+
+      function setupPasswordCheck(linkData) {
+        const input = document.getElementById('passwordInput');
+        const btn = document.getElementById('btnSubmitPassword');
+        const err = document.getElementById('passwordError');
+
+        function check() {
+          const val = input.value.trim();
+          if (linkData && linkData.password) {
+            if (val === linkData.password) {
+              err.style.display = 'none';
+              showState(elLoading);
+              executeRedirect(linkData);
+            } else {
+              err.style.display = 'block';
+            }
+          } else {
+            // Check with server
+            fetch(`/api/links?slug=${encodeURIComponent(slug)}`)
+              .then(res => res.json())
+              .then(resData => {
+                const found = (resData.links || []).find(l => l.slug === slug);
+                if (found && found.password === val) {
+                  showState(elLoading);
+                  executeRedirect(found);
+                } else {
+                  err.style.display = 'block';
+                }
+              })
+              .catch(() => {
+                err.style.display = 'block';
+              });
+          }
+        }
+
+        btn.onclick = check;
+        input.onkeydown = function(e) {
+          if (e.key === 'Enter') check();
+        };
+      }
+
+      function showState(targetEl) {
+        [elLoading, elProtected, elExpired, elPaused, elNotFound].forEach(el => {
+          if (el) el.style.display = 'none';
+        });
+        if (targetEl) targetEl.style.display = 'block';
+      }
+    })();
+  </script>
+</body>
+</html>

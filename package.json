@@ -1,0 +1,22 @@
+{
+  "name": "autoshort",
+  "version": "2.0.0",
+  "description": "Modern URL Shortener & Analytics Dashboard for Vercel (Bitly / s.id style)",
+  "main": "index.html",
+  "scripts": {
+    "dev": "npx -y serve . -p 3000",
+    "start": "npx -y serve . -p 3000"
+  },
+  "keywords": [
+    "shortlink",
+    "url-shortener",
+    "dashboard",
+    "analytics",
+    "bitly-clone",
+    "sid-clone",
+    "vercel",
+    "qr-code"
+  ],
+  "author": "rigeladex44",
+  "license": "MIT"
+}

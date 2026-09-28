@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="id" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AutoShort — Pemendek URL, Edit Preview Pesan & Analisis Statistik</title>
+  <meta name="description" content="Dashboard Shortlink Modern: Perpendek link, kustomisasi tampilan preview saat link dikirim ke WhatsApp/Sosmed, dan analisis statistik dengan filter 1-7 tanggal.">
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="app-layout">
+    
+    <!-- Top Navigation -->
+    <header class="navbar">
+      <div class="nav-container">
+        <div class="nav-brand">
+          <div class="brand-badge-icon">
+            <i class="fa-solid fa-bolt"></i>
+          </div>
+          <div class="brand-text">
+            <span class="brand-title">Auto<span class="brand-accent">Short</span></span>
+          </div>
+        </div>
+
+        <div class="nav-actions">
+          <!-- Custom Domain Switcher Button -->
+          <button class="btn btn-outline btn-sm" id="btnOpenDomainModal" title="Atur Domain Utama / Custom Domain">
+            <i class="fa-solid fa-globe" style="color: var(--accent-cyan);"></i>
+            <span id="navDomainDisplay">Domain: rigeel.id</span>
+          </button>
+
+          <!-- Theme Toggle -->
+          <button class="icon-btn" id="btnThemeToggle" title="Ganti Tema (Gelap/Terang)">
+            <i class="fa-solid fa-moon" id="themeIcon"></i>
+          </button>
+
+          <!-- Create Link Button -->
+          <button class="btn btn-primary" id="btnOpenCreateModal">
+            <i class="fa-solid fa-plus"></i>
+            <span>Buat Shortlink</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <div class="content-container">
+
+        <!-- 1. FITUR SHORTLINK CEPAT (HERO BAR) -->
+        <section class="quick-shorten-card">
+          <div class="quick-shorten-header">
+            <h2>Perpendek Tautan & Kustomisasi Tampilan</h2>
+            <p>Buat shortlink rapi dan atur gambar thumbnail, judul, serta deskripsi yang muncul saat link dikirim ke WhatsApp / Sosmed.</p>
+          </div>
+
+          <form id="quickShortenForm" class="quick-shorten-form">
+            <div class="quick-input-group">
+              <i class="fa-solid fa-link input-prefix-icon"></i>
+              <input type="url" id="quickUrlInput" placeholder="Tempel URL panjang (contoh: https://tokopedia.com/promo-spesial)..." required />
+            </div>
+
+            <div class="quick-custom-slug-group">
+              <span class="domain-prefix" id="domainPrefixDisplay">rigeel.id/</span>
+              <input type="text" id="quickSlugInput" placeholder="kustom-slug" pattern="[a-zA-Z0-9_-]+" title="Huruf, angka, strip" />
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-submit-shorten" id="btnQuickSubmit">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>Perpendek</span>
+            </button>
+          </form>
+
+          <!-- Quick Result Banner -->
+          <div id="quickResultBanner" class="quick-result-card" style="display: none;">
+            <div class="quick-result-info">
+              <div class="result-label">Tautan Berhasil Dibuat:</div>
+              <a href="#" target="_blank" id="quickResultUrl" class="result-url">https://rigeel.id/promo</a>
+              <div class="result-target" id="quickResultTarget">Menuju ke: https://target.com</div>
+            </div>
+            <div class="quick-result-actions">
+              <button class="btn btn-sm btn-primary" id="btnCopyQuickResult">
+                <i class="fa-regular fa-copy"></i> Salin Link
+              </button>
+              <button class="btn btn-sm btn-outline" id="btnEditPreviewQuickResult">
+                <i class="fa-solid fa-image"></i> Atur Tampilan Pesan
+              </button>
+              <button class="btn btn-sm btn-outline" id="btnStatsQuickResult">
+                <i class="fa-solid fa-chart-line"></i> Statistik
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- KPI SUMMARY BAR -->
+        <section class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-info">
+              <span class="metric-title">Total Tautan</span>
+              <span class="metric-value" id="statTotalLinks">0</span>
+            </div>
+            <div class="metric-icon-wrap bg-indigo">
+              <i class="fa-solid fa-link"></i>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-info">
+              <span class="metric-title">Total Klik Masuk</span>
+              <span class="metric-value" id="statTotalClicks">0</span>
+            </div>
+            <div class="metric-icon-wrap bg-cyan">
+              <i class="fa-solid fa-arrow-pointer"></i>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-info">
+              <span class="metric-title">Sumber Terbanyak</span>
+              <span class="metric-value text-truncate" id="statTopReferrer" style="font-size: 1.25rem;">WhatsApp</span>
+            </div>
+            <div class="metric-icon-wrap bg-emerald">
+              <i class="fa-brands fa-whatsapp"></i>
+            </div>
+          </div>
+        </section>
+
+        <!-- DAFTAR SHORTLINK -->
+        <section class="links-section">
+          <div class="section-toolbar">
+            <div class="toolbar-left">
+              <h3>Daftar Tautan Saya</h3>
+              <span class="count-badge" id="linksCountBadge">0 Tautan</span>
+            </div>
+            <div class="toolbar-right">
+              <div class="search-box-wrap">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="searchInput" placeholder="Cari slug atau URL..." />
+              </div>
+            </div>
+          </div>
+
+          <!-- Container Kartu Link -->
+          <div class="links-grid" id="linksCardsContainer">
+            <!-- Dynamic Link Cards -->
+          </div>
+
+          <!-- Empty State -->
+          <div class="empty-state-card" id="emptyState" style="display: none;">
+            <div class="empty-icon-circle">
+              <i class="fa-solid fa-link-slash"></i>
+            </div>
+            <h4>Belum Ada Shortlink</h4>
+            <p>Masukkan URL panjang di bagian atas untuk membuat tautan pertama Anda.</p>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: BUAT / EDIT TAMPILAN LINK (SAAT DIKIRIM KE WA/SOSMED) -->
+  <!-- ======================================================== -->
+  <div class="modal-backdrop" id="modalLink" style="display: none;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3 id="modalLinkTitle"><i class="fa-solid fa-image"></i> Edit Tampilan Saat Link Dikirim</h3>
+        <button class="modal-close" id="btnCloseModalLink"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <form id="formLinkModal">
+        <input type="hidden" id="modalLinkId" value="" />
+        
+        <div class="modal-body modal-split-view">
+          
+          <!-- Kolom Kiri: Form Input -->
+          <div class="form-column">
+            
+            <div class="form-group">
+              <label for="modalDestUrl">URL Tujuan (Long URL) <span class="required">*</span></label>
+              <input type="url" id="modalDestUrl" class="input-control" placeholder="https://example.com/promo" required />
+            </div>
+
+            <div class="form-group">
+              <label for="modalSlug">Slug Tautan <span class="required">*</span></label>
+              <div class="slug-input-wrapper">
+                <span class="slug-domain-addon" id="modalDomainAddon">rigeel.id/</span>
+                <input type="text" id="modalSlug" placeholder="promo-heboh" required pattern="[a-zA-Z0-9_-]+" />
+                <button type="button" class="btn-random-slug" id="btnRandomizeSlug" title="Buat slug acak">
+                  <i class="fa-solid fa-dice"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="form-divider">
+              <span><i class="fa-solid fa-eye"></i> Tampilan Saat Dikirim (WhatsApp / Sosmed)</span>
+            </div>
+
+            <div class="form-group">
+              <label for="modalOgTitle">Judul Preview (OG Title)</label>
+              <input type="text" id="modalOgTitle" class="input-control" placeholder="Contoh: PROMO SPESIAL GAJIAN DISKON 50%!" />
+              <span class="field-hint">Judul tebal yang muncul di gelembung chat WhatsApp.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="modalOgDescription">Deskripsi Preview (OG Description)</label>
+              <textarea id="modalOgDescription" class="textarea-control" rows="3" placeholder="Contoh: Dapatkan diskon 50% untuk semua produk pilihan hari ini. Terbatas hanya untuk 100 pembeli pertama!"></textarea>
+              <span class="field-hint">Teks penjelasan di bawah judul preview.</span>
+            </div>
+
+            <div class="form-group">
+              <label for="modalOgImage">URL Gambar Thumbnail (OG Image Banner)</label>
+              <input type="url" id="modalOgImage" class="input-control" placeholder="https://images.unsplash.com/... atau URL foto produk" />
+              <span class="field-hint">Gambar thumbnail yang akan muncul saat link dibagikan.</span>
+            </div>
+
+            <!-- Preset Images Quick Buttons -->
+            <div class="preset-images-row">
+              <span style="font-size: 0.78rem; color: var(--text-muted);">Pilih contoh banner:</span>
+              <button type="button" class="btn-preset-img" data-img="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80">Promo Diskon</button>
+              <button type="button" class="btn-preset-img" data-img="https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=800&auto=format&fit=crop&q=80">Belanja Online</button>
+              <button type="button" class="btn-preset-img" data-img="https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&auto=format&fit=crop&q=80">Sosial Media</button>
+            </div>
+
+          </div>
+
+          <!-- Kolom Kanan: Live WhatsApp Chat Bubble Preview -->
+          <div class="preview-column">
+            <div class="preview-sticky-wrap">
+              <div class="preview-heading">
+                <i class="fa-brands fa-whatsapp" style="color: #25d366; font-size: 1.1rem;"></i>
+                <span>Pratinjau Saat Dikirim ke WhatsApp:</span>
+              </div>
+
+              <!-- The Realistic WhatsApp Chat Bubble -->
+              <div class="whatsapp-bubble-mockup">
+                <div class="wa-card">
+                  <!-- Thumbnail Image -->
+                  <div class="wa-img-wrap" id="waPreviewImgWrap">
+                    <img id="waPreviewImg" src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80" alt="Preview Image" onerror="this.src='https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80'" />
+                  </div>
+                  <!-- Content Body -->
+                  <div class="wa-content">
+                    <div class="wa-title" id="waPreviewTitle">PROMO SPESIAL DISKON 50%!</div>
+                    <div class="wa-desc" id="waPreviewDesc">Dapatkan diskon 50% untuk produk pilihan hari ini. Terbatas hanya untuk 100 pembeli pertama!</div>
+                    <div class="wa-domain" id="waPreviewDomain">RIGEEL.ID</div>
+                  </div>
+                </div>
+                <!-- Link text typed in chat -->
+                <div class="wa-text-link">
+                  <a href="#" id="waPreviewTextLink">https://rigeel.id/promo</a>
+                  <span class="wa-time">10:45 <i class="fa-solid fa-check-double wa-ticks"></i></span>
+                </div>
+              </div>
+
+              <div class="preview-note">
+                <i class="fa-solid fa-circle-info"></i>
+                <span>Tampilan di atas adalah representasi visual kartu saat tautan Anda dikirimkan ke kontak WhatsApp atau Telegram.</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" id="btnCancelModalLink">Batal</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveModalLink">
+            <i class="fa-solid fa-check"></i> Simpan Shortlink
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: ANALISIS STATISTIK (DENGAN FILTER 1-7 TANGGAL)     -->
+  <!-- ======================================================== -->
+  <div class="modal-backdrop" id="modalAnalytics" style="display: none;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <div class="analytics-header-titles">
+          <h3><i class="fa-solid fa-chart-line"></i> Analisis Statistik Klik</h3>
+          <span id="analyticsLinkSlug" class="analytics-slug-pill">/slug</span>
+        </div>
+        <button class="modal-close" id="btnCloseModalAnalytics"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        
+        <!-- Filter Tanggal (1-7 Hari) Sesuai Permintaan User -->
+        <div class="date-filter-panel">
+          <div class="date-filter-label">
+            <i class="fa-regular fa-calendar-days"></i>
+            <strong>Filter Tanggal:</strong>
+          </div>
+          <div class="date-pills-row" id="datePillsContainer">
+            <button type="button" class="date-pill" data-days="1">1 Hari (Hari ini)</button>
+            <button type="button" class="date-pill" data-days="2">2 Hari</button>
+            <button type="button" class="date-pill" data-days="3">3 Hari</button>
+            <button type="button" class="date-pill" data-days="4">4 Hari</button>
+            <button type="button" class="date-pill" data-days="5">5 Hari</button>
+            <button type="button" class="date-pill" data-days="6">6 Hari</button>
+            <button type="button" class="date-pill active" data-days="7">7 Hari Terakhir</button>
+          </div>
+        </div>
+
+        <!-- Metric KPI Cards for Selected Date Range -->
+        <div class="analytics-summary-strip">
+          <div class="analytics-stat-box">
+            <span class="stat-lbl">Klik Pada Periode Terpilih</span>
+            <span class="stat-num" id="anaFilteredClicks">0</span>
+          </div>
+          <div class="analytics-stat-box">
+            <span class="stat-lbl">Total Seluruh Klik (All-Time)</span>
+            <span class="stat-num" id="anaTotalClicks">0</span>
+          </div>
+          <div class="analytics-stat-box">
+            <span class="stat-lbl">Rata-Rata Klik/Hari</span>
+            <span class="stat-num" id="anaAvgDailyClicks">0</span>
+          </div>
+          <div class="analytics-stat-box">
+            <span class="stat-lbl">Sumber Terbanyak</span>
+            <span class="stat-num" id="anaTopSource" style="font-size: 1.1rem; color: var(--accent-cyan);">-</span>
+          </div>
+        </div>
+
+        <!-- Grafik Batang Klik Harian (1-7 Hari) -->
+        <div class="chart-card">
+          <div class="chart-header">
+            <h4><i class="fa-solid fa-chart-column"></i> Tren Klik Harian (<span id="chartRangeLabel">7 Hari Terakhir</span>)</h4>
+            <span class="chart-hint">Grafik jumlah pengunjung per hari</span>
+          </div>
+          <div class="chart-canvas-container" id="clicksChartContainer">
+            <!-- Dynamic SVG Bars Rendered Here -->
+          </div>
+        </div>
+
+        <!-- Breakdown: Sumber Trafik & Perangkat Pengunjung -->
+        <div class="analytics-breakdown-grid">
+          <!-- Sumber Trafik -->
+          <div class="breakdown-card">
+            <h4><i class="fa-solid fa-share-nodes"></i> Sumber Trafik (Referrers)</h4>
+            <div class="breakdown-list" id="anaReferrersList">
+              <!-- Dynamic Bars -->
+            </div>
+          </div>
+
+          <!-- Perangkat -->
+          <div class="breakdown-card">
+            <h4><i class="fa-solid fa-mobile-screen"></i> Perangkat Pengunjung (Devices)</h4>
+            <div class="breakdown-list" id="anaDevicesList">
+              <!-- Dynamic Bars -->
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="btnCloseAnalyticsBottom">Selesai</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: PENGATURAN DOMAIN UTAMA / CUSTOM DOMAIN            -->
+  <!-- ======================================================== -->
+  <div class="modal-backdrop" id="modalDomain" style="display: none;">
+    <div class="modal-dialog modal-md">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-globe"></i> Pengaturan Domain Utama</h3>
+        <button class="modal-close" id="btnCloseModalDomain"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body">
+        <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 16px;">
+          Gunakan domain atau subdomain pribadi Anda sendiri sebagai alamat default shortlink (contoh: <code>s.domainanda.com</code> atau <code>link.domainanda.com</code>).
+        </p>
+
+        <div class="form-group">
+          <label for="inputCustomDomain">Nama Domain Utama Anda</label>
+          <input type="text" id="inputCustomDomain" class="input-control" placeholder="contoh: s.domainanda.com atau link.domainanda.com" />
+          <span class="field-hint">Jangan sertakan https:// atau tanda garis miring (/).</span>
+        </div>
+
+        <div class="cloud-provider-card" style="margin-top: 16px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px;">
+          <strong style="font-size: 0.88rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+            <i class="fa-solid fa-server"></i> Catatan DNS Setting (Untuk Anda masukkan di Registrar/Cloudflare):
+          </strong>
+          <ul style="font-size: 0.82rem; color: var(--text-secondary); padding-left: 20px; line-height: 1.6;">
+            <li>Jika <strong>Subdomain</strong> (misal <code>s.domainanda.com</code>): Tambahkan DNS Record <strong>CNAME</strong> dengan Name <code>s</code> mengarah ke <code>cname.vercel-dns.com</code>.</li>
+            <li>Jika <strong>Domain Utama</strong> (misal <code>domainanda.com</code>): Tambahkan DNS Record <strong>A</strong> dengan Name <code>@</code> mengarah ke IP <code>76.76.21.21</code>.</li>
+            <li>Di Vercel: Masuk ke <strong>Project Settings > Domains</strong> dan tambahkan domain yang sama.</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="btnResetDomainDefault">Gunakan Default Vercel</button>
+        <button type="button" class="btn btn-primary" id="btnSaveCustomDomain">
+          <i class="fa-solid fa-check"></i> Simpan Domain
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="toast-container"></div>
+
+  <!-- Application Script -->
+  <script src="app.js"></script>
+</body>
+</html>

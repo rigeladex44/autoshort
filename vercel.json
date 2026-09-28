@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" },
+    { "source": "/r/:slug", "destination": "/api/redirect?slug=:slug" },
+    { "source": "/s/:slug", "destination": "/api/redirect?slug=:slug" },
+    { "source": "/:slug([a-zA-Z0-9_-]{2,64})", "destination": "/api/redirect?slug=:slug" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
+        { "key": "X-XSS-Protection", "value": "1; mode=block" }
+      ]
+    }
+  ]
+}
