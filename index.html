@@ -221,17 +221,45 @@
             </div>
 
             <div class="form-group">
-              <label for="modalOgImage">URL Gambar Thumbnail (OG Image Banner)</label>
-              <input type="url" id="modalOgImage" class="input-control" placeholder="https://images.unsplash.com/... atau URL foto produk" />
-              <span class="field-hint">Gambar thumbnail yang akan muncul saat link dibagikan.</span>
-            </div>
+              <label>Gambar Thumbnail (Upload Foto / Banner)</label>
+              
+              <!-- Upload Area / Dropzone -->
+              <div class="upload-dropzone" id="uploadDropzone">
+                <input type="file" id="modalFileInput" accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;" />
+                
+                <div class="dropzone-empty" id="dropzoneEmpty">
+                  <div class="dropzone-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                  <div class="dropzone-text">
+                    <strong>Pilih / Upload Gambar</strong> atau tarik file ke sini
+                  </div>
+                  <span class="dropzone-hint">Format PNG, JPG, JPEG, WEBP (Maksimal 10MB)</span>
+                </div>
 
-            <!-- Preset Images Quick Buttons -->
-            <div class="preset-images-row">
-              <span style="font-size: 0.78rem; color: var(--text-muted);">Pilih contoh banner:</span>
-              <button type="button" class="btn-preset-img" data-img="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80">Promo Diskon</button>
-              <button type="button" class="btn-preset-img" data-img="https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=800&auto=format&fit=crop&q=80">Belanja Online</button>
-              <button type="button" class="btn-preset-img" data-img="https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&auto=format&fit=crop&q=80">Sosial Media</button>
+                <div class="dropzone-active" id="dropzoneActive" style="display: none;">
+                  <img id="dropzoneActiveThumb" src="" alt="Thumbnail" />
+                  <div class="dropzone-active-actions">
+                    <button type="button" class="btn btn-sm btn-outline" id="btnDropzoneChange">
+                      <i class="fa-solid fa-arrows-rotate"></i> Ganti Foto
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline delete" id="btnDropzoneRemove">
+                      <i class="fa-regular fa-trash-can"></i> Hapus
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Hidden input holding current image data -->
+              <input type="hidden" id="modalOgImage" value="" />
+
+              <!-- Alternative toggle: or use URL -->
+              <div class="url-toggle-bar">
+                <button type="button" class="btn-text-toggle" id="btnToggleManualUrl">
+                  <i class="fa-solid fa-link"></i> Atau gunakan URL gambar online
+                </button>
+              </div>
+              <div id="manualUrlGroup" style="display: none; margin-top: 8px;">
+                <input type="url" id="manualImageUrlInput" class="input-control" placeholder="https://example.com/foto.jpg" />
+              </div>
             </div>
 
           </div>

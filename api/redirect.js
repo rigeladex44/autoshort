@@ -120,13 +120,16 @@ export default async function handler(req, res) {
 
     // Check if social preview metadata exists (or if request is from WhatsApp/Telegram bot)
     const previewTitle = link.og_title || link.title || cleanSlug;
-    const previewDesc = link.og_description || 'Klik untuk membuka tautan resmi.';
-    const previewImage = link.og_image || '';
     const host = process.env.CUSTOM_DOMAIN || req.headers['host'] || 'rigeel.id';
     const shortUrl = `https://${host}/${cleanSlug}`;
 
+    let previewImageUrl = link.og_image || '';
+    if (previewImageUrl.startsWith('data:image/')) {
+      previewImageUrl = `https://${host}/api/image?slug=${encodeURIComponent(cleanSlug)}`;
+    }
+
     // If social bot or has custom preview, return HTML with OG tags
-    if (isSocialBot(userAgent) || previewImage || link.og_title) {
+    if (isSocialBot(userAgent) || previewImageUrl || link.og_title) {
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.status(200).send(`<!DOCTYPE html>
 <html lang="id">
@@ -140,13 +143,13 @@ export default async function handler(req, res) {
   <meta property="og:url" content="${escapeHtml(shortUrl)}">
   <meta property="og:title" content="${escapeHtml(previewTitle)}">
   <meta property="og:description" content="${escapeHtml(previewDesc)}">
-  ${previewImage ? `<meta property="og:image" content="${escapeHtml(previewImage)}">` : ''}
+  ${previewImageUrl ? `<meta property="og:image" content="${escapeHtml(previewImageUrl)}">` : ''}
 
   <!-- Twitter Preview -->
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="${escapeHtml(previewTitle)}">
   <meta name="twitter:description" content="${escapeHtml(previewDesc)}">
-  ${previewImage ? `<meta name="twitter:image" content="${escapeHtml(previewImage)}">` : ''}
+  ${previewImageUrl ? `<meta name="twitter:image" content="${escapeHtml(previewImageUrl)}">` : ''}
 
   <!-- Automatic Redirect for Human Browsers -->
   <meta http-equiv="refresh" content="0; url=${escapeHtml(link.destination_url)}">

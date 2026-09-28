@@ -112,6 +112,18 @@
   const elBtnCloseModalLink = document.getElementById('btnCloseModalLink');
   const elBtnCancelModalLink = document.getElementById('btnCancelModalLink');
 
+  // Upload Dropzone Elements
+  const elUploadDropzone = document.getElementById('uploadDropzone');
+  const elModalFileInput = document.getElementById('modalFileInput');
+  const elDropzoneEmpty = document.getElementById('dropzoneEmpty');
+  const elDropzoneActive = document.getElementById('dropzoneActive');
+  const elDropzoneActiveThumb = document.getElementById('dropzoneActiveThumb');
+  const elBtnDropzoneChange = document.getElementById('btnDropzoneChange');
+  const elBtnDropzoneRemove = document.getElementById('btnDropzoneRemove');
+  const elBtnToggleManualUrl = document.getElementById('btnToggleManualUrl');
+  const elManualUrlGroup = document.getElementById('manualUrlGroup');
+  const elManualImageUrlInput = document.getElementById('manualImageUrlInput');
+
   // Live WhatsApp Mockup Elements
   const elWaPreviewImgWrap = document.getElementById('waPreviewImgWrap');
   const elWaPreviewImg = document.getElementById('waPreviewImg');
@@ -122,6 +134,8 @@
 
   // Modal: Analytics & Date Filter
   const elModalAnalytics = document.getElementById('modalAnalytics');
+  const elBtnCloseModalAnalytics = document.getElementById('btnCloseModalAnalytics');
+  const elBtnCloseAnalyticsBottom = document.getElementById('btnCloseAnalyticsBottom');
   const elAnalyticsLinkSlug = document.getElementById('analyticsLinkSlug');
   const elDatePillsContainer = document.getElementById('datePillsContainer');
   const elAnaFilteredClicks = document.getElementById('anaFilteredClicks');
@@ -143,6 +157,7 @@
 
   // Toast
   const elToastContainer = document.getElementById('toastContainer');
+
 
   // --- INIT ---
   function init() {
@@ -438,6 +453,88 @@
   }
 
   // --- 2. FITUR EDIT TAMPILAN (PREVIEW PESAN WHATSAPP / SOSMED) ---
+  function showDropzoneImage(src) {
+    if (!src) {
+      clearDropzoneImage();
+      return;
+    }
+    if (elDropzoneEmpty) elDropzoneEmpty.style.display = 'none';
+    if (elDropzoneActive) elDropzoneActive.style.display = 'flex';
+    if (elDropzoneActiveThumb) elDropzoneActiveThumb.src = src;
+    if (elModalOgImage) elModalOgImage.value = src;
+    if (elManualImageUrlInput && src.startsWith('http')) {
+      elManualImageUrlInput.value = src;
+    }
+  }
+
+  function clearDropzoneImage() {
+    if (elDropzoneEmpty) elDropzoneEmpty.style.display = 'flex';
+    if (elDropzoneActive) elDropzoneActive.style.display = 'none';
+    if (elDropzoneActiveThumb) elDropzoneActiveThumb.src = '';
+    if (elModalOgImage) elModalOgImage.value = '';
+    if (elModalFileInput) elModalFileInput.value = '';
+    if (elManualImageUrlInput) elManualImageUrlInput.value = '';
+    updateWhatsAppMockup();
+  }
+
+  function processImageFile(file) {
+    if (!file) return;
+
+    if (!file.type || !file.type.startsWith('image/')) {
+      showToast('Harap pilih file gambar (JPG, PNG, WEBP).', 'warning');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('Ukuran file maksimal 10MB', 'warning');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const rawDataUrl = e.target.result;
+      const img = new Image();
+      img.onload = function() {
+        // Optimal OpenGraph dimension for WhatsApp / Social share (max 1200x630)
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 630;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
+          const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
+          width = Math.round(width * ratio);
+          height = Math.round(height * ratio);
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        // Convert to high-quality compressed JPEG (approx 40-80KB)
+        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        showDropzoneImage(compressedDataUrl);
+        updateWhatsAppMockup();
+        showToast('Foto thumbnail berhasil diunggah! 🖼️', 'success');
+      };
+
+      img.onerror = function() {
+        showToast('Gagal memproses file gambar', 'danger');
+      };
+
+      img.src = rawDataUrl;
+    };
+
+    reader.onerror = function() {
+      showToast('Gagal membaca file gambar', 'danger');
+    };
+
+    reader.readAsDataURL(file);
+  }
+
   function openCreateLinkModal() {
     elModalLinkTitle.innerHTML = '<i class="fa-solid fa-plus"></i> Buat Shortlink Baru';
     elModalLinkId.value = '';
@@ -445,7 +542,10 @@
     elModalSlug.value = generateRandomSlug(6);
     elModalOgTitle.value = 'PROMO SPESIAL DISKON 50%!';
     elModalOgDescription.value = 'Dapatkan promo terbatas hari ini. Klik tautan untuk info selengkapnya!';
-    elModalOgImage.value = 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80';
+    
+    const defaultSampleImg = 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80';
+    showDropzoneImage(defaultSampleImg);
+    if (elManualUrlGroup) elManualUrlGroup.style.display = 'none';
 
     updateWhatsAppMockup();
     elModalLink.style.display = 'flex';
@@ -461,7 +561,13 @@
     elModalSlug.value = link.slug;
     elModalOgTitle.value = link.og_title || link.title || '';
     elModalOgDescription.value = link.og_description || '';
-    elModalOgImage.value = link.og_image || '';
+    
+    if (link.og_image) {
+      showDropzoneImage(link.og_image);
+    } else {
+      clearDropzoneImage();
+    }
+    if (elManualUrlGroup) elManualUrlGroup.style.display = 'none';
 
     updateWhatsAppMockup();
     elModalLink.style.display = 'flex';
@@ -471,14 +577,23 @@
   function updateWhatsAppMockup() {
     const title = elModalOgTitle.value.trim() || 'Judul Tautan Anda';
     const desc = elModalOgDescription.value.trim() || 'Deskripsi preview akan muncul di sini saat link dikirimkan ke pesan chat WhatsApp atau Telegram.';
-    const imgUrl = elModalOgImage.value.trim() || 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80';
+    const imgUrl = elModalOgImage.value.trim();
     const slug = elModalSlug.value.trim() || 'slug';
 
     elWaPreviewTitle.textContent = title;
     elWaPreviewDesc.textContent = desc;
-    elWaPreviewDomain.textContent = (window.location.hostname || 'AUTOSHORT.VERCEL.APP').toUpperCase();
+    
+    const customDomainName = (getCustomDomain() || window.location.hostname || 'RIGEEL.ID').replace(/^https?:\/\//i, '').replace(/\/+$/, '').toUpperCase();
+    elWaPreviewDomain.textContent = customDomainName;
     elWaPreviewTextLink.textContent = getFullShortUrl(slug);
-    elWaPreviewImg.src = imgUrl;
+
+    if (imgUrl) {
+      elWaPreviewImg.src = imgUrl;
+      elWaPreviewImgWrap.style.display = 'block';
+    } else {
+      elWaPreviewImg.src = '';
+      elWaPreviewImgWrap.style.display = 'none';
+    }
   }
 
   function handleSaveLinkModal(e) {
@@ -742,10 +857,87 @@
       input.addEventListener('input', updateWhatsAppMockup);
     });
 
+    // Image Upload / Dropzone listeners
+    if (elUploadDropzone && elModalFileInput) {
+      // Clicking on dropzone triggers file picker unless action button clicked
+      elUploadDropzone.addEventListener('click', (e) => {
+        if (!e.target.closest('#btnDropzoneChange') && !e.target.closest('#btnDropzoneRemove')) {
+          elModalFileInput.click();
+        }
+      });
+
+      if (elBtnDropzoneChange) {
+        elBtnDropzoneChange.addEventListener('click', (e) => {
+          e.stopPropagation();
+          elModalFileInput.click();
+        });
+      }
+
+      if (elBtnDropzoneRemove) {
+        elBtnDropzoneRemove.addEventListener('click', (e) => {
+          e.stopPropagation();
+          clearDropzoneImage();
+          showToast('Foto thumbnail dihapus', 'info');
+        });
+      }
+
+      elModalFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          processImageFile(e.target.files[0]);
+        }
+      });
+
+      // Drag and Drop support
+      ['dragenter', 'dragover'].forEach(eventName => {
+        elUploadDropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          elUploadDropzone.classList.add('drag-over');
+        });
+      });
+
+      ['dragleave', 'dragend', 'drop'].forEach(eventName => {
+        elUploadDropzone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          elUploadDropzone.classList.remove('drag-over');
+        });
+      });
+
+      elUploadDropzone.addEventListener('drop', (e) => {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) {
+          processImageFile(e.dataTransfer.files[0]);
+        }
+      });
+    }
+
+    // Toggle Manual URL fallback
+    if (elBtnToggleManualUrl && elManualUrlGroup) {
+      elBtnToggleManualUrl.addEventListener('click', () => {
+        const isHidden = elManualUrlGroup.style.display === 'none';
+        elManualUrlGroup.style.display = isHidden ? 'block' : 'none';
+        if (isHidden && elManualImageUrlInput) {
+          elManualImageUrlInput.focus();
+        }
+      });
+    }
+
+    if (elManualImageUrlInput) {
+      elManualImageUrlInput.addEventListener('input', (e) => {
+        const val = e.target.value.trim();
+        if (val) {
+          showDropzoneImage(val);
+        } else {
+          clearDropzoneImage();
+        }
+        updateWhatsAppMockup();
+      });
+    }
+
     // Preset image buttons
     document.querySelectorAll('.btn-preset-img').forEach(btn => {
       btn.onclick = () => {
-        elModalOgImage.value = btn.getAttribute('data-img');
+        showDropzoneImage(btn.getAttribute('data-img'));
         updateWhatsAppMockup();
       };
     });
