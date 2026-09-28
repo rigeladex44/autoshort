@@ -14,6 +14,9 @@
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
+  <!-- Supabase Client JS (for Google Auth & Global Cloud Database) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
   <!-- Custom CSS -->
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -34,6 +37,12 @@
         </div>
 
         <div class="nav-actions">
+          <!-- Cloud Status Indicator -->
+          <button class="btn btn-outline btn-sm cloud-status-btn" id="btnOpenCloudModal" title="Status Cloud Backend & Database">
+            <span class="status-dot status-offline" id="cloudStatusDot"></span>
+            <span id="cloudStatusText">Cloud DB</span>
+          </button>
+
           <!-- Custom Domain Switcher Button -->
           <button class="btn btn-outline btn-sm" id="btnOpenDomainModal" title="Atur Domain Utama / Custom Domain">
             <i class="fa-solid fa-globe" style="color: var(--accent-cyan);"></i>
@@ -44,6 +53,39 @@
           <button class="icon-btn" id="btnThemeToggle" title="Ganti Tema (Gelap/Terang)">
             <i class="fa-solid fa-moon" id="themeIcon"></i>
           </button>
+
+          <!-- Google Login Button (When Logged Out) -->
+          <button class="btn btn-google-login" id="btnGoogleLogin" title="Masuk dengan akun Google agar shortlink tersimpan di Cloud">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            <span>Masuk Google</span>
+          </button>
+
+          <!-- User Profile Dropdown (When Logged In) -->
+          <div class="user-profile-menu" id="userProfileMenu" style="display: none;">
+            <button class="user-avatar-btn" id="btnUserMenuToggle" title="Menu Akun">
+              <img id="userAvatarImg" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Avatar" />
+              <span class="user-name-text" id="userNameText">Pengguna</span>
+              <i class="fa-solid fa-chevron-down" style="font-size: 0.65rem; color: var(--text-muted);"></i>
+            </button>
+            <div class="user-dropdown-panel" id="userDropdownPanel" style="display: none;">
+              <div class="user-dropdown-header">
+                <div class="dropdown-user-name" id="dropdownUserName">Nama Akun</div>
+                <div class="dropdown-user-email" id="dropdownUserEmail">email@gmail.com</div>
+              </div>
+              <div class="user-dropdown-divider"></div>
+              <button class="user-dropdown-item" id="btnDropdownCloud">
+                <i class="fa-solid fa-database" style="color: var(--accent-cyan);"></i> Database & Cloud Backend
+              </button>
+              <button class="user-dropdown-item text-danger" id="btnLogout">
+                <i class="fa-solid fa-right-from-bracket"></i> Keluar (Logout)
+              </button>
+            </div>
+          </div>
 
           <!-- Create Link Button -->
           <button class="btn btn-primary" id="btnOpenCreateModal">
@@ -444,7 +486,111 @@
     </div>
   </div>
 
+  <!-- ======================================================== -->
+  <!-- MODAL: PENGATURAN CLOUD BACKEND & DATABASE (SUPABASE)    -->
+  <!-- ======================================================== -->
+  <div class="modal-backdrop" id="modalCloud" style="display: none;">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-database" style="color: var(--accent-cyan);"></i> Cloud Backend & Google Auth</h3>
+        <button class="modal-close" id="btnCloseModalCloud"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="modal-body" style="overflow-y: auto; max-height: calc(85vh - 130px);">
+        <!-- Status Banner -->
+        <div class="cloud-status-banner" id="cloudStatusBanner">
+          <div class="cloud-status-icon">
+            <i class="fa-solid fa-cloud-arrow-up"></i>
+          </div>
+          <div class="cloud-status-info">
+            <h4 id="cloudBannerTitle">Status: Mode Penyimpanan Lokal</h4>
+            <p id="cloudBannerDesc">Tautan saat ini hanya tersimpan di browser perangkat ini. Hubungkan dengan Supabase (Gratis) untuk mengaktifkan login Google dan akses global dari perangkat manapun.</p>
+          </div>
+        </div>
+
+        <!-- Connection Inputs -->
+        <div class="form-group" style="margin-top: 18px;">
+          <label for="inputSupabaseUrl">Supabase Project URL</label>
+          <input type="url" id="inputSupabaseUrl" class="input-control" placeholder="https://xxxxxxxxxxxxxxxxxxxx.supabase.co" />
+          <span class="field-hint">Ditemukan di Supabase Dashboard > Project Settings > API > Project URL.</span>
+        </div>
+
+        <div class="form-group">
+          <label for="inputSupabaseAnonKey">Supabase Anon Public API Key</label>
+          <input type="text" id="inputSupabaseAnonKey" class="input-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
+          <span class="field-hint">Ditemukan di Supabase Dashboard > Project Settings > API > Project API keys (anon public).</span>
+        </div>
+
+        <!-- Guide Steps Collapsible -->
+        <div class="setup-guide-box">
+          <div class="setup-guide-header">
+            <strong><i class="fa-solid fa-circle-question"></i> Panduan Singkat Setup Google Login & Database (Hanya 3 Menit):</strong>
+          </div>
+          <ol class="setup-guide-steps">
+            <li>
+              <strong>Buat Akun / Project Baru:</strong> Buka <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a> dan buat project baru gratis.
+            </li>
+            <li>
+              <strong>Jalankan Script Database:</strong> Buka menu <strong>SQL Editor</strong> di Supabase, lalu jalankan perintah SQL berikut:
+              <div class="sql-code-container">
+                <button type="button" class="btn btn-sm btn-outline btn-copy-sql" id="btnCopySql">
+                  <i class="fa-regular fa-copy"></i> Salin Script SQL
+                </button>
+                <pre><code id="sqlSchemaText">-- 1. Tabel Links (Tautan)
+create table if not exists public.links (
+  id text primary key,
+  user_id uuid references auth.users(id) on delete cascade,
+  user_email text,
+  slug text not null unique,
+  destination_url text not null,
+  title text,
+  og_title text,
+  og_description text,
+  og_image text,
+  clicks integer default 0,
+  is_active boolean default true,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 2. Tabel Clicks (Analisis Statistik 1-7 Hari)
+create table if not exists public.clicks (
+  id text primary key,
+  link_id text references public.links(id) on delete cascade,
+  slug text not null,
+  referer text,
+  user_agent text,
+  clicked_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- 3. Row Level Security & Akses Terbuka
+alter table public.links enable row level security;
+alter table public.clicks enable row level security;
+
+create policy "Allow all links access" on public.links for all using (true) with check (true);
+create policy "Allow all clicks access" on public.clicks for all using (true) with check (true);</code></pre>
+              </div>
+            </li>
+            <li>
+              <strong>Aktifkan Google Login:</strong> Buka <strong>Authentication > Providers > Google</strong> di Supabase, lalu masukkan <code>Client ID</code> dan <code>Client Secret</code> dari Google Cloud Console.
+            </li>
+            <li>
+              <strong>Tambahkan Redirect URL di Google Cloud:</strong> Masukkan URL Callback Supabase Anda (misal <code>https://xxxxx.supabase.co/auth/v1/callback</code>) ke dalam <em>Authorized Redirect URIs</em> di Google Cloud Console.
+            </li>
+          </ol>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" id="btnResetCloudConfig">Gunakan Mode Lokal</button>
+        <button type="button" class="btn btn-primary" id="btnSaveCloudConfig">
+          <i class="fa-solid fa-cloud-arrow-up"></i> Simpan & Hubungkan Cloud
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notification Container -->
+
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Application Script -->

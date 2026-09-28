@@ -16,6 +16,9 @@
   let currentSearchQuery = '';
   let activeAnalyticsLinkId = null;
   let selectedAnalyticsDays = 7; // Default 7 hari (bisa 1, 2, 3, 4, 5, 6, 7)
+  let supabase = null;
+  let currentUser = null;
+  let isCloudConnected = false;
 
   // Initial Sample Links
   const DEFAULT_SAMPLE_LINKS = [
@@ -155,17 +158,44 @@
   const elBtnResetDomainDefault = document.getElementById('btnResetDomainDefault');
   const elBtnCloseModalDomain = document.getElementById('btnCloseModalDomain');
 
+  // Google Login & User Profile Elements
+  const elBtnGoogleLogin = document.getElementById('btnGoogleLogin');
+  const elUserProfileMenu = document.getElementById('userProfileMenu');
+  const elBtnUserMenuToggle = document.getElementById('btnUserMenuToggle');
+  const elUserAvatarImg = document.getElementById('userAvatarImg');
+  const elUserNameText = document.getElementById('userNameText');
+  const elUserDropdownPanel = document.getElementById('userDropdownPanel');
+  const elDropdownUserName = document.getElementById('dropdownUserName');
+  const elDropdownUserEmail = document.getElementById('dropdownUserEmail');
+  const elBtnDropdownCloud = document.getElementById('btnDropdownCloud');
+  const elBtnLogout = document.getElementById('btnLogout');
+
+  // Cloud DB Modal & Status
+  const elBtnOpenCloudModal = document.getElementById('btnOpenCloudModal');
+  const elCloudStatusDot = document.getElementById('cloudStatusDot');
+  const elCloudStatusText = document.getElementById('cloudStatusText');
+  const elModalCloud = document.getElementById('modalCloud');
+  const elBtnCloseModalCloud = document.getElementById('btnCloseModalCloud');
+  const elCloudStatusBanner = document.getElementById('cloudStatusBanner');
+  const elCloudBannerTitle = document.getElementById('cloudBannerTitle');
+  const elCloudBannerDesc = document.getElementById('cloudBannerDesc');
+  const elInputSupabaseUrl = document.getElementById('inputSupabaseUrl');
+  const elInputSupabaseAnonKey = document.getElementById('inputSupabaseAnonKey');
+  const elBtnSaveCloudConfig = document.getElementById('btnSaveCloudConfig');
+  const elBtnResetCloudConfig = document.getElementById('btnResetCloudConfig');
+  const elBtnCopySql = document.getElementById('btnCopySql');
+
   // Toast
   const elToastContainer = document.getElementById('toastContainer');
 
-
   // --- INIT ---
-  function init() {
+  async function init() {
     loadLocalData();
     setupHostDisplay();
     initTheme();
     setupEventListeners();
     renderAll();
+    await initCloudBackend();
   }
 
   function getCustomDomain() {
@@ -203,7 +233,139 @@
     }
   }
 
+  // --- CLOUD BACKEND & GOOGLE AUTH (SUPABASE) ---
+  async function initCloudBackend() {
+    let url = localStorage.getItem('autoshort_supabase_url') || '';
+    let key = localStorage.getItem('autoshort_supabase_key') || '';
+
+    // If not in localStorage, check if configured via /api/config on Vercel
+    if (!url || !key) {
+      try {
+        const resp = await fetch('/api/config');
+        if (resp.ok) {
+          const cfg = await resp.json();
+          if (cfg.supabaseUrl && cfg.supabaseAnonKey) {
+            url = cfg.supabaseUrl;
+            key = cfg.supabaseAnonKey;
+          }
+        }
+      } catch (err) {
+        console.warn('Config fetch error:', err);
+      }
+    }
+
+    if (url && key && window.supabase && window.supabase.createClient) {
+      try {
+        supabase = window.supabase.createClient(url, key);
+        updateCloudStatusUI(true);
+
+        // Check active Google session
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session && session.user) {
+          currentUser = session.user;
+          updateUserUI(currentUser);
+          await loadCloudLinks();
+        } else {
+          updateUserUI(null);
+        }
+
+        // Listen for Google Auth changes (Redirect callback)
+        supabase.auth.onAuthStateChange(async (event, session) => {
+          if (session && session.user) {
+            currentUser = session.user;
+            updateUserUI(currentUser);
+            await loadCloudLinks();
+            showToast(`Selamat datang, ${currentUser.user_metadata?.full_name || currentUser.email}! Akun Google terhubung.`, 'success');
+          } else {
+            currentUser = null;
+            updateUserUI(null);
+          }
+        });
+      } catch (err) {
+        console.error('Supabase initialization failed:', err);
+        updateCloudStatusUI(false);
+      }
+    } else {
+      updateCloudStatusUI(false);
+    }
+  }
+
+  function updateCloudStatusUI(connected) {
+    isCloudConnected = connected;
+    if (elCloudStatusDot) {
+      elCloudStatusDot.className = connected ? 'status-dot status-online' : 'status-dot status-offline';
+    }
+    if (elCloudStatusText) {
+      elCloudStatusText.textContent = connected ? 'Cloud Aktif' : 'Mode Lokal';
+    }
+    if (elCloudStatusBanner) {
+      if (connected) {
+        elCloudStatusBanner.className = 'cloud-status-banner online';
+        if (elCloudBannerTitle) elCloudBannerTitle.textContent = 'Status: Cloud Database Terhubung 🟢';
+        if (elCloudBannerDesc) elCloudBannerDesc.textContent = 'Database Supabase aktif. Shortlink Anda disinkronkan secara global ke cloud dan dapat diakses dari mana saja.';
+      } else {
+        elCloudStatusBanner.className = 'cloud-status-banner';
+        if (elCloudBannerTitle) elCloudBannerTitle.textContent = 'Status: Mode Penyimpanan Lokal 🟠';
+        if (elCloudBannerDesc) elCloudBannerDesc.textContent = 'Tautan saat ini hanya tersimpan di browser perangkat ini. Hubungkan dengan Supabase untuk mengaktifkan login Google dan akses global.';
+      }
+    }
+    const savedUrl = localStorage.getItem('autoshort_supabase_url') || '';
+    const savedKey = localStorage.getItem('autoshort_supabase_key') || '';
+    if (elInputSupabaseUrl && !elInputSupabaseUrl.value) elInputSupabaseUrl.value = savedUrl;
+    if (elInputSupabaseAnonKey && !elInputSupabaseAnonKey.value) elInputSupabaseAnonKey.value = savedKey;
+  }
+
+  function updateUserUI(user) {
+    if (user) {
+      if (elBtnGoogleLogin) elBtnGoogleLogin.style.display = 'none';
+      if (elUserProfileMenu) elUserProfileMenu.style.display = 'block';
+
+      const avatar = user.user_metadata?.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80';
+      const fullName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Pengguna';
+
+      if (elUserAvatarImg) elUserAvatarImg.src = avatar;
+      if (elUserNameText) elUserNameText.textContent = fullName.split(' ')[0];
+      if (elDropdownUserName) elDropdownUserName.textContent = fullName;
+      if (elDropdownUserEmail) elDropdownUserEmail.textContent = user.email || '';
+    } else {
+      if (elBtnGoogleLogin) elBtnGoogleLogin.style.display = 'inline-flex';
+      if (elUserProfileMenu) elUserProfileMenu.style.display = 'none';
+      if (elUserDropdownPanel) elUserDropdownPanel.style.display = 'none';
+    }
+  }
+
+  async function loadCloudLinks() {
+    if (!supabase) return;
+    try {
+      let query = supabase.from('links').select('*').order('created_at', { ascending: false });
+      if (currentUser && currentUser.id) {
+        query = query.or(`user_id.eq.${currentUser.id},user_id.is.null`);
+      }
+      const { data, error } = await query;
+      if (error) {
+        console.warn('Error fetching cloud links:', error);
+        return;
+      }
+      if (data && data.length > 0) {
+        links = data;
+        saveLocalLinks();
+        renderAll();
+      }
+
+      // Load analytics clicks from Supabase
+      const { data: clicksData } = await supabase.from('clicks').select('*').order('clicked_at', { ascending: false }).limit(500);
+      if (clicksData && clicksData.length > 0) {
+        clicksHistory = clicksData;
+        saveLocalClicks();
+        renderKPIs();
+      }
+    } catch (e) {
+      console.warn('loadCloudLinks exception:', e);
+    }
+  }
+
   // --- DATA STORAGE ---
+
   function loadLocalData() {
     try {
       const stored = localStorage.getItem('autoshort_links');
@@ -391,10 +553,19 @@
           saveLocalLinks();
           saveLocalClicks();
           renderAll();
+
+          // Sync deletion to Supabase Cloud
+          if (supabase) {
+            supabase.from('links').delete().eq('id', id).then(({ error }) => {
+              if (error) console.error('Supabase delete error:', error);
+            });
+          }
+
           showToast('Tautan berhasil dihapus', 'info');
         }
       };
     });
+
   }
 
   // --- 1. FITUR SHORTLINK CEPAT ---
@@ -436,6 +607,28 @@
     saveLocalLinks();
     renderAll();
 
+    // Sync to Supabase Cloud
+    if (supabase) {
+      const cloudPayload = {
+        id: newLink.id,
+        slug: newLink.slug,
+        destination_url: newLink.destination_url,
+        title: newLink.title,
+        og_title: newLink.og_title,
+        og_description: newLink.og_description,
+        og_image: newLink.og_image,
+        clicks: 0,
+        is_active: true,
+        user_id: currentUser ? currentUser.id : null,
+        user_email: currentUser ? currentUser.email : null,
+        created_at: newLink.created_at
+      };
+      supabase.from('links').insert(cloudPayload).then(({ error }) => {
+        if (error) console.error('Cloud insert error:', error);
+        else showToast('Tautan berhasil disinkronkan ke Cloud!', 'success');
+      });
+    }
+
     const shortUrl = getFullShortUrl(slug);
     elQuickResultUrl.textContent = shortUrl;
     elQuickResultUrl.href = shortUrl;
@@ -450,6 +643,7 @@
     elQuickSlugInput.value = '';
 
     showToast(`Shortlink /${slug} berhasil dibuat!`, 'success');
+
   }
 
   // --- 2. FITUR EDIT TAMPILAN (PREVIEW PESAN WHATSAPP / SOSMED) ---
@@ -624,6 +818,21 @@
         links[idx].title = ogTitle;
         links[idx].og_description = ogDesc;
         links[idx].og_image = ogImg;
+
+        // Sync update to Supabase Cloud
+        if (supabase) {
+          supabase.from('links').update({
+            slug,
+            destination_url: destUrl,
+            title: ogTitle || slug,
+            og_title: ogTitle,
+            og_description: ogDesc,
+            og_image: ogImg
+          }).eq('id', id).then(({ error }) => {
+            if (error) console.error('Cloud update error:', error);
+          });
+        }
+
         showToast('Tampilan preview link berhasil diperbarui!', 'success');
       }
     } else {
@@ -640,6 +849,28 @@
         created_at: new Date().toISOString()
       };
       links.unshift(newLink);
+
+      // Sync insert to Supabase Cloud
+      if (supabase) {
+        supabase.from('links').insert({
+          id: newLink.id,
+          slug: newLink.slug,
+          destination_url: newLink.destination_url,
+          title: newLink.title,
+          og_title: newLink.og_title,
+          og_description: newLink.og_description,
+          og_image: newLink.og_image,
+          clicks: 0,
+          is_active: true,
+          user_id: currentUser ? currentUser.id : null,
+          user_email: currentUser ? currentUser.email : null,
+          created_at: newLink.created_at
+        }).then(({ error }) => {
+          if (error) console.error('Cloud insert error:', error);
+          else showToast('Tautan tersimpan di Cloud Database!', 'success');
+        });
+      }
+
       showToast(`Shortlink /${slug} berhasil dibuat!`, 'success');
     }
 
@@ -647,6 +878,7 @@
     renderAll();
     elModalLink.style.display = 'none';
   }
+
 
   // --- 3. FITUR ANALISIS STATISTIK (FILTER 1 - 7 TANGGAL) ---
   function openAnalyticsModal(id) {
@@ -994,7 +1226,115 @@
       });
     }
 
+    // Google Login button
+    if (elBtnGoogleLogin) {
+      elBtnGoogleLogin.addEventListener('click', async () => {
+        if (!supabase) {
+          showToast('Hubungkan Supabase terlebih dahulu untuk login Google.', 'warning');
+          if (elModalCloud) elModalCloud.style.display = 'flex';
+          return;
+        }
+        try {
+          const { error } = await supabase.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+              redirectTo: window.location.origin
+            }
+          });
+          if (error) showToast('Gagal login Google: ' + error.message, 'danger');
+        } catch (err) {
+          showToast('Error login: ' + err.message, 'danger');
+        }
+      });
+    }
+
+    // User profile menu dropdown toggle
+    if (elBtnUserMenuToggle && elUserDropdownPanel) {
+      elBtnUserMenuToggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isHidden = elUserDropdownPanel.style.display === 'none';
+        elUserDropdownPanel.style.display = isHidden ? 'block' : 'none';
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('#userProfileMenu')) {
+          elUserDropdownPanel.style.display = 'none';
+        }
+      });
+    }
+
+    // Logout
+    if (elBtnLogout) {
+      elBtnLogout.addEventListener('click', async () => {
+        if (supabase) {
+          await supabase.auth.signOut();
+        }
+        currentUser = null;
+        updateUserUI(null);
+        showToast('Berhasil keluar akun Google', 'info');
+        loadLocalData();
+        renderAll();
+      });
+    }
+
+    // Cloud DB Modal triggers
+    if (elBtnOpenCloudModal) {
+      elBtnOpenCloudModal.addEventListener('click', () => {
+        if (elModalCloud) elModalCloud.style.display = 'flex';
+      });
+    }
+
+    if (elBtnDropdownCloud) {
+      elBtnDropdownCloud.addEventListener('click', () => {
+        if (elUserDropdownPanel) elUserDropdownPanel.style.display = 'none';
+        if (elModalCloud) elModalCloud.style.display = 'flex';
+      });
+    }
+
+    if (elBtnCloseModalCloud) {
+      elBtnCloseModalCloud.addEventListener('click', () => {
+        if (elModalCloud) elModalCloud.style.display = 'none';
+      });
+    }
+
+    if (elBtnSaveCloudConfig) {
+      elBtnSaveCloudConfig.addEventListener('click', async () => {
+        const url = elInputSupabaseUrl.value.trim();
+        const key = elInputSupabaseAnonKey.value.trim();
+        if (!url || !key) {
+          showToast('Harap masukkan Project URL dan Anon Key', 'warning');
+          return;
+        }
+        localStorage.setItem('autoshort_supabase_url', url);
+        localStorage.setItem('autoshort_supabase_key', key);
+        await initCloudBackend();
+        showToast('Koneksi Supabase berhasil disimpan!', 'success');
+        if (elModalCloud) elModalCloud.style.display = 'none';
+      });
+    }
+
+    if (elBtnResetCloudConfig) {
+      elBtnResetCloudConfig.addEventListener('click', () => {
+        localStorage.removeItem('autoshort_supabase_url');
+        localStorage.removeItem('autoshort_supabase_key');
+        supabase = null;
+        currentUser = null;
+        updateCloudStatusUI(false);
+        updateUserUI(null);
+        showToast('Kembali ke mode penyimpanan lokal', 'info');
+        if (elModalCloud) elModalCloud.style.display = 'none';
+      });
+    }
+
+    if (elBtnCopySql) {
+      elBtnCopySql.addEventListener('click', () => {
+        const sql = document.getElementById('sqlSchemaText')?.innerText;
+        if (sql) copyToClipboard(sql, elBtnCopySql);
+      });
+    }
+
     // Close modals on background click
+
     document.querySelectorAll('.modal-backdrop').forEach(modal => {
       modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.style.display = 'none';
