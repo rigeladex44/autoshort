@@ -417,8 +417,30 @@ a {
    ========================================================== */
 
 .sid-content-area {
-  padding: 24px 32px 60px;
+  padding: 24px 32px 40px;
   flex: 1;
+}
+
+/* AdSense Handling - Eliminates empty white gaps on all pages */
+.sid-footer-ads {
+  padding: 0 32px 24px;
+  text-align: center;
+  overflow: hidden;
+  margin-top: auto;
+}
+
+ins.adsbygoogle {
+  display: block;
+  margin: 0 auto;
+}
+
+ins.adsbygoogle:empty,
+ins.adsbygoogle[data-ad-status="unfilled"],
+.sid-footer-ads:empty {
+  display: none !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
 .analytics-controls-bar {
