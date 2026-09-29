@@ -375,18 +375,32 @@
             localStorage.setItem('autoshort_links', JSON.stringify(links));
           }
 
+          // Unique visitor identification
+          let visitorId = localStorage.getItem('autoshort_visitor_id');
+          if (!visitorId) {
+            visitorId = 'vis_' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
+            localStorage.setItem('autoshort_visitor_id', visitorId);
+          }
+          const isQr = urlParams.get('src') === 'qr' || urlParams.get('qr') === '1' || urlParams.get('utm_source') === 'qr';
+
           // Record click log
           const clicksHistory = JSON.parse(localStorage.getItem('autoshort_clicks') || '[]');
-          const ref = document.referrer ? new URL(document.referrer).hostname.replace('www.', '') : 'Direct';
+          let ref = document.referrer ? new URL(document.referrer).hostname.replace('www.', '') : 'Direct';
+          if (isQr && ref === 'Direct') ref = 'QR Code Scan';
+          
           clicksHistory.push({
-            id: 'clk_' + Date.now(),
+            id: 'clk_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
             slug: linkData.slug,
             link_id: linkData.id,
+            visitor_id: visitorId,
+            is_qr: Boolean(isQr),
             referer: ref,
-            clicked_at: new Date().toISOString(),
-            user_agent: navigator.userAgent
+            country: 'Indonesia',
+            city: 'Jakarta',
+            user_agent: navigator.userAgent,
+            clicked_at: new Date().toISOString()
           });
-          if (clicksHistory.length > 2000) clicksHistory.shift();
+          if (clicksHistory.length > 5000) clicksHistory.shift();
           localStorage.setItem('autoshort_clicks', JSON.stringify(clicksHistory));
         } catch (e) {
           console.error('Local click tracking error:', e);

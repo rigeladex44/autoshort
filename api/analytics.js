@@ -41,9 +41,21 @@ export default async function handler(req, res) {
       const referrers = {};
       const countries = {};
       const dates = {};
+      const dailyBreakdown = {};
+      const uniqueVisitorSet = new Set();
+      let qrVisitorsCount = 0;
       const devices = { Mobile: 0, Desktop: 0, Tablet: 0, Other: 0 };
 
       clicks.forEach(c => {
+        // Unique visitor identification
+        const vId = c.visitor_id || (c.user_agent ? c.user_agent + (c.country || '') : ('anon_' + Math.random()));
+        uniqueVisitorSet.add(vId);
+
+        // QR Visitor
+        if (c.is_qr || (c.referer && c.referer.toLowerCase().includes('qr'))) {
+          qrVisitorsCount++;
+        }
+
         // Referrer
         let ref = c.referer || 'Direct';
         try {
@@ -61,6 +73,18 @@ export default async function handler(req, res) {
         const date = c.clicked_at ? c.clicked_at.substring(0, 10) : 'Unknown';
         dates[date] = (dates[date] || 0) + 1;
 
+        if (!dailyBreakdown[date]) {
+          dailyBreakdown[date] = { date, visitors: 0, uniqueVisitors: 0, qrVisitors: 0, vSet: new Set() };
+        }
+        dailyBreakdown[date].visitors++;
+        if (!dailyBreakdown[date].vSet.has(vId)) {
+          dailyBreakdown[date].vSet.add(vId);
+          dailyBreakdown[date].uniqueVisitors++;
+        }
+        if (c.is_qr || (c.referer && c.referer.toLowerCase().includes('qr'))) {
+          dailyBreakdown[date].qrVisitors++;
+        }
+
         // Device
         const ua = (c.user_agent || '').toLowerCase();
         if (/tablet|ipad/i.test(ua)) devices.Tablet++;
@@ -69,13 +93,25 @@ export default async function handler(req, res) {
         else devices.Other++;
       });
 
+      // Clean daily breakdown (remove Set)
+      const dailyList = Object.keys(dailyBreakdown).sort().map(d => ({
+        date: d,
+        visitors: dailyBreakdown[d].visitors,
+        uniqueVisitors: dailyBreakdown[d].uniqueVisitors,
+        qrVisitors: dailyBreakdown[d].qrVisitors
+      }));
+
       return res.status(200).json({
         totalClicks: clicks.length,
+        visitors: clicks.length,
+        uniqueVisitors: uniqueVisitorSet.size,
+        qrVisitors: qrVisitorsCount,
         referrers,
         countries,
         dates,
+        dailyList,
         devices,
-        recentClicks: clicks.slice(0, 20)
+        recentClicks: clicks.slice(0, 50)
       });
     } catch (err) {
       return res.status(500).json({ error: err.message });

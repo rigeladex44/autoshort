@@ -92,6 +92,10 @@ export default async function handler(req, res) {
 
       // Log click asynchronously (if not a crawler bot)
       if (!isSocialBot(userAgent)) {
+        const isQr = req.query.src === 'qr' || req.query.qr === '1' || req.query.utm_source === 'qr';
+        const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
+        const visitorId = Buffer.from(`${clientIp}-${userAgent.substring(0, 30)}`).toString('base64').substring(0, 16);
+
         if (supabaseUrl && supabaseKey && link.id) {
           fetch(`${supabaseUrl}/rest/v1/links?id=eq.${link.id}`, {
             method: 'PATCH',
@@ -105,7 +109,9 @@ export default async function handler(req, res) {
             body: JSON.stringify({
               link_id: link.id,
               slug: cleanSlug,
-              referer: referer,
+              visitor_id: visitorId,
+              is_qr: Boolean(isQr),
+              referer: isQr && referer === 'Direct' ? 'QR Code Scan' : referer,
               country: country,
               city: city,
               user_agent: userAgent,

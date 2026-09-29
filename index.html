@@ -1,21 +1,24 @@
 <!DOCTYPE html>
-<html lang="id" data-theme="dark">
+<html lang="id" data-theme="light">
 <head>
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2400550373404770"
      crossorigin="anonymous"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AutoShort — Pemendek URL, Edit Preview Pesan & Analisis Statistik</title>
-  <meta name="description" content="Dashboard Shortlink Modern: Perpendek link, kustomisasi tampilan preview saat link dikirim ke WhatsApp/Sosmed, dan analisis statistik dengan filter 1-7 tanggal.">
+  <title>Analytics | s.id — AutoShort</title>
+  <meta name="description" content="Dashboard Real Analytics & Shortlink: Analisis data pengunjung, unique visitor, qr code visitor, anomaly detection, dan custom link preview.">
 
-  <!-- Google Fonts -->
+  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   
-  <!-- FontAwesome Icons -->
+  <!-- FontAwesome 6 Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
+  <!-- QRCode.js for generating trackable QR codes -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
   <!-- Supabase Client JS (for Google Auth & Global Cloud Database) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -24,94 +27,506 @@
 </head>
 <body>
 
-  <div class="app-layout">
+  <div class="sid-layout">
     
-    <!-- Top Navigation -->
-    <header class="navbar">
-      <div class="nav-container">
-        <div class="nav-brand">
-          <div class="brand-badge-icon">
-            <i class="fa-solid fa-bolt"></i>
+    <!-- ======================================================== -->
+    <!-- LEFT SIDEBAR (s.id style) -->
+    <!-- ======================================================== -->
+    <aside class="sid-sidebar" id="sidSidebar">
+      
+      <!-- Logo Area -->
+      <div class="sidebar-header">
+        <a href="/" class="sid-brand-logo">
+          <span class="sid-brand-s">s</span><span class="sid-brand-dot">.</span><span class="sid-brand-id">id</span>
+        </a>
+      </div>
+
+      <!-- Navigation Menu -->
+      <nav class="sidebar-nav">
+        <ul class="nav-list">
+          <li class="nav-item" data-view="dashboard">
+            <a href="#dashboard" class="nav-link">
+              <i class="fa-solid fa-table-cells-large nav-icon"></i>
+              <span class="nav-label">Dashboard</span>
+            </a>
+          </li>
+
+          <li class="nav-item" data-view="agent">
+            <a href="#agent" class="nav-link">
+              <i class="fa-solid fa-bolt nav-icon text-agent"></i>
+              <span class="nav-label">Agent</span>
+              <span class="badge-pill badge-beta">Beta</span>
+            </a>
+          </li>
+
+          <li class="nav-item active" data-view="analytics" id="sidebarNavAnalytics">
+            <a href="#analytics" class="nav-link">
+              <i class="fa-solid fa-chart-column nav-icon"></i>
+              <span class="nav-label">Analytics</span>
+            </a>
+          </li>
+
+          <li class="nav-item" data-view="shortener" id="sidebarNavShortener">
+            <a href="#shortener" class="nav-link">
+              <i class="fa-solid fa-link nav-icon"></i>
+              <span class="nav-label">Shortener</span>
+            </a>
+          </li>
+
+          <li class="nav-item" data-view="microsite">
+            <a href="#microsite" class="nav-link">
+              <i class="fa-solid fa-mobile-screen nav-icon"></i>
+              <span class="nav-label">Microsite</span>
+            </a>
+          </li>
+
+          <li class="nav-item" data-view="shop">
+            <a href="#shop" class="nav-link">
+              <i class="fa-solid fa-cart-shopping nav-icon"></i>
+              <span class="nav-label">Shop</span>
+              <span class="badge-pill badge-beta">Beta</span>
+            </a>
+          </li>
+
+          <li class="nav-item" data-view="purchases">
+            <a href="#purchases" class="nav-link">
+              <i class="fa-solid fa-bag-shopping nav-icon"></i>
+              <span class="nav-label">My Purchases</span>
+            </a>
+          </li>
+
+          <li class="nav-item" id="sidebarNavDomains">
+            <a href="#domains" class="nav-link">
+              <i class="fa-solid fa-globe nav-icon"></i>
+              <span class="nav-label">Domains</span>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a href="#ticket" class="nav-link">
+              <i class="fa-solid fa-ticket nav-icon"></i>
+              <span class="nav-label">Support Ticket</span>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a href="#subscription" class="nav-link">
+              <i class="fa-solid fa-thumbs-up nav-icon"></i>
+              <span class="nav-label">Subscription</span>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a href="#referral" class="nav-link">
+              <i class="fa-solid fa-user-group nav-icon"></i>
+              <span class="nav-label">Referral Program</span>
+            </a>
+          </li>
+
+          <li class="nav-item">
+            <a href="#developer" class="nav-link">
+              <i class="fa-solid fa-laptop-code nav-icon"></i>
+              <span class="nav-label">Developer</span>
+              <span class="badge-pill badge-new">New</span>
+            </a>
+          </li>
+
+          <li class="nav-item" id="sidebarNavSettings">
+            <a href="#settings" class="nav-link">
+              <i class="fa-solid fa-gear nav-icon"></i>
+              <span class="nav-label">Settings</span>
+            </a>
+          </li>
+        </ul>
+      </nav>
+
+      <!-- Sidebar Bottom: Getting Started & Profile -->
+      <div class="sidebar-bottom">
+        <!-- Getting Started Card -->
+        <div class="getting-started-card" id="gettingStartedCard">
+          <div class="getting-started-header" id="btnToggleGettingStarted">
+            <div class="gs-title-row">
+              <span class="gs-title">Getting Started</span>
+              <i class="fa-solid fa-chevron-up gs-chevron" id="gsChevron"></i>
+            </div>
+            <div class="gs-progress-bar">
+              <div class="gs-progress-fill" style="width: 35%;"></div>
+            </div>
           </div>
-          <div class="brand-text">
-            <span class="brand-title">Auto<span class="brand-accent">Short</span></span>
+          <div class="gs-checklist" id="gsChecklist">
+            <div class="gs-item done"><span class="gs-dot"></span> Create your first short link</div>
+            <div class="gs-item"><span class="gs-dot"></span> Create your first microsite</div>
+            <div class="gs-item"><span class="gs-dot"></span> Create your first shop</div>
+            <div class="gs-item"><span class="gs-dot"></span> Share a link or microsite</div>
+            <div class="gs-item"><span class="gs-dot"></span> Set up your custom QR code</div>
+            <div class="gs-item"><span class="gs-dot"></span> Connect a custom domain</div>
           </div>
         </div>
 
-        <div class="nav-actions">
-          <!-- Cloud Status Indicator -->
-          <button class="btn btn-outline btn-sm cloud-status-btn" id="btnOpenCloudModal" title="Status Cloud Backend & Database">
-            <span class="status-dot status-offline" id="cloudStatusDot"></span>
-            <span id="cloudStatusText">Cloud DB</span>
+        <!-- User Profile Card -->
+        <div class="sidebar-user-card" id="sidebarUserCard">
+          <div class="user-avatar-circle" id="userAvatarCircle">GM</div>
+          <div class="user-info-text">
+            <div class="user-name-label" id="userNameLabel">Geel Mlbb</div>
+            <div class="user-role-label" id="userRoleLabel">Free User</div>
+          </div>
+          <button class="user-options-btn" id="btnUserMenuToggle" title="Opsi Akun">
+            <i class="fa-solid fa-chevron-up-down"></i>
+          </button>
+      </div>
+    </aside>
+
+    <!-- ======================================================== -->
+    <!-- MAIN WORKSPACE -->
+    <!-- ======================================================== -->
+    <div class="sid-main-wrapper">
+      <!-- Google AdSense -->
+      <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2400550373404770"
+           crossorigin="anonymous"></script>
+      <ins class="adsbygoogle"
+           style="display:block"
+           data-ad-format="autorelaxed"
+           data-ad-client="ca-pub-2400550373404770"
+           data-ad-slot="9001899727"></ins>
+      <script>
+           (adsbygoogle = window.adsbygoogle || []).push({});
+      </script>
+      
+      <!-- Top Header Bar -->
+      <header class="sid-topbar">
+        <div class="topbar-left">
+          <button class="mobile-menu-toggle" id="btnMobileMenuToggle">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <div class="topbar-title-wrap">
+            <i class="fa-regular fa-folder-open title-icon" id="topbarIcon"></i>
+            <h1 class="topbar-title" id="topbarTitle">Analytics</h1>
+          </div>
+        </div>
+
+        <div class="topbar-right">
+          <!-- UPGRADE Button -->
+          <button class="btn btn-upgrade" id="btnUpgrade">
+            <i class="fa-solid fa-arrow-up"></i>
+            <span>UPGRADE</span>
           </button>
 
-          <!-- Custom Domain Switcher Button -->
-          <button class="btn btn-outline btn-sm" id="btnOpenDomainModal" title="Atur Domain Utama / Custom Domain">
-            <i class="fa-solid fa-globe" style="color: var(--accent-cyan);"></i>
-            <span id="navDomainDisplay">Domain: rigeel.id</span>
+          <!-- Live Chat Button -->
+          <button class="btn btn-ghost" id="btnLiveChat">
+            <i class="fa-regular fa-comment-dots"></i>
+            <span>Live Chat</span>
           </button>
 
-          <!-- Theme Toggle -->
-          <button class="icon-btn" id="btnThemeToggle" title="Ganti Tema (Gelap/Terang)">
-            <i class="fa-solid fa-moon" id="themeIcon"></i>
+          <!-- Agent Button -->
+          <button class="btn btn-ghost btn-agent" id="btnTopAgent">
+            <span>Agent</span>
+            <i class="fa-solid fa-bolt text-agent" style="font-size: 0.8rem; margin-left: 2px;"></i>
           </button>
 
-          <!-- Google Login Button (When Logged Out) -->
-          <button class="btn btn-google-login" id="btnGoogleLogin" title="Masuk dengan akun Google agar shortlink tersimpan di Cloud">
-            <svg width="18" height="18" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-            </svg>
-            <span>Masuk Google</span>
-          </button>
+          <!-- User Circle / Google Login Avatar -->
+          <div class="topbar-profile" id="topbarProfile">
+            <div class="user-avatar-circle sm" id="topbarAvatar">GM</div>
+          </div>
+        </div>
+      </header>
 
-          <!-- User Profile Dropdown (When Logged In) -->
-          <div class="user-profile-menu" id="userProfileMenu" style="display: none;">
-            <button class="user-avatar-btn" id="btnUserMenuToggle" title="Menu Akun">
-              <img id="userAvatarImg" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Avatar" />
-              <span class="user-name-text" id="userNameText">Pengguna</span>
-              <i class="fa-solid fa-chevron-down" style="font-size: 0.65rem; color: var(--text-muted);"></i>
+      <!-- ======================================================== -->
+      <!-- VIEW: ANALYTICS (EXACT MATCH TO USER SCREENSHOT) -->
+      <!-- ======================================================== -->
+      <main class="sid-content-area" id="viewAnalytics">
+        
+        <!-- "Ready to do more?" Upsell Banner -->
+        <div class="plans-banner" id="plansBanner">
+          <div class="plans-banner-left">
+            <div class="plans-banner-icon">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <div class="plans-banner-text">
+              <h4>Ready to do more?</h4>
+              <p>Unlock analytics, custom domain, and more with a paid plan.</p>
+            </div>
+          </div>
+          <div class="plans-banner-actions">
+            <button class="btn btn-white btn-sm" id="btnViewPlans">View Plans</button>
+            <button class="btn-banner-close" id="btnClosePlansBanner" title="Tutup">
+              <i class="fa-solid fa-xmark"></i>
             </button>
-            <div class="user-dropdown-panel" id="userDropdownPanel" style="display: none;">
-              <div class="user-dropdown-header">
-                <div class="dropdown-user-name" id="dropdownUserName">Nama Akun</div>
-                <div class="dropdown-user-email" id="dropdownUserEmail">email@gmail.com</div>
+          </div>
+        </div>
+
+        <!-- Analytics Navigation Tabs -->
+        <div class="analytics-tabs-row">
+          <button class="analytics-tab-btn active" id="tabLinksAnalytics">Links Analytics</button>
+          <button class="analytics-tab-btn" id="tabShopAnalytics">Shop Analytics</button>
+        </div>
+
+        <!-- Filter & Actions Bar -->
+        <div class="analytics-controls-bar">
+          <div class="controls-left">
+            <!-- Date Range Selector Dropdown -->
+            <div class="date-dropdown-wrapper">
+              <button class="date-range-btn" id="btnDateRangeDropdown">
+                <i class="fa-regular fa-calendar"></i>
+                <span id="dateRangeDisplayText">23 Sep 2026 — 29 Sep 2026</span>
+                <i class="fa-solid fa-chevron-down caret-icon"></i>
+              </button>
+
+              <!-- INTERACTIVE POPUP CALENDAR (EXACT MATCH TO SCREENSHOT) -->
+              <div class="calendar-picker-popup" id="calendarPopup" style="display: none;">
+                <div class="cal-header">
+                  <div class="cal-selects">
+                    <select id="calMonthSelect" class="cal-dropdown">
+                      <option value="0">January</option>
+                      <option value="1">February</option>
+                      <option value="2">March</option>
+                      <option value="3">April</option>
+                      <option value="4">May</option>
+                      <option value="5">June</option>
+                      <option value="6">July</option>
+                      <option value="7">August</option>
+                      <option value="8" selected>September</option>
+                      <option value="9">October</option>
+                      <option value="10">November</option>
+                      <option value="11">December</option>
+                    </select>
+                    <select id="calYearSelect" class="cal-dropdown">
+                      <option value="2024">2024</option>
+                      <option value="2025">2025</option>
+                      <option value="2026" selected>2026</option>
+                      <option value="2027">2027</option>
+                    </select>
+                  </div>
+                  <div class="cal-nav-arrows">
+                    <button type="button" class="cal-arrow-btn" id="btnCalPrevMonth"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button type="button" class="cal-arrow-btn" id="btnCalNextMonth"><i class="fa-solid fa-chevron-right"></i></button>
+                  </div>
+                </div>
+
+                <!-- Calendar Weekday Headers -->
+                <div class="cal-weekdays">
+                  <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                </div>
+
+                <!-- Calendar Days Grid (Rendered dynamically) -->
+                <div class="cal-days-grid" id="calDaysGrid">
+                  <!-- Dynamic Date Buttons rendered by app.js -->
+                </div>
+
+                <!-- Quick Presets Strip -->
+                <div class="cal-presets-strip">
+                  <button type="button" class="cal-preset-btn" data-preset="1">Hari Ini</button>
+                  <button type="button" class="cal-preset-btn active" data-preset="7">7 Hari</button>
+                  <button type="button" class="cal-preset-btn" data-preset="14">14 Hari</button>
+                  <button type="button" class="cal-preset-btn" data-preset="30">30 Hari</button>
+                  <button type="button" class="cal-preset-btn" data-preset="month">Bulan Ini</button>
+                </div>
               </div>
-              <div class="user-dropdown-divider"></div>
-              <button class="user-dropdown-item" id="btnDropdownCloud">
-                <i class="fa-solid fa-database" style="color: var(--accent-cyan);"></i> Database & Cloud Backend
-              </button>
-              <button class="user-dropdown-item text-danger" id="btnLogout">
-                <i class="fa-solid fa-right-from-bracket"></i> Keluar (Logout)
-              </button>
+            </div>
+
+            <!-- Export PDF Button -->
+            <button class="btn btn-outline-clean" id="btnExportPdf">
+              <span>Export PDF</span>
+            </button>
+
+            <!-- Filter By Specific Link Dropdown -->
+            <div class="link-filter-wrapper">
+              <select id="selectLinkFilter" class="select-clean" title="Pilih shortlink untuk dianalisis">
+                <option value="all">Semua Tautan (All Links)</option>
+              </select>
             </div>
           </div>
 
-          <!-- Create Link Button -->
-          <button class="btn btn-primary" id="btnOpenCreateModal">
-            <i class="fa-solid fa-plus"></i>
-            <span>Buat Shortlink</span>
-          </button>
-        </div>
-      </div>
-    </header>
-<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2400550373404770"
-     crossorigin="anonymous"></script>
-<ins class="adsbygoogle"
-     style="display:block"
-     data-ad-format="autorelaxed"
-     data-ad-client="ca-pub-2400550373404770"
-     data-ad-slot="9001899727"></ins>
-<script>
-     (adsbygoogle = window.adsbygoogle || []).push({});
-</script>
-    <!-- Main Content -->
-    <main class="main-content">
-      <div class="content-container">
+          <div class="controls-right">
+            <!-- Test Real Click Simulation Button -->
+            <button class="btn btn-test-click" id="btnSimulateRealClick" title="Kirim klik real untuk melihat grafik & angka bertambah seketika">
+              <i class="fa-solid fa-plus"></i>
+              <span>Test Klik Real</span>
+            </button>
 
-        <!-- 1. FITUR SHORTLINK CEPAT (HERO BAR) -->
+            <!-- Test QR Code Scan Simulation -->
+            <button class="btn btn-test-qr" id="btnSimulateQrScan" title="Simulasi scan QR code pengunjung">
+              <i class="fa-solid fa-qrcode"></i>
+              <span>Test Scan QR</span>
+            </button>
+
+            <!-- Download Button -->
+            <button class="btn btn-outline-clean" id="btnDownloadCsv">
+              <i class="fa-solid fa-download"></i>
+              <span>Download</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- STACKED BAR CHART CONTAINER (EXACT DESIGN FROM SCREENSHOT) -->
+        <div class="analytics-chart-card">
+          <div class="chart-top-bar">
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-dot red"></span> Visitors</span>
+              <span class="legend-item"><span class="legend-dot purple"></span> Unique Visitor</span>
+            </div>
+            <div class="chart-status-pill">
+              <span class="status-indicator-live"></span> Live Analytics
+            </div>
+          </div>
+
+          <!-- The Stacked Bars Viewport -->
+          <div class="stacked-chart-viewport" id="stackedChartViewport">
+            <!-- Y-Axis Grid Lines & Scale -->
+            <div class="chart-y-axis">
+              <div class="y-tick"><span id="yAxisTop">70</span><div class="grid-line"></div></div>
+              <div class="y-tick"><span id="yAxisMid">35</span><div class="grid-line"></div></div>
+              <div class="y-tick"><span>0</span><div class="grid-line zero"></div></div>
+            </div>
+
+            <!-- Dynamic Bar Columns Container -->
+            <div class="chart-bars-track" id="chartBarsTrack">
+              <!-- Rendered via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- 4 KPI SUMMARY METRICS ROW (EXACT DESIGN FROM SCREENSHOT) -->
+        <div class="sid-metrics-row">
+          <!-- 1. Total Links -->
+          <div class="sid-kpi-col">
+            <div class="kpi-number" id="kpiTotalLinks">4</div>
+            <div class="kpi-label">
+              <span class="dot-indicator dot-blue"></span>
+              <span>Total Links</span>
+            </div>
+          </div>
+
+          <!-- 2. Visitors -->
+          <div class="sid-kpi-col">
+            <div class="kpi-number" id="kpiTotalVisitors">261</div>
+            <div class="kpi-label">
+              <span class="dot-indicator dot-red"></span>
+              <span>Visitors</span>
+            </div>
+          </div>
+
+          <!-- 3. Unique Visitor -->
+          <div class="sid-kpi-col">
+            <div class="kpi-number" id="kpiUniqueVisitors">178</div>
+            <div class="kpi-label">
+              <span class="dot-indicator dot-purple"></span>
+              <span>Unique Visitor</span>
+            </div>
+          </div>
+
+          <!-- 4. QR Code Visitor -->
+          <div class="sid-kpi-col">
+            <div class="kpi-number" id="kpiQrVisitors">0</div>
+            <div class="kpi-label">
+              <span class="dot-indicator dot-cyan"></span>
+              <span>QR Code Visitor</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ANOMALY DETECTION SECTION (EXACT DESIGN FROM SCREENSHOT) -->
+        <div class="anomaly-section-card">
+          <div class="anomaly-header-bar">
+            <div class="anomaly-title-row">
+              <span class="anomaly-icon"><i class="fa-solid fa-circle-xmark"></i></span>
+              <span class="anomaly-title">Anomaly Detection</span>
+            </div>
+            <div class="anomaly-badges-row">
+              <span class="anomaly-pill-found" id="anomalyFoundBadge">3 found</span>
+              <span class="anomaly-pill-neutral">Total</span>
+              <span class="anomaly-pill-neutral">Unique</span>
+            </div>
+          </div>
+
+          <!-- Anomaly Banner & Domain Promo -->
+          <div class="anomaly-banner-body">
+            <div class="anomaly-ad-content">
+              <div class="ad-slogan">
+                <span>Ide yang besar, butuh</span>
+                <strong>nama domain yang kuat</strong>
+              </div>
+              <div class="ad-tags-row">
+                <span class="domain-tag">tokobagus.id</span>
+                <span class="domain-tag">namakamu.id</span>
+                <span class="domain-tag">ideku.id</span>
+                <button class="btn-ad-cta" id="btnAdCta">Dapatkan domain .id sekarang! <i class="fa-solid fa-arrow-pointer"></i></button>
+              </div>
+            </div>
+            <div class="ad-tag-corner">Ads</div>
+            <div class="anomaly-critical-tag" id="anomalyDateTag">Sep 28, 2026 <span class="tag-crit">Critical</span></div>
+          </div>
+
+          <!-- Real Anomaly Insights Collapse / List -->
+          <div class="anomaly-details-list" id="anomalyDetailsList">
+            <!-- Dynamic Anomaly list rendered from real data -->
+          </div>
+        </div>
+
+        <!-- REAL PERFORMANCE BREAKDOWN PER SHORTLINK -->
+        <div class="performance-table-card">
+          <div class="perf-header">
+            <h3><i class="fa-solid fa-chart-pie" style="color: #ef4444; margin-right: 8px;"></i> Performa Setiap Tautan (Real Data)</h3>
+            <span class="perf-subtitle">Data aktual klik, pengunjung unik, dan scan QR code pada periode terpilih.</span>
+          </div>
+
+          <div class="table-responsive">
+            <table class="real-analytics-table">
+              <thead>
+                <tr>
+                  <th>Tautan & Judul</th>
+                  <th>Tujuan (URL Asli)</th>
+                  <th>Visitors (Total)</th>
+                  <th>Unique Visitor</th>
+                  <th>QR Scans</th>
+                  <th>Top Referrer</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody id="tableLinksAnalyticsBody">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- DEEP-DIVE GRIDS: REFERRERS, DEVICES, & LIVE CLICK STREAM -->
+        <div class="deep-dive-grid">
+          <!-- Sumber Trafik (Referrers) -->
+          <div class="deep-card">
+            <h4><i class="fa-solid fa-share-nodes" style="color: #6366f1;"></i> Sumber Trafik (Referrers)</h4>
+            <div class="breakdown-list" id="anaReferrersList">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+
+          <!-- Perangkat Pengunjung (Devices) -->
+          <div class="deep-card">
+            <h4><i class="fa-solid fa-mobile-screen" style="color: #06b6d4;"></i> Perangkat Pengunjung (Devices)</h4>
+            <div class="breakdown-list" id="anaDevicesList">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+
+          <!-- Live Click Stream (Real-Time Feed) -->
+          <div class="deep-card live-stream-card">
+            <div class="live-stream-header">
+              <h4><i class="fa-solid fa-bolt" style="color: #f59e0b;"></i> Live Click Stream</h4>
+              <span class="live-badge"><span class="live-pulse"></span> Memantau</span>
+            </div>
+            <div class="live-stream-list" id="liveClickStreamList">
+              <!-- Rendered by JS -->
+            </div>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- ======================================================== -->
+      <!-- VIEW: SHORTENER (FULL URL SHORTENER & MANAGEMENT) -->
+      <!-- ======================================================== -->
+      <main class="sid-content-area" id="viewShortener" style="display: none;">
+        
+        <!-- Shortlink Quick Creator Card -->
         <section class="quick-shorten-card">
           <div class="quick-shorten-header">
             <h2>Perpendek Tautan & Kustomisasi Tampilan</h2>
@@ -150,41 +565,8 @@
                 <i class="fa-solid fa-image"></i> Atur Tampilan Pesan
               </button>
               <button class="btn btn-sm btn-outline" id="btnStatsQuickResult">
-                <i class="fa-solid fa-chart-line"></i> Statistik
+                <i class="fa-solid fa-chart-line"></i> Buka Analisis
               </button>
-            </div>
-          </div>
-        </section>
-
-        <!-- KPI SUMMARY BAR -->
-        <section class="metrics-grid">
-          <div class="metric-card">
-            <div class="metric-info">
-              <span class="metric-title">Total Tautan</span>
-              <span class="metric-value" id="statTotalLinks">0</span>
-            </div>
-            <div class="metric-icon-wrap bg-indigo">
-              <i class="fa-solid fa-link"></i>
-            </div>
-          </div>
-
-          <div class="metric-card">
-            <div class="metric-info">
-              <span class="metric-title">Total Klik Masuk</span>
-              <span class="metric-value" id="statTotalClicks">0</span>
-            </div>
-            <div class="metric-icon-wrap bg-cyan">
-              <i class="fa-solid fa-arrow-pointer"></i>
-            </div>
-          </div>
-
-          <div class="metric-card">
-            <div class="metric-info">
-              <span class="metric-title">Sumber Terbanyak</span>
-              <span class="metric-value text-truncate" id="statTopReferrer" style="font-size: 1.25rem;">WhatsApp</span>
-            </div>
-            <div class="metric-icon-wrap bg-emerald">
-              <i class="fa-brands fa-whatsapp"></i>
             </div>
           </div>
         </section>
@@ -197,6 +579,9 @@
               <span class="count-badge" id="linksCountBadge">0 Tautan</span>
             </div>
             <div class="toolbar-right">
+              <button class="btn btn-primary btn-sm" id="btnOpenCreateModal">
+                <i class="fa-solid fa-plus"></i> Buat Shortlink Baru
+              </button>
               <div class="search-box-wrap">
                 <i class="fa-solid fa-magnifying-glass"></i>
                 <input type="text" id="searchInput" placeholder="Cari slug atau URL..." />
@@ -219,8 +604,39 @@
           </div>
         </section>
 
+      </main>
+
+    </div>
+
+  </div>
+
+  <!-- ======================================================== -->
+  <!-- MODAL: QR CODE GENERATOR & DOWNLOAD (WITH ?src=qr) -->
+  <!-- ======================================================== -->
+  <div class="modal-backdrop" id="modalQr" style="display: none;">
+    <div class="modal-dialog modal-md">
+      <div class="modal-header">
+        <h3><i class="fa-solid fa-qrcode" style="color: #06b6d4;"></i> QR Code Shortlink</h3>
+        <button class="modal-close" id="btnCloseModalQr"><i class="fa-solid fa-xmark"></i></button>
       </div>
-    </main>
+      <div class="modal-body text-center">
+        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px;">
+          Setiap kali pengunjung memindai QR code ini, otomatis dihitung sebagai <strong>QR Code Visitor</strong> di analisis statistik Anda.
+        </p>
+        <div class="qr-canvas-box" id="qrCanvasContainer">
+          <!-- QR Code Canvas Injected Here -->
+        </div>
+        <div class="qr-link-badge" id="qrLinkBadge">https://rigeel.id/slug?src=qr</div>
+      </div>
+      <div class="modal-footer justify-between">
+        <button type="button" class="btn btn-outline" id="btnTestQrScanModal">
+          <i class="fa-solid fa-arrow-pointer"></i> Tes Scan Langsung
+        </button>
+        <button type="button" class="btn btn-primary" id="btnDownloadQrImage">
+          <i class="fa-solid fa-download"></i> Unduh Gambar QR
+        </button>
+      </div>
+    </div>
   </div>
 
   <!-- ======================================================== -->
@@ -366,96 +782,6 @@
   </div>
 
   <!-- ======================================================== -->
-  <!-- MODAL: ANALISIS STATISTIK (DENGAN FILTER 1-7 TANGGAL)     -->
-  <!-- ======================================================== -->
-  <div class="modal-backdrop" id="modalAnalytics" style="display: none;">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-header">
-        <div class="analytics-header-titles">
-          <h3><i class="fa-solid fa-chart-line"></i> Analisis Statistik Klik</h3>
-          <span id="analyticsLinkSlug" class="analytics-slug-pill">/slug</span>
-        </div>
-        <button class="modal-close" id="btnCloseModalAnalytics"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-
-      <div class="modal-body">
-        
-        <!-- Filter Tanggal (1-7 Hari) Sesuai Permintaan User -->
-        <div class="date-filter-panel">
-          <div class="date-filter-label">
-            <i class="fa-regular fa-calendar-days"></i>
-            <strong>Filter Tanggal:</strong>
-          </div>
-          <div class="date-pills-row" id="datePillsContainer">
-            <button type="button" class="date-pill" data-days="1">1 Hari (Hari ini)</button>
-            <button type="button" class="date-pill" data-days="2">2 Hari</button>
-            <button type="button" class="date-pill" data-days="3">3 Hari</button>
-            <button type="button" class="date-pill" data-days="4">4 Hari</button>
-            <button type="button" class="date-pill" data-days="5">5 Hari</button>
-            <button type="button" class="date-pill" data-days="6">6 Hari</button>
-            <button type="button" class="date-pill active" data-days="7">7 Hari Terakhir</button>
-          </div>
-        </div>
-
-        <!-- Metric KPI Cards for Selected Date Range -->
-        <div class="analytics-summary-strip">
-          <div class="analytics-stat-box">
-            <span class="stat-lbl">Klik Pada Periode Terpilih</span>
-            <span class="stat-num" id="anaFilteredClicks">0</span>
-          </div>
-          <div class="analytics-stat-box">
-            <span class="stat-lbl">Total Seluruh Klik (All-Time)</span>
-            <span class="stat-num" id="anaTotalClicks">0</span>
-          </div>
-          <div class="analytics-stat-box">
-            <span class="stat-lbl">Rata-Rata Klik/Hari</span>
-            <span class="stat-num" id="anaAvgDailyClicks">0</span>
-          </div>
-          <div class="analytics-stat-box">
-            <span class="stat-lbl">Sumber Terbanyak</span>
-            <span class="stat-num" id="anaTopSource" style="font-size: 1.1rem; color: var(--accent-cyan);">-</span>
-          </div>
-        </div>
-
-        <!-- Grafik Batang Klik Harian (1-7 Hari) -->
-        <div class="chart-card">
-          <div class="chart-header">
-            <h4><i class="fa-solid fa-chart-column"></i> Tren Klik Harian (<span id="chartRangeLabel">7 Hari Terakhir</span>)</h4>
-            <span class="chart-hint">Grafik jumlah pengunjung per hari</span>
-          </div>
-          <div class="chart-canvas-container" id="clicksChartContainer">
-            <!-- Dynamic SVG Bars Rendered Here -->
-          </div>
-        </div>
-
-        <!-- Breakdown: Sumber Trafik & Perangkat Pengunjung -->
-        <div class="analytics-breakdown-grid">
-          <!-- Sumber Trafik -->
-          <div class="breakdown-card">
-            <h4><i class="fa-solid fa-share-nodes"></i> Sumber Trafik (Referrers)</h4>
-            <div class="breakdown-list" id="anaReferrersList">
-              <!-- Dynamic Bars -->
-            </div>
-          </div>
-
-          <!-- Perangkat -->
-          <div class="breakdown-card">
-            <h4><i class="fa-solid fa-mobile-screen"></i> Perangkat Pengunjung (Devices)</h4>
-            <div class="breakdown-list" id="anaDevicesList">
-              <!-- Dynamic Bars -->
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn btn-primary" id="btnCloseAnalyticsBottom">Selesai</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ======================================================== -->
   <!-- MODAL: PENGATURAN DOMAIN UTAMA / CUSTOM DOMAIN            -->
   <!-- ======================================================== -->
   <div class="modal-backdrop" id="modalDomain" style="display: none;">
@@ -467,29 +793,18 @@
 
       <div class="modal-body">
         <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 16px;">
-          Gunakan domain atau subdomain pribadi Anda sendiri sebagai alamat default shortlink (contoh: <code>s.domainanda.com</code> atau <code>link.domainanda.com</code>).
+          Gunakan domain atau subdomain pribadi Anda sendiri sebagai alamat default shortlink (contoh: <code>s.id</code>, <code>rigeel.id</code>, atau <code>link.domainanda.com</code>).
         </p>
 
         <div class="form-group">
           <label for="inputCustomDomain">Nama Domain Utama Anda</label>
-          <input type="text" id="inputCustomDomain" class="input-control" placeholder="contoh: s.domainanda.com atau link.domainanda.com" />
+          <input type="text" id="inputCustomDomain" class="input-control" placeholder="contoh: rigeel.id atau link.domainanda.com" />
           <span class="field-hint">Jangan sertakan https:// atau tanda garis miring (/).</span>
-        </div>
-
-        <div class="cloud-provider-card" style="margin-top: 16px; background: rgba(0,0,0,0.25); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 16px;">
-          <strong style="font-size: 0.88rem; color: var(--accent-cyan); display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
-            <i class="fa-solid fa-server"></i> Catatan DNS Setting (Untuk Anda masukkan di Registrar/Cloudflare):
-          </strong>
-          <ul style="font-size: 0.82rem; color: var(--text-secondary); padding-left: 20px; line-height: 1.6;">
-            <li>Jika <strong>Subdomain</strong> (misal <code>s.domainanda.com</code>): Tambahkan DNS Record <strong>CNAME</strong> dengan Name <code>s</code> mengarah ke <code>cname.vercel-dns.com</code>.</li>
-            <li>Jika <strong>Domain Utama</strong> (misal <code>domainanda.com</code>): Tambahkan DNS Record <strong>A</strong> dengan Name <code>@</code> mengarah ke IP <code>76.76.21.21</code>.</li>
-            <li>Di Vercel: Masuk ke <strong>Project Settings > Domains</strong> dan tambahkan domain yang sama.</li>
-          </ul>
         </div>
       </div>
 
       <div class="modal-footer">
-        <button type="button" class="btn btn-outline" id="btnResetDomainDefault">Gunakan Default Vercel</button>
+        <button type="button" class="btn btn-outline" id="btnResetDomainDefault">Gunakan Default</button>
         <button type="button" class="btn btn-primary" id="btnSaveCustomDomain">
           <i class="fa-solid fa-check"></i> Simpan Domain
         </button>
@@ -514,80 +829,19 @@
             <i class="fa-solid fa-cloud-arrow-up"></i>
           </div>
           <div class="cloud-status-info">
-            <h4 id="cloudBannerTitle">Status: Mode Penyimpanan Lokal</h4>
-            <p id="cloudBannerDesc">Tautan saat ini hanya tersimpan di browser perangkat ini. Hubungkan dengan Supabase (Gratis) untuk mengaktifkan login Google dan akses global dari perangkat manapun.</p>
+            <h4 id="cloudBannerTitle">Status: Mode Penyimpanan Lokal & Cloud</h4>
+            <p id="cloudBannerDesc">Analisis real tersimpan secara lokal dan otomatis disinkronisasi ke Supabase saat terhubung.</p>
           </div>
         </div>
 
-        <!-- Connection Inputs -->
         <div class="form-group" style="margin-top: 18px;">
           <label for="inputSupabaseUrl">Supabase Project URL</label>
           <input type="url" id="inputSupabaseUrl" class="input-control" placeholder="https://xxxxxxxxxxxxxxxxxxxx.supabase.co" />
-          <span class="field-hint">Ditemukan di Supabase Dashboard > Project Settings > API > Project URL.</span>
         </div>
 
         <div class="form-group">
           <label for="inputSupabaseAnonKey">Supabase Anon Public API Key</label>
           <input type="text" id="inputSupabaseAnonKey" class="input-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
-          <span class="field-hint">Ditemukan di Supabase Dashboard > Project Settings > API > Project API keys (anon public).</span>
-        </div>
-
-        <!-- Guide Steps Collapsible -->
-        <div class="setup-guide-box">
-          <div class="setup-guide-header">
-            <strong><i class="fa-solid fa-circle-question"></i> Panduan Singkat Setup Google Login & Database (Hanya 3 Menit):</strong>
-          </div>
-          <ol class="setup-guide-steps">
-            <li>
-              <strong>Buat Akun / Project Baru:</strong> Buka <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a> dan buat project baru gratis.
-            </li>
-            <li>
-              <strong>Jalankan Script Database:</strong> Buka menu <strong>SQL Editor</strong> di Supabase, lalu jalankan perintah SQL berikut:
-              <div class="sql-code-container">
-                <button type="button" class="btn btn-sm btn-outline btn-copy-sql" id="btnCopySql">
-                  <i class="fa-regular fa-copy"></i> Salin Script SQL
-                </button>
-                <pre><code id="sqlSchemaText">-- 1. Tabel Links (Tautan)
-create table if not exists public.links (
-  id text primary key,
-  user_id uuid references auth.users(id) on delete cascade,
-  user_email text,
-  slug text not null unique,
-  destination_url text not null,
-  title text,
-  og_title text,
-  og_description text,
-  og_image text,
-  clicks integer default 0,
-  is_active boolean default true,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- 2. Tabel Clicks (Analisis Statistik 1-7 Hari)
-create table if not exists public.clicks (
-  id text primary key,
-  link_id text references public.links(id) on delete cascade,
-  slug text not null,
-  referer text,
-  user_agent text,
-  clicked_at timestamp with time zone default timezone('utc'::text, now()) not null
-);
-
--- 3. Row Level Security & Akses Terbuka
-alter table public.links enable row level security;
-alter table public.clicks enable row level security;
-
-create policy "Allow all links access" on public.links for all using (true) with check (true);
-create policy "Allow all clicks access" on public.clicks for all using (true) with check (true);</code></pre>
-              </div>
-            </li>
-            <li>
-              <strong>Aktifkan Google Login:</strong> Buka <strong>Authentication > Providers > Google</strong> di Supabase, lalu masukkan <code>Client ID</code> dan <code>Client Secret</code> dari Google Cloud Console.
-            </li>
-            <li>
-              <strong>Tambahkan Redirect URL di Google Cloud:</strong> Masukkan URL Callback Supabase Anda (misal <code>https://xxxxx.supabase.co/auth/v1/callback</code>) ke dalam <em>Authorized Redirect URIs</em> di Google Cloud Console.
-            </li>
-          </ol>
         </div>
       </div>
 
@@ -601,7 +855,6 @@ create policy "Allow all clicks access" on public.clicks for all using (true) wi
   </div>
 
   <!-- Toast Notification Container -->
-
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Application Script -->
