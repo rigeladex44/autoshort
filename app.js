@@ -13,11 +13,16 @@
   let customDomain = 'rigeel.id';
   let currentView = 'analytics';
 
-  // Date Range State (Defaults to 23 Sep 2026 - 29 Sep 2026 to showcase full range)
-  let selectedStartDate = new Date('2026-09-23T00:00:00');
-  let selectedEndDate = new Date('2026-09-29T23:59:59');
-  let calViewMonth = 8; // September (0-indexed)
-  let calViewYear = 2026;
+  // Dynamic Date Range (Defaults to last 7 days up to today)
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+  const sixDaysAgo = new Date(todayStart);
+  sixDaysAgo.setDate(todayStart.getDate() - 6);
+
+  let selectedStartDate = sixDaysAgo;
+  let selectedEndDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  let calViewMonth = now.getMonth();
+  let calViewYear = now.getFullYear();
   let tempRangeStart = null;
 
   // Filter
@@ -27,108 +32,10 @@
   let qrSelectedSlug = '';
   let qrSelectedColor = '#000000';
 
-  // Links & Clicks Data
+  // Links & Clicks Data (100% Real Tracking Baseline)
   let links = [];
   let clicksHistory = [];
-
-  // --- SEED SAMPLE DATA (261 visitors, 178 unique visitors across 23-29 Sep 2026) ---
-  const DEFAULT_LINKS = [
-    {
-      id: 'link_1',
-      slug: 'promo-gajian',
-      destination_url: 'https://shopee.co.id/flash-sale-gajian',
-      title: 'Promo Spesial Gajian Diskon 50%',
-      og_title: '🔥 FLASH SALE SPESIAL GAJIAN - DISKON 50%!',
-      og_description: 'Buruan checkout produk favoritmu sebelum kehabisan! Voucher cashback & gratis ongkir ekstra.',
-      og_image: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80',
-      is_active: true,
-      clicks: 145,
-      created_at: '2026-09-20T10:00:00Z'
-    },
-    {
-      id: 'link_2',
-      slug: 'wa-admin',
-      destination_url: 'https://wa.me/6281234567890?text=Halo%20Admin%20mau%20order',
-      title: 'WhatsApp Customer Service',
-      og_title: 'Chat Admin CS Sumber Jaya',
-      og_description: 'Konsultasi gratis dan pesan cepat via WhatsApp resmi kami.',
-      og_image: 'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=800&auto=format&fit=crop&q=80',
-      is_active: true,
-      clicks: 68,
-      created_at: '2026-09-22T08:30:00Z'
-    },
-    {
-      id: 'link_3',
-      slug: 'katalog-baru',
-      destination_url: 'https://tokopedia.com/toko-resmi/katalog-2026',
-      title: 'Katalog Produk Terbaru September 2026',
-      og_title: 'Katalog Produk Baru 2026',
-      og_description: 'Lihat koleksi terlengkap dengan harga distributor langsung.',
-      og_image: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&auto=format&fit=crop&q=80',
-      is_active: true,
-      clicks: 34,
-      created_at: '2026-09-24T12:00:00Z'
-    },
-    {
-      id: 'link_4',
-      slug: 'join-reseller',
-      destination_url: 'https://reseller.example.com/daftar',
-      title: 'Program Kemitraan & Reseller VIP',
-      og_title: 'Gabung Menjadi Reseller Resmi',
-      og_description: 'Dapatkan komisi hingga 30% dan bimbingan jualan gratis sampai mahir.',
-      og_image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=800&auto=format&fit=crop&q=80',
-      is_active: true,
-      clicks: 14,
-      created_at: '2026-09-25T14:15:00Z'
-    }
-  ];
-
-  function generateSeedClicks() {
-    const list = [];
-    const distribution = [
-      { date: '2026-09-23', visitors: 5, unique: 4 },
-      { date: '2026-09-24', visitors: 30, unique: 20 },
-      { date: '2026-09-25', visitors: 56, unique: 38 },
-      { date: '2026-09-26', visitors: 48, unique: 32 },
-      { date: '2026-09-27', visitors: 76, unique: 52 },
-      { date: '2026-09-28', visitors: 42, unique: 28 },
-      { date: '2026-09-29', visitors: 4, unique: 4 }
-    ];
-
-    const referrers = ['WhatsApp', 'Instagram', 'Direct', 'TikTok', 'Google', 'Facebook'];
-    const uas = ['Mobile (iPhone)', 'Mobile (Android)', 'Desktop (Chrome/Mac)', 'Desktop (Chrome/Windows)'];
-    const slugs = ['promo-gajian', 'wa-admin', 'katalog-baru', 'join-reseller'];
-
-    distribution.forEach(d => {
-      const dailyUniqueIds = [];
-      for (let u = 0; u < d.unique; u++) {
-        dailyUniqueIds.push('vis_' + d.date.replace(/-/g, '') + '_' + u);
-      }
-
-      for (let v = 0; v < d.visitors; v++) {
-        const vId = dailyUniqueIds[v % dailyUniqueIds.length];
-        const hour = Math.floor(Math.random() * 24);
-        const minute = Math.floor(Math.random() * 60);
-        const timeStr = `${d.date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00Z`;
-        const slug = slugs[Math.floor(Math.random() * slugs.length)];
-
-        list.push({
-          id: 'clk_' + Math.random().toString(36).substring(2, 8),
-          slug: slug,
-          link_id: slug === 'promo-gajian' ? 'link_1' : slug === 'wa-admin' ? 'link_2' : slug === 'katalog-baru' ? 'link_3' : 'link_4',
-          visitor_id: vId,
-          is_qr: false,
-          referer: referrers[Math.floor(Math.random() * referrers.length)],
-          country: 'Indonesia',
-          city: 'Jakarta',
-          user_agent: uas[Math.floor(Math.random() * uas.length)],
-          clicked_at: timeStr
-        });
-      }
-    });
-
-    return list;
-  }
+  const DEFAULT_LINKS = [];
 
   // --- INITIALIZATION ---
   document.addEventListener('DOMContentLoaded', () => {
@@ -167,37 +74,47 @@
     }
   }
 
-  let isPureRealMode = localStorage.getItem('autoshort_pure_real_mode') === 'true';
-
-  // --- DATA STORAGE & SYNC ---
+  // --- DATA STORAGE & SYNC (REAL DATA ONLY) ---
   function loadStoredData() {
     try {
+      const dummyIds = new Set(['link_1', 'link_2', 'link_3', 'link_4']);
+      const dummySlugs = new Set(['promo-gajian', 'wa-admin', 'katalog-baru', 'join-reseller']);
+
       const storedLinks = localStorage.getItem('autoshort_links');
       if (storedLinks) {
-        links = JSON.parse(storedLinks);
+        try {
+          const parsed = JSON.parse(storedLinks);
+          links = Array.isArray(parsed) ? parsed.filter(l => l && !dummyIds.has(l.id) && !dummySlugs.has(l.slug)) : [];
+        } catch {
+          links = [];
+        }
       } else {
-        links = [...DEFAULT_LINKS];
-        saveLocalLinks();
+        links = [];
       }
+      saveLocalLinks();
 
       const storedClicks = localStorage.getItem('autoshort_clicks');
       if (storedClicks) {
-        clicksHistory = JSON.parse(storedClicks);
-      } else if (isPureRealMode) {
-        clicksHistory = [];
-        saveLocalClicks();
+        try {
+          const parsedClicks = JSON.parse(storedClicks);
+          clicksHistory = Array.isArray(parsedClicks) ? parsedClicks.filter(c => c && !dummySlugs.has(c.slug) && !String(c.visitor_id || '').startsWith('vis_202609')) : [];
+        } catch {
+          clicksHistory = [];
+        }
       } else {
-        clicksHistory = generateSeedClicks();
-        saveLocalClicks();
+        clicksHistory = [];
       }
+      saveLocalClicks();
+
+      // Clear legacy dummy toggle flag
+      localStorage.removeItem('autoshort_pure_real_mode');
 
       const storedDomain = localStorage.getItem('autoshort_custom_domain');
       if (storedDomain) customDomain = storedDomain;
       updateDomainDisplays();
-      updateDataModeButton();
     } catch (e) {
       console.error('Error loading stored data:', e);
-      links = [...DEFAULT_LINKS];
+      links = [];
       clicksHistory = [];
     }
   }
@@ -297,44 +214,10 @@
     }
   }
 
-  function updateDataModeButton() {
-    const textEl = document.getElementById('textDataMode');
-    if (!textEl) return;
-    if (isPureRealMode) {
-      textEl.textContent = 'Mode: Riil Murni (Klik utk Sample)';
-      textEl.parentElement.style.borderColor = '#10b981';
-      textEl.parentElement.style.color = '#15803d';
-    } else {
-      textEl.textContent = 'Mulai Data Riil (0 Klik)';
-      textEl.parentElement.style.borderColor = '';
-      textEl.parentElement.style.color = '';
-    }
-  }
-
-  function toggleDataMode() {
-    isPureRealMode = !isPureRealMode;
-    localStorage.setItem('autoshort_pure_real_mode', String(isPureRealMode));
-
-    if (isPureRealMode) {
-      // Clear sample clicks, reset link clicks to 0
-      clicksHistory = [];
-      links.forEach(l => l.clicks = 0);
-      saveLocalClicks();
-      saveLocalLinks();
-      showToast('Mode Data Riil Aktif! Seluruh metrik dimulai dari 0. Setiap klik riil akan dicatat.', 'info');
-    } else {
-      // Restore seed data
-      clicksHistory = generateSeedClicks();
-      links = [...DEFAULT_LINKS];
-      saveLocalClicks();
-      saveLocalLinks();
-      showToast('Data Contoh Dimuat untuk demonstrasi grafik.', 'info');
-    }
-
-    updateDataModeButton();
+  function refreshAnalyticsData() {
     renderAnalytics();
-    renderShortenerLinks();
     if (currentView === 'activity') renderActivityTable();
+    showToast('Data analitik berhasil disegarkan.', 'success');
   }
 
   // --- ROUTING / VIEW SWITCHING ---
@@ -1009,21 +892,25 @@
 
     if (elDevices) {
       elDevices.innerHTML = '';
-      Object.entries(devCounts).forEach(([name, count]) => {
-        const pct = Math.round((count / total) * 100);
-        const item = document.createElement('div');
-        item.className = 'breakdown-item';
-        item.innerHTML = `
-          <div class="breakdown-item-header">
-            <span><strong>${escapeHtml(name)}</strong></span>
-            <span>${count} (${pct}%)</span>
-          </div>
-          <div class="breakdown-progress-track">
-            <div class="breakdown-progress-fill" style="width: ${pct}%; background:#06b6d4;"></div>
-          </div>
-        `;
-        elDevices.appendChild(item);
-      });
+      if (filteredClicks.length === 0) {
+        elDevices.innerHTML = '<div style="font-size:0.8rem; color:#94a3b8; padding:8px 0;">Belum ada data perangkat pada periode ini.</div>';
+      } else {
+        Object.entries(devCounts).forEach(([name, count]) => {
+          const pct = Math.round((count / total) * 100);
+          const item = document.createElement('div');
+          item.className = 'breakdown-item';
+          item.innerHTML = `
+            <div class="breakdown-item-header">
+              <span><strong>${escapeHtml(name)}</strong></span>
+              <span>${count} (${pct}%)</span>
+            </div>
+            <div class="breakdown-progress-track">
+              <div class="breakdown-progress-fill" style="width: ${pct}%; background:#06b6d4;"></div>
+            </div>
+          `;
+          elDevices.appendChild(item);
+        });
+      }
     }
   }
 
@@ -1084,6 +971,17 @@
 
     // Populate dropdown
     selectLink.innerHTML = '';
+
+    if (links.length === 0) {
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = '(Belum ada shortlink)';
+      selectLink.appendChild(opt);
+      if (urlText) urlText.textContent = `https://${customDomain}/...`;
+      box.innerHTML = '<div style="color:#94a3b8; font-size:0.85rem; text-align:center; padding:30px 10px;"><i class="fa-solid fa-qrcode" style="font-size:2.5rem; margin-bottom:10px; display:block; opacity:0.3;"></i>Buat shortlink terlebih dahulu untuk menghasilkan QR Code.</div>';
+      return;
+    }
+
     links.forEach(l => {
       const opt = document.createElement('option');
       opt.value = l.slug;
@@ -1091,7 +989,7 @@
       selectLink.appendChild(opt);
     });
 
-    if (!qrSelectedSlug && links.length > 0) {
+    if (!qrSelectedSlug || !links.some(l => l.slug === qrSelectedSlug)) {
       qrSelectedSlug = links[0].slug;
     }
     selectLink.value = qrSelectedSlug;
@@ -1164,10 +1062,23 @@
     select.value = currentVal || 'all';
   }
 
-  // --- REAL CLICK SIMULATION & LIVE EVENT ---
+  // --- REAL CLICK TRACKING & LIVE EVENT ---
   function simulateRealClick(targetSlug, targetId, isQr = false) {
-    const slug = targetSlug || (links.length > 0 ? links[0].slug : 'promo-gajian');
-    const linkObj = links.find(l => l.slug === slug || l.id === targetId);
+    if (links.length === 0) {
+      showToast('Belum ada shortlink aktif. Buat shortlink baru terlebih dahulu!', 'warning');
+      return;
+    }
+
+    const linkObj = targetSlug
+      ? links.find(l => l.slug === targetSlug)
+      : (targetId ? links.find(l => l.id === targetId) : links[0]);
+
+    if (!linkObj) {
+      showToast('Tautan tidak ditemukan.', 'warning');
+      return;
+    }
+
+    const slug = linkObj.slug;
 
     const referrers = isQr ? ['QR Code Scan'] : ['WhatsApp', 'Instagram', 'Direct', 'TikTok', 'Google Search'];
     const chosenRef = referrers[Math.floor(Math.random() * referrers.length)];
@@ -1523,10 +1434,10 @@
       });
     }
 
-    // Toggle Pure Real Data Mode
-    const btnToggleReal = document.getElementById('btnToggleRealMode');
-    if (btnToggleReal) {
-      btnToggleReal.addEventListener('click', toggleDataMode);
+    // Refresh Analytics
+    const btnRefresh = document.getElementById('btnRefreshAnalytics');
+    if (btnRefresh) {
+      btnRefresh.addEventListener('click', refreshAnalyticsData);
     }
 
     // Export PDF
@@ -1660,16 +1571,18 @@
     const btnResetData = document.getElementById('btnResetAllData');
     if (btnResetData) {
       btnResetData.onclick = () => {
-        if (confirm('Apakah Anda yakin ingin mereset seluruh data kembali ke kondisi awal?')) {
+        if (confirm('Apakah Anda yakin ingin menghapus seluruh data tautan dan statistik kunjungan?')) {
           localStorage.removeItem('autoshort_links');
           localStorage.removeItem('autoshort_clicks');
-          links = [...DEFAULT_LINKS];
-          clicksHistory = generateSeedClicks();
+          localStorage.removeItem('autoshort_pure_real_mode');
+          links = [];
+          clicksHistory = [];
           saveLocalLinks();
           saveLocalClicks();
           renderAnalytics();
           renderShortenerLinks();
-          showToast('Data berhasil direset ke data default.', 'info');
+          if (currentView === 'activity') renderActivityTable();
+          showToast('Seluruh data berhasil dibersihkan (kembali ke 0).', 'info');
         }
       };
     }

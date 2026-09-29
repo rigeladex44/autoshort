@@ -184,7 +184,7 @@
             <div class="date-dropdown-wrapper">
               <button class="date-range-btn" id="btnDateRangeDropdown">
                 <i class="fa-regular fa-calendar"></i>
-                <span id="dateRangeDisplayText">23 Sep 2026 — 29 Sep 2026</span>
+                <span id="dateRangeDisplayText">7 Hari Terakhir</span>
                 <i class="fa-solid fa-chevron-down caret-icon"></i>
               </button>
 
@@ -238,11 +238,10 @@
             </div>
           </div>
 
-          <div class="controls-right">
-            <!-- Toggle Pure Real Data vs Sample Data -->
-            <button class="btn btn-outline-clean" id="btnToggleRealMode" title="Bersihkan data contoh dan mulai dari 0 klik murni">
-              <i class="fa-solid fa-database" style="color: #6366f1;"></i>
-              <span id="textDataMode">Mulai Data Riil (0 Klik)</span>
+            <!-- Refresh Analytics Real-Time -->
+            <button class="btn btn-outline-clean" id="btnRefreshAnalytics" title="Sinkronkan dan segarkan data analitik real-time">
+              <i class="fa-solid fa-arrows-rotate" style="color: #6366f1;"></i>
+              <span>Segarkan Data</span>
             </button>
 
             <!-- Export PDF Button -->
@@ -289,7 +288,7 @@
         <div class="sid-metrics-row">
           <!-- 1. Total Links -->
           <div class="sid-kpi-col">
-            <div class="kpi-number" id="kpiTotalLinks">4</div>
+            <div class="kpi-number" id="kpiTotalLinks">0</div>
             <div class="kpi-label">
               <span class="dot-indicator dot-blue"></span>
               <span>Total Tautan</span>
@@ -298,7 +297,7 @@
 
           <!-- 2. Visitors -->
           <div class="sid-kpi-col">
-            <div class="kpi-number" id="kpiTotalVisitors">261</div>
+            <div class="kpi-number" id="kpiTotalVisitors">0</div>
             <div class="kpi-label">
               <span class="dot-indicator dot-red"></span>
               <span>Total Kunjungan</span>
@@ -307,7 +306,7 @@
 
           <!-- 3. Unique Visitor -->
           <div class="sid-kpi-col">
-            <div class="kpi-number" id="kpiUniqueVisitors">178</div>
+            <div class="kpi-number" id="kpiUniqueVisitors">0</div>
             <div class="kpi-label">
               <span class="dot-indicator dot-purple"></span>
               <span>Pengunjung Unik</span>
@@ -330,10 +329,10 @@
             <div class="anomaly-title-row">
               <span class="anomaly-icon"><i class="fa-solid fa-chart-line"></i></span>
               <span class="anomaly-title">Deteksi Anomali Trafik (Statistik Real)</span>
-              <span class="anomaly-badge" id="anomalyFoundBadge">3 Terdeteksi</span>
+              <span class="anomaly-badge" id="anomalyFoundBadge">0 Terdeteksi</span>
             </div>
             <div class="anomaly-meta-info" id="anomalyMetaInfo">
-              Rata-rata Harian: <strong id="anomalyAvgDaily">-</strong> klik | Batas Anomali: <strong id="anomalyThreshold">-</strong> klik
+              Rata-rata Harian: <strong id="anomalyAvgDaily">0</strong> klik | Batas Anomali: <strong id="anomalyThreshold">0</strong> klik
             </div>
           </div>
 
