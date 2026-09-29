@@ -402,13 +402,27 @@
           });
           if (clicksHistory.length > 5000) clicksHistory.shift();
           localStorage.setItem('autoshort_clicks', JSON.stringify(clicksHistory));
+
+          // Send real-time click to server in background
+          fetch('/api/analytics', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              slug: linkData.slug,
+              link_id: linkData.id,
+              visitor_id: visitorId,
+              is_qr: Boolean(isQr),
+              referer: ref,
+              user_agent: navigator.userAgent
+            })
+          }).catch(() => {});
         } catch (e) {
           console.error('Local click tracking error:', e);
         }
 
         setTimeout(() => {
           window.location.replace(dest);
-        }, 600);
+        }, 500);
       }
 
       function setupPasswordCheck(linkData) {

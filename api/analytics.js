@@ -4,7 +4,7 @@
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 }
 
@@ -12,10 +12,42 @@ export default async function handler(req, res) {
   setCors(res);
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { slug, link_id } = req.query;
+  const supabaseUrl = process.env.SUPABASE_URL || 'https://miipmgzjxpyokchrctdj.supabase.co';
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1paXBtZ3pqeHB5b2tjaHJjdGRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1NjYyMjMsImV4cCI6MjEwNjE0MjIyM30.SfEbfXimbA7VTZrRYzgJLezH6fv64QWR6yYuHnbHUMQ';
 
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+  // Support POST to log real-time clicks from client
+  if (req.method === 'POST') {
+    const { slug, link_id, visitor_id, is_qr, referer, country, city, user_agent } = req.body || {};
+    if (supabaseUrl && supabaseKey) {
+      try {
+        await fetch(`${supabaseUrl}/rest/v1/clicks`, {
+          method: 'POST',
+          headers: {
+            'apikey': supabaseKey,
+            'Authorization': `Bearer ${supabaseKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            slug: slug || 'unknown',
+            link_id: link_id || null,
+            visitor_id: visitor_id || 'anon',
+            is_qr: Boolean(is_qr),
+            referer: referer || 'Direct',
+            country: country || 'Unknown',
+            city: city || 'Unknown',
+            user_agent: user_agent || req.headers['user-agent'] || '',
+            clicked_at: new Date().toISOString()
+          })
+        });
+        return res.status(200).json({ success: true, message: 'Click logged' });
+      } catch (err) {
+        return res.status(500).json({ error: err.message });
+      }
+    }
+    return res.status(200).json({ success: true, mode: 'local' });
+  }
+
+  const { slug, link_id } = req.query;
 
   if (supabaseUrl && supabaseKey) {
     try {

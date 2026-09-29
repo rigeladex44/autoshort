@@ -167,6 +167,8 @@
     }
   }
 
+  let isPureRealMode = localStorage.getItem('autoshort_pure_real_mode') === 'true';
+
   // --- DATA STORAGE & SYNC ---
   function loadStoredData() {
     try {
@@ -181,6 +183,9 @@
       const storedClicks = localStorage.getItem('autoshort_clicks');
       if (storedClicks) {
         clicksHistory = JSON.parse(storedClicks);
+      } else if (isPureRealMode) {
+        clicksHistory = [];
+        saveLocalClicks();
       } else {
         clicksHistory = generateSeedClicks();
         saveLocalClicks();
@@ -189,10 +194,11 @@
       const storedDomain = localStorage.getItem('autoshort_custom_domain');
       if (storedDomain) customDomain = storedDomain;
       updateDomainDisplays();
+      updateDataModeButton();
     } catch (e) {
       console.error('Error loading stored data:', e);
       links = [...DEFAULT_LINKS];
-      clicksHistory = generateSeedClicks();
+      clicksHistory = [];
     }
   }
 
@@ -203,6 +209,22 @@
   function saveLocalClicks() {
     localStorage.setItem('autoshort_clicks', JSON.stringify(clicksHistory));
   }
+
+  // --- REAL-TIME LISTENERS (CROSS-TAB & WEBSOCKET) ---
+  // 1. Cross-tab real-time listener (fires instantly when someone visits link in another tab)
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'autoshort_clicks' || e.key === 'autoshort_links') {
+      const prevCount = clicksHistory.length;
+      loadStoredData();
+      renderAnalytics();
+      renderShortenerLinks();
+      if (currentView === 'activity') renderActivityTable();
+      if (clicksHistory.length > prevCount) {
+        const latest = clicksHistory[clicksHistory.length - 1];
+        showToast(`⚡ Kunjungan baru masuk: /${latest.slug} (${latest.is_qr ? 'Scan QR' : latest.referer || 'Direct'})!`, 'success');
+      }
+    }
+  });
 
   async function fetchBackendConfig() {
     try {
@@ -215,8 +237,14 @@
             const statusDot = document.getElementById('cloudStatusDot');
             const statusText = document.getElementById('cloudStatusText');
             if (statusDot) statusDot.style.background = '#10b981';
-            if (statusText) statusText.textContent = 'Cloud Terhubung';
+            if (statusText) statusText.textContent = 'Cloud Terhubung (Live)';
+            
+            // Connect Realtime WebSocket Channel
+            subscribeToSupabaseRealtime();
             syncWithSupabase();
+
+            // Periodic polling fallback every 6 seconds
+            setInterval(syncWithSupabase, 6000);
           }
         }
         if (config.customDomain) {
@@ -226,6 +254,26 @@
       }
     } catch {
       // Local fallback
+    }
+  }
+
+  function subscribeToSupabaseRealtime() {
+    if (!supabase) return;
+    try {
+      supabase
+        .channel('public_clicks_realtime')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'clicks' }, (payload) => {
+          if (payload.new) {
+            clicksHistory.unshift(payload.new);
+            saveLocalClicks();
+            renderAnalytics();
+            if (currentView === 'activity') renderActivityTable();
+            showToast(`🌐 Kunjungan live baru: /${payload.new.slug} (${payload.new.referer || 'Direct'})!`, 'success');
+          }
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Realtime subscription error:', e);
     }
   }
 
@@ -247,6 +295,46 @@
     } catch (e) {
       console.warn('Supabase sync warning:', e);
     }
+  }
+
+  function updateDataModeButton() {
+    const textEl = document.getElementById('textDataMode');
+    if (!textEl) return;
+    if (isPureRealMode) {
+      textEl.textContent = 'Mode: Riil Murni (Klik utk Sample)';
+      textEl.parentElement.style.borderColor = '#10b981';
+      textEl.parentElement.style.color = '#15803d';
+    } else {
+      textEl.textContent = 'Mulai Data Riil (0 Klik)';
+      textEl.parentElement.style.borderColor = '';
+      textEl.parentElement.style.color = '';
+    }
+  }
+
+  function toggleDataMode() {
+    isPureRealMode = !isPureRealMode;
+    localStorage.setItem('autoshort_pure_real_mode', String(isPureRealMode));
+
+    if (isPureRealMode) {
+      // Clear sample clicks, reset link clicks to 0
+      clicksHistory = [];
+      links.forEach(l => l.clicks = 0);
+      saveLocalClicks();
+      saveLocalLinks();
+      showToast('Mode Data Riil Aktif! Seluruh metrik dimulai dari 0. Setiap klik riil akan dicatat.', 'info');
+    } else {
+      // Restore seed data
+      clicksHistory = generateSeedClicks();
+      links = [...DEFAULT_LINKS];
+      saveLocalClicks();
+      saveLocalLinks();
+      showToast('Data Contoh Dimuat untuk demonstrasi grafik.', 'info');
+    }
+
+    updateDataModeButton();
+    renderAnalytics();
+    renderShortenerLinks();
+    if (currentView === 'activity') renderActivityTable();
   }
 
   // --- ROUTING / VIEW SWITCHING ---
@@ -1433,6 +1521,12 @@
       btnHeaderQr.addEventListener('click', () => {
         simulateRealClick(activeLinkFilter !== 'all' ? activeLinkFilter : null, null, true);
       });
+    }
+
+    // Toggle Pure Real Data Mode
+    const btnToggleReal = document.getElementById('btnToggleRealMode');
+    if (btnToggleReal) {
+      btnToggleReal.addEventListener('click', toggleDataMode);
     }
 
     // Export PDF
