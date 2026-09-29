@@ -5,8 +5,8 @@
      crossorigin="anonymous"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Analytics | s.id — AutoShort</title>
-  <meta name="description" content="Dashboard Real Analytics & Shortlink: Analisis data pengunjung, unique visitor, qr code visitor, anomaly detection, dan custom link preview.">
+  <title>AutoShort — Dashboard Analisis Data & URL Shortener Real-Time</title>
+  <meta name="description" content="Dashboard shortlink modern dengan analisis statistik pengunjung real-time, pengunjung unik, tracking QR code, deteksi anomali trafik, dan preview WhatsApp.">
 
   <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,167 +30,100 @@
   <div class="sid-layout">
     
     <!-- ======================================================== -->
-    <!-- LEFT SIDEBAR (s.id style) -->
+    <!-- SIDEBAR NAVIGASI UTAMA (FOKUS FITUR FUNGSIONAL) -->
     <!-- ======================================================== -->
     <aside class="sid-sidebar" id="sidSidebar">
       
-      <!-- Logo Area -->
+      <!-- Brand Logo -->
       <div class="sidebar-header">
-        <a href="/" class="sid-brand-logo">
-          <span class="sid-brand-s">s</span><span class="sid-brand-dot">.</span><span class="sid-brand-id">id</span>
+        <a href="#analytics" class="sid-brand-logo">
+          <div class="brand-icon-square"><i class="fa-solid fa-bolt"></i></div>
+          <span class="brand-text-main">Auto<span class="brand-text-accent">Short</span></span>
         </a>
       </div>
 
-      <!-- Navigation Menu -->
+      <!-- Functional Navigation Menu -->
       <nav class="sidebar-nav">
+        <div class="nav-section-label">ANALISIS & DATA</div>
         <ul class="nav-list">
-          <li class="nav-item" data-view="dashboard">
-            <a href="#dashboard" class="nav-link">
-              <i class="fa-solid fa-table-cells-large nav-icon"></i>
-              <span class="nav-label">Dashboard</span>
-            </a>
-          </li>
-
-          <li class="nav-item" data-view="agent">
-            <a href="#agent" class="nav-link">
-              <i class="fa-solid fa-bolt nav-icon text-agent"></i>
-              <span class="nav-label">Agent</span>
-              <span class="badge-pill badge-beta">Beta</span>
-            </a>
-          </li>
-
           <li class="nav-item active" data-view="analytics" id="sidebarNavAnalytics">
             <a href="#analytics" class="nav-link">
               <i class="fa-solid fa-chart-column nav-icon"></i>
-              <span class="nav-label">Analytics</span>
+              <span class="nav-label">Data Analitik</span>
+              <span class="badge-pill badge-live">Live</span>
             </a>
           </li>
 
+          <li class="nav-item" data-view="activity" id="sidebarNavActivity">
+            <a href="#activity" class="nav-link">
+              <i class="fa-solid fa-wave-square nav-icon"></i>
+              <span class="nav-label">Aktivitas Real-Time</span>
+            </a>
+          </li>
+        </ul>
+
+        <div class="nav-section-label">MANAJEMEN LINK</div>
+        <ul class="nav-list">
           <li class="nav-item" data-view="shortener" id="sidebarNavShortener">
             <a href="#shortener" class="nav-link">
               <i class="fa-solid fa-link nav-icon"></i>
-              <span class="nav-label">Shortener</span>
+              <span class="nav-label">Kelola Shortlink</span>
             </a>
           </li>
 
-          <li class="nav-item" data-view="microsite">
-            <a href="#microsite" class="nav-link">
-              <i class="fa-solid fa-mobile-screen nav-icon"></i>
-              <span class="nav-label">Microsite</span>
+          <li class="nav-item" data-view="qr-studio" id="sidebarNavQr">
+            <a href="#qr-studio" class="nav-link">
+              <i class="fa-solid fa-qrcode nav-icon"></i>
+              <span class="nav-label">QR Code Studio</span>
             </a>
           </li>
 
-          <li class="nav-item" data-view="shop">
-            <a href="#shop" class="nav-link">
-              <i class="fa-solid fa-cart-shopping nav-icon"></i>
-              <span class="nav-label">Shop</span>
-              <span class="badge-pill badge-beta">Beta</span>
-            </a>
-          </li>
-
-          <li class="nav-item" data-view="purchases">
-            <a href="#purchases" class="nav-link">
-              <i class="fa-solid fa-bag-shopping nav-icon"></i>
-              <span class="nav-label">My Purchases</span>
-            </a>
-          </li>
-
-          <li class="nav-item" id="sidebarNavDomains">
+          <li class="nav-item" data-view="domains" id="sidebarNavDomains">
             <a href="#domains" class="nav-link">
               <i class="fa-solid fa-globe nav-icon"></i>
-              <span class="nav-label">Domains</span>
+              <span class="nav-label">Custom Domain</span>
             </a>
           </li>
+        </ul>
 
-          <li class="nav-item">
-            <a href="#ticket" class="nav-link">
-              <i class="fa-solid fa-ticket nav-icon"></i>
-              <span class="nav-label">Support Ticket</span>
-            </a>
-          </li>
-
-          <li class="nav-item">
-            <a href="#subscription" class="nav-link">
-              <i class="fa-solid fa-thumbs-up nav-icon"></i>
-              <span class="nav-label">Subscription</span>
-            </a>
-          </li>
-
-          <li class="nav-item">
-            <a href="#referral" class="nav-link">
-              <i class="fa-solid fa-user-group nav-icon"></i>
-              <span class="nav-label">Referral Program</span>
-            </a>
-          </li>
-
-          <li class="nav-item">
-            <a href="#developer" class="nav-link">
-              <i class="fa-solid fa-laptop-code nav-icon"></i>
-              <span class="nav-label">Developer</span>
-              <span class="badge-pill badge-new">New</span>
-            </a>
-          </li>
-
-          <li class="nav-item" id="sidebarNavSettings">
+        <div class="nav-section-label">SISTEM</div>
+        <ul class="nav-list">
+          <li class="nav-item" data-view="settings" id="sidebarNavSettings">
             <a href="#settings" class="nav-link">
               <i class="fa-solid fa-gear nav-icon"></i>
-              <span class="nav-label">Settings</span>
+              <span class="nav-label">Pengaturan & Cloud</span>
             </a>
           </li>
         </ul>
       </nav>
 
-      <!-- Sidebar Bottom: Getting Started & Profile -->
+      <!-- Sidebar Bottom: System Status & User Card -->
       <div class="sidebar-bottom">
-        <!-- Getting Started Card -->
-        <div class="getting-started-card" id="gettingStartedCard">
-          <div class="getting-started-header" id="btnToggleGettingStarted">
-            <div class="gs-title-row">
-              <span class="gs-title">Getting Started</span>
-              <i class="fa-solid fa-chevron-up gs-chevron" id="gsChevron"></i>
-            </div>
-            <div class="gs-progress-bar">
-              <div class="gs-progress-fill" style="width: 35%;"></div>
-            </div>
-          </div>
-          <div class="gs-checklist" id="gsChecklist">
-            <div class="gs-item done"><span class="gs-dot"></span> Create your first short link</div>
-            <div class="gs-item"><span class="gs-dot"></span> Create your first microsite</div>
-            <div class="gs-item"><span class="gs-dot"></span> Create your first shop</div>
-            <div class="gs-item"><span class="gs-dot"></span> Share a link or microsite</div>
-            <div class="gs-item"><span class="gs-dot"></span> Set up your custom QR code</div>
-            <div class="gs-item"><span class="gs-dot"></span> Connect a custom domain</div>
-          </div>
-        </div>
+        <!-- Quick Link Creator Button in Sidebar -->
+        <button class="btn btn-primary btn-block btn-sidebar-create" id="btnSidebarCreateLink">
+          <i class="fa-solid fa-plus"></i>
+          <span>Buat Link Baru</span>
+        </button>
 
         <!-- User Profile Card -->
         <div class="sidebar-user-card" id="sidebarUserCard">
           <div class="user-avatar-circle" id="userAvatarCircle">GM</div>
           <div class="user-info-text">
             <div class="user-name-label" id="userNameLabel">Geel Mlbb</div>
-            <div class="user-role-label" id="userRoleLabel">Free User</div>
+            <div class="user-role-label" id="userRoleLabel">Mode Lokal & Cloud</div>
           </div>
-          <button class="user-options-btn" id="btnUserMenuToggle" title="Opsi Akun">
-            <i class="fa-solid fa-chevron-up-down"></i>
+          <button class="user-options-btn" id="btnThemeToggle" title="Ganti Tema (Gelap / Terang)">
+            <i class="fa-solid fa-moon" id="themeIcon"></i>
           </button>
+        </div>
       </div>
+
     </aside>
 
     <!-- ======================================================== -->
     <!-- MAIN WORKSPACE -->
     <!-- ======================================================== -->
     <div class="sid-main-wrapper">
-      <!-- Google AdSense -->
-      <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2400550373404770"
-           crossorigin="anonymous"></script>
-      <ins class="adsbygoogle"
-           style="display:block"
-           data-ad-format="autorelaxed"
-           data-ad-client="ca-pub-2400550373404770"
-           data-ad-slot="9001899727"></ins>
-      <script>
-           (adsbygoogle = window.adsbygoogle || []).push({});
-      </script>
       
       <!-- Top Header Bar -->
       <header class="sid-topbar">
@@ -199,71 +132,65 @@
             <i class="fa-solid fa-bars"></i>
           </button>
           <div class="topbar-title-wrap">
-            <i class="fa-regular fa-folder-open title-icon" id="topbarIcon"></i>
-            <h1 class="topbar-title" id="topbarTitle">Analytics</h1>
+            <i class="fa-solid fa-chart-column title-icon" id="topbarIcon"></i>
+            <h1 class="topbar-title" id="topbarTitle">Data Analisis Kunjungan</h1>
           </div>
         </div>
 
         <div class="topbar-right">
-          <!-- UPGRADE Button -->
-          <button class="btn btn-upgrade" id="btnUpgrade">
-            <i class="fa-solid fa-arrow-up"></i>
-            <span>UPGRADE</span>
+          <!-- Cloud Database Status Pill -->
+          <button class="status-pill-btn" id="btnOpenCloudStatus" title="Status Database & Sinkronisasi">
+            <span class="status-dot-pulse" id="cloudStatusDot"></span>
+            <span id="cloudStatusText">Penyimpanan Aktif</span>
           </button>
 
-          <!-- Live Chat Button -->
-          <button class="btn btn-ghost" id="btnLiveChat">
-            <i class="fa-regular fa-comment-dots"></i>
-            <span>Live Chat</span>
+          <!-- Current Domain Display Pill -->
+          <button class="domain-pill-btn" id="btnTopDomainModal" title="Domain yang digunakan">
+            <i class="fa-solid fa-globe" style="color: #06b6d4;"></i>
+            <span id="topDomainText">rigeel.id</span>
           </button>
 
-          <!-- Agent Button -->
-          <button class="btn btn-ghost btn-agent" id="btnTopAgent">
-            <span>Agent</span>
-            <i class="fa-solid fa-bolt text-agent" style="font-size: 0.8rem; margin-left: 2px;"></i>
+          <!-- Quick Test Real Click -->
+          <button class="btn btn-test-action" id="btnHeaderSimulateClick" title="Kirim klik real simulasi untuk mengetes tracking">
+            <i class="fa-solid fa-play"></i>
+            <span>Test Klik</span>
           </button>
 
-          <!-- User Circle / Google Login Avatar -->
-          <div class="topbar-profile" id="topbarProfile">
-            <div class="user-avatar-circle sm" id="topbarAvatar">GM</div>
-          </div>
+          <!-- Quick Test QR Scan -->
+          <button class="btn btn-test-action qr" id="btnHeaderSimulateQr" title="Simulasi scan QR code pengunjung">
+            <i class="fa-solid fa-qrcode"></i>
+            <span>Test QR</span>
+          </button>
         </div>
       </header>
 
+      <!-- Google AdSense Container -->
+      <ins class="adsbygoogle"
+           style="display:block; margin: 0 32px 16px;"
+           data-ad-format="autorelaxed"
+           data-ad-client="ca-pub-2400550373404770"
+           data-ad-slot="9001899727"></ins>
+      <script>
+           (adsbygoogle = window.adsbygoogle || []).push({});
+      </script>
+
       <!-- ======================================================== -->
-      <!-- VIEW: ANALYTICS (EXACT MATCH TO USER SCREENSHOT) -->
+      <!-- VIEW 1: DATA ANALISIS (ANALYTICS) -->
       <!-- ======================================================== -->
       <main class="sid-content-area" id="viewAnalytics">
         
-        <!-- "Ready to do more?" Upsell Banner -->
-        <div class="plans-banner" id="plansBanner">
-          <div class="plans-banner-left">
-            <div class="plans-banner-icon">
-              <i class="fa-solid fa-wand-magic-sparkles"></i>
-            </div>
-            <div class="plans-banner-text">
-              <h4>Ready to do more?</h4>
-              <p>Unlock analytics, custom domain, and more with a paid plan.</p>
-            </div>
-          </div>
-          <div class="plans-banner-actions">
-            <button class="btn btn-white btn-sm" id="btnViewPlans">View Plans</button>
-            <button class="btn-banner-close" id="btnClosePlansBanner" title="Tutup">
-              <i class="fa-solid fa-xmark"></i>
-            </button>
-          </div>
-        </div>
-
-        <!-- Analytics Navigation Tabs -->
-        <div class="analytics-tabs-row">
-          <button class="analytics-tab-btn active" id="tabLinksAnalytics">Links Analytics</button>
-          <button class="analytics-tab-btn" id="tabShopAnalytics">Shop Analytics</button>
-        </div>
-
-        <!-- Filter & Actions Bar -->
+        <!-- Controls & Filter Toolbar -->
         <div class="analytics-controls-bar">
           <div class="controls-left">
-            <!-- Date Range Selector Dropdown -->
+            <!-- Filter by Specific Link Dropdown -->
+            <div class="link-filter-wrapper">
+              <i class="fa-solid fa-filter filter-icon"></i>
+              <select id="selectLinkFilter" class="select-clean" title="Pilih shortlink untuk dianalisis">
+                <option value="all">Semua Tautan (Akumulasi)</option>
+              </select>
+            </div>
+
+            <!-- Date Range Selector Dropdown Button -->
             <div class="date-dropdown-wrapper">
               <button class="date-range-btn" id="btnDateRangeDropdown">
                 <i class="fa-regular fa-calendar"></i>
@@ -271,23 +198,23 @@
                 <i class="fa-solid fa-chevron-down caret-icon"></i>
               </button>
 
-              <!-- INTERACTIVE POPUP CALENDAR (EXACT MATCH TO SCREENSHOT) -->
+              <!-- INTERACTIVE POPUP CALENDAR -->
               <div class="calendar-picker-popup" id="calendarPopup" style="display: none;">
                 <div class="cal-header">
                   <div class="cal-selects">
                     <select id="calMonthSelect" class="cal-dropdown">
-                      <option value="0">January</option>
-                      <option value="1">February</option>
-                      <option value="2">March</option>
+                      <option value="0">Januari</option>
+                      <option value="1">Februari</option>
+                      <option value="2">Maret</option>
                       <option value="3">April</option>
-                      <option value="4">May</option>
-                      <option value="5">June</option>
-                      <option value="6">July</option>
-                      <option value="7">August</option>
+                      <option value="4">Mei</option>
+                      <option value="5">Juni</option>
+                      <option value="6">Juli</option>
+                      <option value="7">Agustus</option>
                       <option value="8" selected>September</option>
-                      <option value="9">October</option>
+                      <option value="9">Oktober</option>
                       <option value="10">November</option>
-                      <option value="11">December</option>
+                      <option value="11">Desember</option>
                     </select>
                     <select id="calYearSelect" class="cal-dropdown">
                       <option value="2024">2024</option>
@@ -302,97 +229,74 @@
                   </div>
                 </div>
 
-                <!-- Calendar Weekday Headers -->
                 <div class="cal-weekdays">
-                  <span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span>
+                  <span>Min</span><span>Sen</span><span>Sel</span><span>Rab</span><span>Kam</span><span>Jum</span><span>Sab</span>
                 </div>
 
-                <!-- Calendar Days Grid (Rendered dynamically) -->
                 <div class="cal-days-grid" id="calDaysGrid">
-                  <!-- Dynamic Date Buttons rendered by app.js -->
+                  <!-- Dynamically rendered -->
                 </div>
 
-                <!-- Quick Presets Strip -->
                 <div class="cal-presets-strip">
                   <button type="button" class="cal-preset-btn" data-preset="1">Hari Ini</button>
-                  <button type="button" class="cal-preset-btn active" data-preset="7">7 Hari</button>
+                  <button type="button" class="cal-preset-btn active" data-preset="7">7 Hari Terakhir</button>
                   <button type="button" class="cal-preset-btn" data-preset="14">14 Hari</button>
                   <button type="button" class="cal-preset-btn" data-preset="30">30 Hari</button>
                   <button type="button" class="cal-preset-btn" data-preset="month">Bulan Ini</button>
                 </div>
               </div>
             </div>
-
-            <!-- Export PDF Button -->
-            <button class="btn btn-outline-clean" id="btnExportPdf">
-              <span>Export PDF</span>
-            </button>
-
-            <!-- Filter By Specific Link Dropdown -->
-            <div class="link-filter-wrapper">
-              <select id="selectLinkFilter" class="select-clean" title="Pilih shortlink untuk dianalisis">
-                <option value="all">Semua Tautan (All Links)</option>
-              </select>
-            </div>
           </div>
 
           <div class="controls-right">
-            <!-- Test Real Click Simulation Button -->
-            <button class="btn btn-test-click" id="btnSimulateRealClick" title="Kirim klik real untuk melihat grafik & angka bertambah seketika">
-              <i class="fa-solid fa-plus"></i>
-              <span>Test Klik Real</span>
+            <!-- Export PDF Button -->
+            <button class="btn btn-outline-clean" id="btnExportPdf" title="Cetak / Simpan laporan PDF rapi">
+              <i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i>
+              <span>Export PDF</span>
             </button>
 
-            <!-- Test QR Code Scan Simulation -->
-            <button class="btn btn-test-qr" id="btnSimulateQrScan" title="Simulasi scan QR code pengunjung">
-              <i class="fa-solid fa-qrcode"></i>
-              <span>Test Scan QR</span>
-            </button>
-
-            <!-- Download Button -->
-            <button class="btn btn-outline-clean" id="btnDownloadCsv">
-              <i class="fa-solid fa-download"></i>
-              <span>Download</span>
+            <!-- Download CSV Button -->
+            <button class="btn btn-outline-clean" id="btnDownloadCsv" title="Unduh data klik dalam format CSV / Excel">
+              <i class="fa-solid fa-file-csv" style="color: #10b981;"></i>
+              <span>Download CSV</span>
             </button>
           </div>
         </div>
 
-        <!-- STACKED BAR CHART CONTAINER (EXACT DESIGN FROM SCREENSHOT) -->
+        <!-- STACKED BAR CHART CONTAINER -->
         <div class="analytics-chart-card">
           <div class="chart-top-bar">
             <div class="chart-legend">
-              <span class="legend-item"><span class="legend-dot red"></span> Visitors</span>
-              <span class="legend-item"><span class="legend-dot purple"></span> Unique Visitor</span>
+              <span class="legend-item"><span class="legend-dot red"></span> Total Pengunjung (Visitors)</span>
+              <span class="legend-item"><span class="legend-dot purple"></span> Pengunjung Unik (Unique Visitor)</span>
             </div>
-            <div class="chart-status-pill">
-              <span class="status-indicator-live"></span> Live Analytics
+            <div class="chart-hint-label">
+              <i class="fa-solid fa-circle-info"></i> Arahkan kursor pada batang untuk detail harian
             </div>
           </div>
 
-          <!-- The Stacked Bars Viewport -->
+          <!-- Stacked Bars Track -->
           <div class="stacked-chart-viewport" id="stackedChartViewport">
-            <!-- Y-Axis Grid Lines & Scale -->
             <div class="chart-y-axis">
               <div class="y-tick"><span id="yAxisTop">70</span><div class="grid-line"></div></div>
               <div class="y-tick"><span id="yAxisMid">35</span><div class="grid-line"></div></div>
               <div class="y-tick"><span>0</span><div class="grid-line zero"></div></div>
             </div>
 
-            <!-- Dynamic Bar Columns Container -->
             <div class="chart-bars-track" id="chartBarsTrack">
               <!-- Rendered via JS -->
             </div>
           </div>
         </div>
 
-        <!-- 4 KPI SUMMARY METRICS ROW (EXACT DESIGN FROM SCREENSHOT) -->
+        <!-- 4 KPI SUMMARY METRICS ROW -->
         <div class="sid-metrics-row">
           <!-- 1. Total Links -->
           <div class="sid-kpi-col">
             <div class="kpi-number" id="kpiTotalLinks">4</div>
             <div class="kpi-label">
               <span class="dot-indicator dot-blue"></span>
-              <span>Total Links</span>
+              <span>Total Tautan</span>
             </div>
           </div>
 
@@ -401,7 +305,7 @@
             <div class="kpi-number" id="kpiTotalVisitors">261</div>
             <div class="kpi-label">
               <span class="dot-indicator dot-red"></span>
-              <span>Visitors</span>
+              <span>Total Kunjungan</span>
             </div>
           </div>
 
@@ -410,7 +314,7 @@
             <div class="kpi-number" id="kpiUniqueVisitors">178</div>
             <div class="kpi-label">
               <span class="dot-indicator dot-purple"></span>
-              <span>Unique Visitor</span>
+              <span>Pengunjung Unik</span>
             </div>
           </div>
 
@@ -419,54 +323,34 @@
             <div class="kpi-number" id="kpiQrVisitors">0</div>
             <div class="kpi-label">
               <span class="dot-indicator dot-cyan"></span>
-              <span>QR Code Visitor</span>
+              <span>Pengunjung QR Code</span>
             </div>
           </div>
         </div>
 
-        <!-- ANOMALY DETECTION SECTION (EXACT DESIGN FROM SCREENSHOT) -->
+        <!-- REAL ANOMALY DETECTION SECTION -->
         <div class="anomaly-section-card">
           <div class="anomaly-header-bar">
             <div class="anomaly-title-row">
-              <span class="anomaly-icon"><i class="fa-solid fa-circle-xmark"></i></span>
-              <span class="anomaly-title">Anomaly Detection</span>
+              <span class="anomaly-icon"><i class="fa-solid fa-chart-line"></i></span>
+              <span class="anomaly-title">Deteksi Anomali Trafik (Statistik Real)</span>
+              <span class="anomaly-badge" id="anomalyFoundBadge">3 Terdeteksi</span>
             </div>
-            <div class="anomaly-badges-row">
-              <span class="anomaly-pill-found" id="anomalyFoundBadge">3 found</span>
-              <span class="anomaly-pill-neutral">Total</span>
-              <span class="anomaly-pill-neutral">Unique</span>
+            <div class="anomaly-meta-info" id="anomalyMetaInfo">
+              Rata-rata Harian: <strong id="anomalyAvgDaily">-</strong> klik | Batas Anomali: <strong id="anomalyThreshold">-</strong> klik
             </div>
           </div>
 
-          <!-- Anomaly Banner & Domain Promo -->
-          <div class="anomaly-banner-body">
-            <div class="anomaly-ad-content">
-              <div class="ad-slogan">
-                <span>Ide yang besar, butuh</span>
-                <strong>nama domain yang kuat</strong>
-              </div>
-              <div class="ad-tags-row">
-                <span class="domain-tag">tokobagus.id</span>
-                <span class="domain-tag">namakamu.id</span>
-                <span class="domain-tag">ideku.id</span>
-                <button class="btn-ad-cta" id="btnAdCta">Dapatkan domain .id sekarang! <i class="fa-solid fa-arrow-pointer"></i></button>
-              </div>
-            </div>
-            <div class="ad-tag-corner">Ads</div>
-            <div class="anomaly-critical-tag" id="anomalyDateTag">Sep 28, 2026 <span class="tag-crit">Critical</span></div>
-          </div>
-
-          <!-- Real Anomaly Insights Collapse / List -->
           <div class="anomaly-details-list" id="anomalyDetailsList">
-            <!-- Dynamic Anomaly list rendered from real data -->
+            <!-- Dynamically rendered based on actual traffic calculations -->
           </div>
         </div>
 
-        <!-- REAL PERFORMANCE BREAKDOWN PER SHORTLINK -->
+        <!-- REAL PERFORMANCE BREAKDOWN PER SHORTLINK TABLE -->
         <div class="performance-table-card">
           <div class="perf-header">
-            <h3><i class="fa-solid fa-chart-pie" style="color: #ef4444; margin-right: 8px;"></i> Performa Setiap Tautan (Real Data)</h3>
-            <span class="perf-subtitle">Data aktual klik, pengunjung unik, dan scan QR code pada periode terpilih.</span>
+            <h3><i class="fa-solid fa-list-check" style="color: #ef4444; margin-right: 8px;"></i> Rincian Performa per Tautan (Real Data)</h3>
+            <span class="perf-subtitle">Data aktual jumlah klik, pengunjung unik, dan scan QR code pada rentang tanggal terpilih.</span>
           </div>
 
           <div class="table-responsive">
@@ -474,12 +358,12 @@
               <thead>
                 <tr>
                   <th>Tautan & Judul</th>
-                  <th>Tujuan (URL Asli)</th>
-                  <th>Visitors (Total)</th>
-                  <th>Unique Visitor</th>
-                  <th>QR Scans</th>
-                  <th>Top Referrer</th>
-                  <th>Aksi</th>
+                  <th>URL Tujuan Asli</th>
+                  <th>Total Klik</th>
+                  <th>Pengunjung Unik</th>
+                  <th>Scan QR</th>
+                  <th>Sumber Terbanyak</th>
+                  <th>Aksi Cepat</th>
                 </tr>
               </thead>
               <tbody id="tableLinksAnalyticsBody">
@@ -489,7 +373,7 @@
           </div>
         </div>
 
-        <!-- DEEP-DIVE GRIDS: REFERRERS, DEVICES, & LIVE CLICK STREAM -->
+        <!-- DEEP-DIVE BREAKDOWNS: REFERRERS & DEVICES -->
         <div class="deep-dive-grid">
           <!-- Sumber Trafik (Referrers) -->
           <div class="deep-card">
@@ -506,23 +390,12 @@
               <!-- Rendered by JS -->
             </div>
           </div>
-
-          <!-- Live Click Stream (Real-Time Feed) -->
-          <div class="deep-card live-stream-card">
-            <div class="live-stream-header">
-              <h4><i class="fa-solid fa-bolt" style="color: #f59e0b;"></i> Live Click Stream</h4>
-              <span class="live-badge"><span class="live-pulse"></span> Memantau</span>
-            </div>
-            <div class="live-stream-list" id="liveClickStreamList">
-              <!-- Rendered by JS -->
-            </div>
-          </div>
         </div>
 
       </main>
 
       <!-- ======================================================== -->
-      <!-- VIEW: SHORTENER (FULL URL SHORTENER & MANAGEMENT) -->
+      <!-- VIEW 2: KELOLA SHORTLINK (SHORTENER & WA PREVIEW) -->
       <!-- ======================================================== -->
       <main class="sid-content-area" id="viewShortener" style="display: none;">
         
@@ -562,16 +435,16 @@
                 <i class="fa-regular fa-copy"></i> Salin Link
               </button>
               <button class="btn btn-sm btn-outline" id="btnEditPreviewQuickResult">
-                <i class="fa-solid fa-image"></i> Atur Tampilan Pesan
+                <i class="fa-solid fa-image"></i> Atur Tampilan WA
               </button>
               <button class="btn btn-sm btn-outline" id="btnStatsQuickResult">
-                <i class="fa-solid fa-chart-line"></i> Buka Analisis
+                <i class="fa-solid fa-chart-line"></i> Lihat Analisis
               </button>
             </div>
           </div>
         </section>
 
-        <!-- DAFTAR SHORTLINK -->
+        <!-- Daftar Shortlink -->
         <section class="links-section">
           <div class="section-toolbar">
             <div class="toolbar-left">
@@ -606,37 +479,150 @@
 
       </main>
 
-    </div>
+      <!-- ======================================================== -->
+      <!-- VIEW 3: QR CODE STUDIO (FUNGSIONAL PENUH) -->
+      <!-- ======================================================== -->
+      <main class="sid-content-area" id="viewQrStudio" style="display: none;">
+        <div class="qr-studio-card">
+          <div class="qr-studio-header">
+            <h2><i class="fa-solid fa-qrcode" style="color:#06b6d4;"></i> QR Code Studio & Tracking</h2>
+            <p>Buat kode QR beresolusi tinggi untuk setiap shortlink Anda. Setiap pemindaian otomatis dilacak sebagai <strong>QR Code Visitor</strong> di analitik.</p>
+          </div>
 
-  </div>
+          <div class="qr-studio-grid">
+            <div class="qr-controls-panel">
+              <div class="form-group">
+                <label for="selectQrLink">Pilih Tautan Shortlink</label>
+                <select id="selectQrLink" class="input-control">
+                  <!-- Populated via JS -->
+                </select>
+              </div>
 
-  <!-- ======================================================== -->
-  <!-- MODAL: QR CODE GENERATOR & DOWNLOAD (WITH ?src=qr) -->
-  <!-- ======================================================== -->
-  <div class="modal-backdrop" id="modalQr" style="display: none;">
-    <div class="modal-dialog modal-md">
-      <div class="modal-header">
-        <h3><i class="fa-solid fa-qrcode" style="color: #06b6d4;"></i> QR Code Shortlink</h3>
-        <button class="modal-close" id="btnCloseModalQr"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-      <div class="modal-body text-center">
-        <p style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 20px;">
-          Setiap kali pengunjung memindai QR code ini, otomatis dihitung sebagai <strong>QR Code Visitor</strong> di analisis statistik Anda.
-        </p>
-        <div class="qr-canvas-box" id="qrCanvasContainer">
-          <!-- QR Code Canvas Injected Here -->
+              <div class="form-group">
+                <label for="selectQrColor">Warna Kode QR</label>
+                <div class="color-picker-row">
+                  <button type="button" class="color-btn active" data-color="#000000" style="background:#000000;"></button>
+                  <button type="button" class="color-btn" data-color="#e02424" style="background:#e02424;"></button>
+                  <button type="button" class="color-btn" data-color="#2563eb" style="background:#2563eb;"></button>
+                  <button type="button" class="color-btn" data-color="#7c3aed" style="background:#7c3aed;"></button>
+                  <button type="button" class="color-btn" data-color="#059669" style="background:#059669;"></button>
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label>Alamat Scan QR (Otomatis Dilacak)</label>
+                <div class="qr-preview-url" id="qrStudioUrlText">https://rigeel.id/slug?src=qr</div>
+              </div>
+
+              <div class="qr-actions-row">
+                <button type="button" class="btn btn-primary" id="btnDownloadStudioQr">
+                  <i class="fa-solid fa-download"></i> Unduh Gambar QR (PNG)
+                </button>
+                <button type="button" class="btn btn-outline" id="btnTestStudioQrScan">
+                  <i class="fa-solid fa-arrow-pointer"></i> Uji Coba Scan Langsung
+                </button>
+              </div>
+            </div>
+
+            <div class="qr-display-panel">
+              <div class="qr-box-wrap" id="qrStudioBox">
+                <!-- QR Code Canvas Rendered Here -->
+              </div>
+              <span class="qr-hint-text">Pindai menggunakan kamera ponsel untuk menguji tracking real-time</span>
+            </div>
+          </div>
         </div>
-        <div class="qr-link-badge" id="qrLinkBadge">https://rigeel.id/slug?src=qr</div>
-      </div>
-      <div class="modal-footer justify-between">
-        <button type="button" class="btn btn-outline" id="btnTestQrScanModal">
-          <i class="fa-solid fa-arrow-pointer"></i> Tes Scan Langsung
-        </button>
-        <button type="button" class="btn btn-primary" id="btnDownloadQrImage">
-          <i class="fa-solid fa-download"></i> Unduh Gambar QR
-        </button>
-      </div>
+      </main>
+
+      <!-- ======================================================== -->
+      <!-- VIEW 4: AKTIVITAS REAL-TIME (LIVE STREAM) -->
+      <!-- ======================================================== -->
+      <main class="sid-content-area" id="viewActivity" style="display: none;">
+        <div class="activity-card">
+          <div class="activity-header">
+            <div>
+              <h2><i class="fa-solid fa-wave-square" style="color:#f59e0b;"></i> Aktivitas Kunjungan Real-Time</h2>
+              <p>Feed log langsung setiap kali tautan Anda diklik atau dipindai oleh pengunjung.</p>
+            </div>
+            <div class="live-status-indicator">
+              <span class="live-pulse"></span>
+              <span>Memantau Aliran Trafik</span>
+            </div>
+          </div>
+
+          <div class="activity-table-wrap">
+            <table class="activity-table">
+              <thead>
+                <tr>
+                  <th>Waktu</th>
+                  <th>Slug Tautan</th>
+                  <th>Sumber / Referrer</th>
+                  <th>Metode</th>
+                  <th>Perangkat & Browser</th>
+                  <th>ID Pengunjung (Unique)</th>
+                </tr>
+              </thead>
+              <tbody id="activityTableBody">
+                <!-- Rendered by JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+
+      <!-- ======================================================== -->
+      <!-- VIEW 5: PENGATURAN & CLOUD BACKEND -->
+      <!-- ======================================================== -->
+      <main class="sid-content-area" id="viewSettings" style="display: none;">
+        <div class="settings-card">
+          <h2><i class="fa-solid fa-gear" style="color:#6366f1;"></i> Pengaturan Database & Sinkronisasi Cloud</h2>
+          <p>Kelola domain utama, hubungkan Supabase untuk akses global dari berbagai perangkat, atau ekspor data cadangan.</p>
+
+          <div class="settings-grid">
+            <!-- Custom Domain Box -->
+            <div class="settings-box">
+              <h3><i class="fa-solid fa-globe" style="color:#06b6d4;"></i> Nama Domain Utama</h3>
+              <p>Tentukan domain default yang digunakan pada tautan pendek Anda.</p>
+              <div class="form-group" style="margin-top:12px;">
+                <input type="text" id="inputSettingsDomain" class="input-control" value="rigeel.id" placeholder="contoh: rigeel.id" />
+              </div>
+              <button class="btn btn-primary btn-sm" id="btnSaveSettingsDomain">Simpan Domain</button>
+            </div>
+
+            <!-- Supabase Cloud Sync Box -->
+            <div class="settings-box">
+              <h3><i class="fa-solid fa-database" style="color:#10b981;"></i> Cloud Backend (Supabase)</h3>
+              <p>Sinkronkan klik dan tautan Anda ke database PostgreSQL gratis dari Supabase.</p>
+              <div class="form-group" style="margin-top:12px;">
+                <label>Project URL</label>
+                <input type="url" id="inputSettingsSupabaseUrl" class="input-control" placeholder="https://xxxxxxxx.supabase.co" />
+              </div>
+              <div class="form-group">
+                <label>Anon Public Key</label>
+                <input type="text" id="inputSettingsSupabaseKey" class="input-control" placeholder="eyJhbGciOiJIUzI1NiIsIn..." />
+              </div>
+              <button class="btn btn-primary btn-sm" id="btnSaveSettingsSupabase">Hubungkan Cloud</button>
+            </div>
+
+            <!-- Data Backup & Reset Box -->
+            <div class="settings-box">
+              <h3><i class="fa-solid fa-hard-drive" style="color:#f59e0b;"></i> Cadangan Data Lokal</h3>
+              <p>Unduh cadangan data tautan dan klik dalam format JSON atau reset ke data awal.</p>
+              <div class="settings-action-btns" style="margin-top:14px; display:flex; gap:10px;">
+                <button class="btn btn-outline btn-sm" id="btnExportJsonBackup">
+                  <i class="fa-solid fa-file-export"></i> Backup JSON
+                </button>
+                <button class="btn btn-outline btn-sm delete" id="btnResetAllData">
+                  <i class="fa-solid fa-trash-can"></i> Reset Data
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
     </div>
+
   </div>
 
   <!-- ======================================================== -->
@@ -692,7 +678,6 @@
             <div class="form-group">
               <label>Gambar Thumbnail (Upload Foto / Banner)</label>
               
-              <!-- Upload Area / Dropzone -->
               <div class="upload-dropzone" id="uploadDropzone">
                 <input type="file" id="modalFileInput" accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;" />
                 
@@ -717,10 +702,8 @@
                 </div>
               </div>
 
-              <!-- Hidden input holding current image data -->
               <input type="hidden" id="modalOgImage" value="" />
 
-              <!-- Alternative toggle: or use URL -->
               <div class="url-toggle-bar">
                 <button type="button" class="btn-text-toggle" id="btnToggleManualUrl">
                   <i class="fa-solid fa-link"></i> Atau gunakan URL gambar online
@@ -744,18 +727,15 @@
               <!-- The Realistic WhatsApp Chat Bubble -->
               <div class="whatsapp-bubble-mockup">
                 <div class="wa-card">
-                  <!-- Thumbnail Image -->
                   <div class="wa-img-wrap" id="waPreviewImgWrap">
                     <img id="waPreviewImg" src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80" alt="Preview Image" onerror="this.src='https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80'" />
                   </div>
-                  <!-- Content Body -->
                   <div class="wa-content">
                     <div class="wa-title" id="waPreviewTitle">PROMO SPESIAL DISKON 50%!</div>
                     <div class="wa-desc" id="waPreviewDesc">Dapatkan diskon 50% untuk produk pilihan hari ini. Terbatas hanya untuk 100 pembeli pertama!</div>
                     <div class="wa-domain" id="waPreviewDomain">RIGEEL.ID</div>
                   </div>
                 </div>
-                <!-- Link text typed in chat -->
                 <div class="wa-text-link">
                   <a href="#" id="waPreviewTextLink">https://rigeel.id/promo</a>
                   <span class="wa-time">10:45 <i class="fa-solid fa-check-double wa-ticks"></i></span>
@@ -764,7 +744,7 @@
 
               <div class="preview-note">
                 <i class="fa-solid fa-circle-info"></i>
-                <span>Tampilan di atas adalah representasi visual kartu saat tautan Anda dikirimkan ke kontak WhatsApp atau Telegram.</span>
+                <span>Tampilan kartu di atas adalah visual nyata saat shortlink Anda dikirimkan ke ruang obrolan WhatsApp atau media sosial.</span>
               </div>
             </div>
           </div>
@@ -781,95 +761,10 @@
     </div>
   </div>
 
-  <!-- ======================================================== -->
-  <!-- MODAL: PENGATURAN DOMAIN UTAMA / CUSTOM DOMAIN            -->
-  <!-- ======================================================== -->
-  <div class="modal-backdrop" id="modalDomain" style="display: none;">
-    <div class="modal-dialog modal-md">
-      <div class="modal-header">
-        <h3><i class="fa-solid fa-globe"></i> Pengaturan Domain Utama</h3>
-        <button class="modal-close" id="btnCloseModalDomain"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-
-      <div class="modal-body">
-        <p style="font-size: 0.88rem; color: var(--text-secondary); margin-bottom: 16px;">
-          Gunakan domain atau subdomain pribadi Anda sendiri sebagai alamat default shortlink (contoh: <code>s.id</code>, <code>rigeel.id</code>, atau <code>link.domainanda.com</code>).
-        </p>
-
-        <div class="form-group">
-          <label for="inputCustomDomain">Nama Domain Utama Anda</label>
-          <input type="text" id="inputCustomDomain" class="input-control" placeholder="contoh: rigeel.id atau link.domainanda.com" />
-          <span class="field-hint">Jangan sertakan https:// atau tanda garis miring (/).</span>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline" id="btnResetDomainDefault">Gunakan Default</button>
-        <button type="button" class="btn btn-primary" id="btnSaveCustomDomain">
-          <i class="fa-solid fa-check"></i> Simpan Domain
-        </button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ======================================================== -->
-  <!-- MODAL: PENGATURAN CLOUD BACKEND & DATABASE (SUPABASE)    -->
-  <!-- ======================================================== -->
-  <div class="modal-backdrop" id="modalCloud" style="display: none;">
-    <div class="modal-dialog modal-lg">
-      <div class="modal-header">
-        <h3><i class="fa-solid fa-database" style="color: var(--accent-cyan);"></i> Cloud Backend & Google Auth</h3>
-        <button class="modal-close" id="btnCloseModalCloud"><i class="fa-solid fa-xmark"></i></button>
-      </div>
-
-      <div class="modal-body" style="overflow-y: auto; max-height: calc(85vh - 130px);">
-        <!-- Status Banner -->
-        <div class="cloud-status-banner" id="cloudStatusBanner">
-          <div class="cloud-status-icon">
-            <i class="fa-solid fa-cloud-arrow-up"></i>
-          </div>
-          <div class="cloud-status-info">
-            <h4 id="cloudBannerTitle">Status: Mode Penyimpanan Lokal & Cloud</h4>
-            <p id="cloudBannerDesc">Analisis real tersimpan secara lokal dan otomatis disinkronisasi ke Supabase saat terhubung.</p>
-          </div>
-        </div>
-
-        <div class="form-group" style="margin-top: 18px;">
-          <label for="inputSupabaseUrl">Supabase Project URL</label>
-          <input type="url" id="inputSupabaseUrl" class="input-control" placeholder="https://xxxxxxxxxxxxxxxxxxxx.supabase.co" />
-        </div>
-
-        <div class="form-group">
-          <label for="inputSupabaseAnonKey">Supabase Anon Public API Key</label>
-          <input type="text" id="inputSupabaseAnonKey" class="input-control" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." />
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline" id="btnResetCloudConfig">Gunakan Mode Lokal</button>
-        <button type="button" class="btn btn-primary" id="btnSaveCloudConfig">
-          <i class="fa-solid fa-cloud-arrow-up"></i> Simpan & Hubungkan Cloud
-        </button>
-      </div>
-    </div>
-  </div>
-
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container"></div>
 
   <!-- Application Script -->
   <script src="app.js"></script>
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2400550373404770"
-     crossorigin="anonymous"></script>
-<!-- Unit1 -->
-<ins class="adsbygoogle"
-     style="display:block"
-     data-ad-client="ca-pub-2400550373404770"
-     data-ad-slot="8690908533"
-     data-ad-format="auto"
-     data-full-width-responsive="true"></ins>
-<script>
-     (adsbygoogle = window.adsbygoogle || []).push({});
-</script>
 </body>
 </html>

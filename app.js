@@ -1,8 +1,8 @@
 /**
- * s.id / AutoShort Modern Dashboard & Real Analytics Engine
- * Provides pixel-accurate visual replication of s.id analytics
- * with 100% real click tracking, unique visitor counting, QR scanning,
- * anomaly detection, and data persistence.
+ * AutoShort — Real-Time Analytics Engine & Shortlink Suite
+ * Provides 100% functional, real data analytics, interactive calendar,
+ * stacked visitor tracking, QR Studio, live activity monitoring,
+ * anomaly detection, and cloud database synchronization.
  */
 
 (function () {
@@ -10,31 +10,29 @@
 
   // --- CONFIGURATION & STATE ---
   let supabase = null;
-  let currentUser = null;
   let customDomain = 'rigeel.id';
+  let currentView = 'analytics';
 
-  // Views state
-  let currentView = 'analytics'; // 'analytics' | 'shortener'
-
-  // Date Range State (Defaults to 23 Sep 2026 - 29 Sep 2026 to match screenshot)
+  // Date Range State (Defaults to 23 Sep 2026 - 29 Sep 2026 to showcase full range)
   let selectedStartDate = new Date('2026-09-23T00:00:00');
   let selectedEndDate = new Date('2026-09-29T23:59:59');
-  let calViewMonth = 8; // September (0-indexed: 8 = Sep)
+  let calViewMonth = 8; // September (0-indexed)
   let calViewYear = 2026;
   let tempRangeStart = null;
 
-  // Filter by link
+  // Filter
   let activeLinkFilter = 'all';
+
+  // QR Studio State
+  let qrSelectedSlug = '';
+  let qrSelectedColor = '#000000';
 
   // Links & Clicks Data
   let links = [];
   let clicksHistory = [];
 
-  // Editing link modal state
-  let currentEditId = null;
-
-  // --- INITIAL SAMPLE DATA (Matches user screenshot: 4 links, 261 visitors, 178 unique) ---
-  const DEFAULT_SAMPLE_LINKS = [
+  // --- SEED SAMPLE DATA (261 visitors, 178 unique visitors across 23-29 Sep 2026) ---
+  const DEFAULT_LINKS = [
     {
       id: 'link_1',
       slug: 'promo-gajian',
@@ -85,7 +83,6 @@
     }
   ];
 
-  // Helper to generate seed clicks that yield exactly 261 visitors and 178 unique visitors across 23-29 Sep 2026
   function generateSeedClicks() {
     const list = [];
     const distribution = [
@@ -103,7 +100,6 @@
     const slugs = ['promo-gajian', 'wa-admin', 'katalog-baru', 'join-reseller'];
 
     distribution.forEach(d => {
-      // create unique visitor IDs for this day
       const dailyUniqueIds = [];
       for (let u = 0; u < d.unique; u++) {
         dailyUniqueIds.push('vis_' + d.date.replace(/-/g, '') + '_' + u);
@@ -137,13 +133,39 @@
   // --- INITIALIZATION ---
   document.addEventListener('DOMContentLoaded', () => {
     loadStoredData();
+    initTheme();
     initCalendar();
     initEventListeners();
     setupRouting();
     renderAnalytics();
     renderShortenerLinks();
+    initQrStudio();
     fetchBackendConfig();
   });
+
+  // --- THEME ---
+  function initTheme() {
+    const saved = localStorage.getItem('autoshort_theme') || 'light';
+    setTheme(saved);
+
+    const btn = document.getElementById('btnThemeToggle');
+    if (btn) {
+      btn.onclick = () => {
+        const cur = document.documentElement.getAttribute('data-theme') || 'light';
+        setTheme(cur === 'light' ? 'dark' : 'light');
+      };
+    }
+  }
+
+  function setTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    localStorage.setItem('autoshort_theme', t);
+    const icon = document.getElementById('themeIcon');
+    if (icon) {
+      icon.className = t === 'dark' ? 'fa-solid fa-sun' : 'fa-solid fa-moon';
+      icon.style.color = t === 'dark' ? '#f59e0b' : '';
+    }
+  }
 
   // --- DATA STORAGE & SYNC ---
   function loadStoredData() {
@@ -152,7 +174,7 @@
       if (storedLinks) {
         links = JSON.parse(storedLinks);
       } else {
-        links = [...DEFAULT_SAMPLE_LINKS];
+        links = [...DEFAULT_LINKS];
         saveLocalLinks();
       }
 
@@ -166,9 +188,10 @@
 
       const storedDomain = localStorage.getItem('autoshort_custom_domain');
       if (storedDomain) customDomain = storedDomain;
+      updateDomainDisplays();
     } catch (e) {
       console.error('Error loading stored data:', e);
-      links = [...DEFAULT_SAMPLE_LINKS];
+      links = [...DEFAULT_LINKS];
       clicksHistory = generateSeedClicks();
     }
   }
@@ -189,6 +212,10 @@
         if (config.configured && config.supabaseUrl && config.supabaseAnonKey) {
           if (window.supabase) {
             supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+            const statusDot = document.getElementById('cloudStatusDot');
+            const statusText = document.getElementById('cloudStatusText');
+            if (statusDot) statusDot.style.background = '#10b981';
+            if (statusText) statusText.textContent = 'Cloud Terhubung';
             syncWithSupabase();
           }
         }
@@ -226,11 +253,7 @@
   function setupRouting() {
     const handleHash = () => {
       const hash = window.location.hash.replace('#', '') || 'analytics';
-      if (hash === 'shortener') {
-        switchView('shortener');
-      } else {
-        switchView('analytics');
-      }
+      switchView(hash);
     };
 
     window.addEventListener('hashchange', handleHash);
@@ -239,30 +262,58 @@
 
   function switchView(viewName) {
     currentView = viewName;
-    const viewAna = document.getElementById('viewAnalytics');
-    const viewShort = document.getElementById('viewShortener');
+    const views = {
+      analytics: document.getElementById('viewAnalytics'),
+      shortener: document.getElementById('viewShortener'),
+      'qr-studio': document.getElementById('viewQrStudio'),
+      activity: document.getElementById('viewActivity'),
+      domains: document.getElementById('viewSettings'),
+      settings: document.getElementById('viewSettings')
+    };
+
     const topTitle = document.getElementById('topbarTitle');
-    const navAna = document.getElementById('sidebarNavAnalytics');
-    const navShort = document.getElementById('sidebarNavShortener');
+    const topIcon = document.getElementById('topbarIcon');
+
+    // Hide all views
+    Object.values(views).forEach(el => {
+      if (el) el.style.display = 'none';
+    });
+
+    // Update nav active classes
+    document.querySelectorAll('.nav-item').forEach(item => {
+      const v = item.getAttribute('data-view');
+      item.classList.toggle('active', v === viewName || (viewName === 'domains' && v === 'domains'));
+    });
 
     if (viewName === 'shortener') {
-      if (viewAna) viewAna.style.display = 'none';
-      if (viewShort) viewShort.style.display = 'block';
-      if (topTitle) topTitle.textContent = 'Shortener';
-      if (navAna) navAna.classList.remove('active');
-      if (navShort) navShort.classList.add('active');
+      if (views.shortener) views.shortener.style.display = 'block';
+      if (topTitle) topTitle.textContent = 'Kelola Tautan Pendek';
+      if (topIcon) topIcon.className = 'fa-solid fa-link title-icon';
       renderShortenerLinks();
+    } else if (viewName === 'qr-studio') {
+      if (views['qr-studio']) views['qr-studio'].style.display = 'block';
+      if (topTitle) topTitle.textContent = 'QR Code Studio';
+      if (topIcon) topIcon.className = 'fa-solid fa-qrcode title-icon';
+      updateQrStudio();
+    } else if (viewName === 'activity') {
+      if (views.activity) views.activity.style.display = 'block';
+      if (topTitle) topTitle.textContent = 'Aktivitas Kunjungan Real-Time';
+      if (topIcon) topIcon.className = 'fa-solid fa-wave-square title-icon';
+      renderActivityTable();
+    } else if (viewName === 'settings' || viewName === 'domains') {
+      if (views.settings) views.settings.style.display = 'block';
+      if (topTitle) topTitle.textContent = 'Pengaturan & Cloud Backend';
+      if (topIcon) topIcon.className = 'fa-solid fa-gear title-icon';
     } else {
-      if (viewAna) viewAna.style.display = 'block';
-      if (viewShort) viewShort.style.display = 'none';
-      if (topTitle) topTitle.textContent = 'Analytics';
-      if (navAna) navAna.classList.add('active');
-      if (navShort) navShort.classList.remove('active');
+      // Default: analytics
+      if (views.analytics) views.analytics.style.display = 'block';
+      if (topTitle) topTitle.textContent = 'Data Analisis Kunjungan';
+      if (topIcon) topIcon.className = 'fa-solid fa-chart-column title-icon';
       renderAnalytics();
     }
   }
 
-  // --- CALENDAR & DATE RANGE PICKER ENGINE ---
+  // --- CALENDAR & DATE RANGE PICKER ---
   function initCalendar() {
     const btnDropdown = document.getElementById('btnDateRangeDropdown');
     const popup = document.getElementById('calendarPopup');
@@ -334,7 +385,6 @@
       });
     }
 
-    // Presets
     document.querySelectorAll('.cal-preset-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const preset = btn.getAttribute('data-preset');
@@ -350,7 +400,6 @@
   }
 
   function applyPreset(preset) {
-    // anchor around September 29, 2026 (matching system date & screenshot)
     const end = new Date(selectedEndDate);
     let start = new Date(end);
 
@@ -380,7 +429,7 @@
     if (!el) return;
     const format = (d) => {
       const day = d.getDate();
-      const month = d.toLocaleDateString('en-US', { month: 'short' });
+      const month = d.toLocaleDateString('id-ID', { month: 'short' });
       const year = d.getFullYear();
       return `${day} ${month} ${year}`;
     };
@@ -392,11 +441,10 @@
     if (!grid) return;
     grid.innerHTML = '';
 
-    const firstDay = new Date(calViewYear, calViewMonth, 1).getDay(); // 0 is Sunday
+    const firstDay = new Date(calViewYear, calViewMonth, 1).getDay();
     const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
     const daysInPrevMonth = new Date(calViewYear, calViewMonth, 0).getDate();
 
-    // Previous month filler days
     for (let i = firstDay - 1; i >= 0; i--) {
       const cell = document.createElement('div');
       cell.className = 'cal-day-cell other-month';
@@ -407,7 +455,6 @@
     const startISO = toISODate(selectedStartDate);
     const endISO = toISODate(selectedEndDate);
 
-    // Days in current month
     for (let d = 1; d <= daysInMonth; d++) {
       const dateObj = new Date(calViewYear, calViewMonth, d);
       const iso = toISODate(dateObj);
@@ -434,7 +481,6 @@
       grid.appendChild(cell);
     }
 
-    // Fill rest of row (if needed)
     const totalCells = firstDay + daysInMonth;
     const remaining = (7 - (totalCells % 7)) % 7;
     for (let i = 1; i <= remaining; i++) {
@@ -490,7 +536,6 @@
   function renderAnalytics() {
     populateLinkFilterDropdown();
 
-    // 1. Filter clicks by selected date range and link
     const startISO = toISODate(selectedStartDate);
     const endISO = toISODate(selectedEndDate);
 
@@ -507,11 +552,8 @@
       return true;
     });
 
-    // 2. Compute 4 Main KPIs
     const totalLinksCount = links.length;
     const totalVisitors = filteredClicks.length;
-
-    // Unique visitors by distinct visitor_id
     const uniqueVisitorSet = new Set();
     let qrVisitorCount = 0;
 
@@ -526,7 +568,7 @@
 
     const uniqueVisitors = uniqueVisitorSet.size;
 
-    // Update KPI UI
+    // Update KPI Card Numbers
     const elTotalLinks = document.getElementById('kpiTotalLinks');
     const elTotalVisitors = document.getElementById('kpiTotalVisitors');
     const elUniqueVisitors = document.getElementById('kpiUniqueVisitors');
@@ -537,7 +579,7 @@
     if (elUniqueVisitors) elUniqueVisitors.textContent = uniqueVisitors.toLocaleString();
     if (elQrVisitors) elQrVisitors.textContent = qrVisitorCount.toLocaleString();
 
-    // 3. Build Daily Array for Stacked Bar Chart
+    // Build Daily Stacked Data for Chart
     const daysList = generateDateRangeList(selectedStartDate, selectedEndDate);
     const dailyMap = {};
 
@@ -578,14 +620,9 @@
     });
 
     renderStackedBarChart(chartData);
-
-    // 4. Run Real Anomaly Detection
     runAnomalyDetection(chartData, totalVisitors);
-
-    // 5. Render Breakdown Tables & Live Stream
     renderPerformanceTable(filteredClicks);
     renderDeepDiveBreakdowns(filteredClicks);
-    renderLiveClickStream();
   }
 
   function generateDateRangeList(start, end) {
@@ -599,7 +636,7 @@
     while (curr <= endNormalized) {
       const iso = toISODate(curr);
       const day = curr.getDate();
-      const month = curr.toLocaleDateString('en-US', { month: 'short' });
+      const month = curr.toLocaleDateString('id-ID', { month: 'short' });
       const year = String(curr.getFullYear()).slice(-2);
       list.push({
         iso: iso,
@@ -631,10 +668,7 @@
 
     track.innerHTML = '';
 
-    // Calculate maximum bar height for scale
-    // In stacked bar, total height is visitors + unique
     const maxDayTotal = Math.max(...chartData.map(d => d.visitors + d.unique), 10);
-    // Round up nicely
     const scaleMax = Math.ceil(maxDayTotal / 35) * 35 || 70;
     const scaleMid = Math.round(scaleMax / 2);
 
@@ -647,8 +681,6 @@
 
       const totalVal = d.visitors + d.unique;
       const heightPercent = totalVal > 0 ? Math.min(100, Math.round((totalVal / scaleMax) * 100)) : 0;
-
-      // Portion of unique vs visitors
       const uniquePct = totalVal > 0 ? (d.unique / totalVal) * 100 : 0;
       const visitorsPct = 100 - uniquePct;
 
@@ -659,23 +691,26 @@
         </div>
         <span class="bar-date-label">${d.label}</span>
         
-        <!-- Hover Tooltip -->
         <div class="chart-tooltip">
           <div style="font-weight:700; margin-bottom:4px; color:#fff;">${d.label}</div>
           <div style="display:flex; align-items:center; gap:6px; color:#ef4444;">
-            <span class="dot-indicator dot-red"></span> Visitors: <strong>${d.visitors}</strong>
+            <span class="dot-indicator dot-red"></span> Total Klik: <strong>${d.visitors}</strong>
           </div>
-          <div style="display:flex; align-items:center; gap:6px; color:#a855f7;">
-            <span class="dot-indicator dot-purple"></span> Unique: <strong>${d.unique}</strong>
+          <div style="display:flex; align-items:center; gap:6px; color:#8b5cf6;">
+            <span class="dot-indicator dot-purple"></span> Pengunjung Unik: <strong>${d.unique}</strong>
           </div>
           <div style="display:flex; align-items:center; gap:6px; color:#06b6d4; font-size:0.7rem; margin-top:2px;">
-            <span class="dot-indicator dot-cyan"></span> QR Scans: <strong>${d.qr}</strong>
+            <span class="dot-indicator dot-cyan"></span> Scan QR: <strong>${d.qr}</strong>
           </div>
-          <div style="color:#9ca3af; font-size:0.7rem; margin-top:4px;">
-            Top Referrer: ${d.topRef}
+          <div style="color:#94a3b8; font-size:0.7rem; margin-top:4px;">
+            Sumber Teratas: ${d.topRef}
           </div>
         </div>
       `;
+
+      col.addEventListener('click', () => {
+        showToast(`Detail tanggal ${d.label}: ${d.visitors} kunjungan, ${d.unique} unik.`, 'info');
+      });
 
       track.appendChild(col);
     });
@@ -685,41 +720,44 @@
   function runAnomalyDetection(chartData, totalClicks) {
     const listEl = document.getElementById('anomalyDetailsList');
     const badgeFound = document.getElementById('anomalyFoundBadge');
-    const anomalyDateTag = document.getElementById('anomalyDateTag');
+    const avgDailyEl = document.getElementById('anomalyAvgDaily');
+    const thresholdEl = document.getElementById('anomalyThreshold');
 
     if (chartData.length === 0 || totalClicks === 0) {
-      if (badgeFound) badgeFound.textContent = '0 found';
-      if (listEl) listEl.innerHTML = '<div style="font-size:0.8rem; color:#6b7280;">Tidak ada aktivitas anomali terdeteksi.</div>';
+      if (badgeFound) badgeFound.textContent = '0 Terdeteksi';
+      if (avgDailyEl) avgDailyEl.textContent = '0';
+      if (thresholdEl) thresholdEl.textContent = '0';
+      if (listEl) listEl.innerHTML = '<div class="anomaly-item"><span style="color:#10b981;"><i class="fa-solid fa-circle-check"></i> Tidak ada aktivitas anomali terdeteksi.</span></div>';
       return;
     }
 
-    // Calculate daily average and standard deviation
     const values = chartData.map(d => d.visitors);
     const mean = values.reduce((sum, v) => sum + v, 0) / values.length;
     const variance = values.reduce((sum, v) => sum + Math.pow(v - mean, 2), 0) / values.length;
     const stdDev = Math.sqrt(variance) || 1;
+    const threshold = Math.round(mean + 1.2 * stdDev);
+
+    if (avgDailyEl) avgDailyEl.textContent = mean.toFixed(1);
+    if (thresholdEl) thresholdEl.textContent = threshold;
 
     const anomalies = [];
-
     chartData.forEach(d => {
-      // Outlier condition: traffic > mean + 1.2 * stdDev or > 2x average
-      if (d.visitors > mean + 1.2 * stdDev && d.visitors >= 30) {
+      if (d.visitors >= threshold && d.visitors >= 25) {
+        const spikePct = Math.round(((d.visitors - mean) / (mean || 1)) * 100);
         anomalies.push({
           date: d.label,
           visitors: d.visitors,
           unique: d.unique,
-          severity: d.visitors > mean + 2 * stdDev ? 'Critical' : 'High Traffic',
-          reason: `Peningkatan lalu lintas mendadak (${d.visitors} kunjungan) melebihi rata-rata harian (${Math.round(mean)} klik)`
+          severity: d.visitors > mean + 2 * stdDev ? 'Kritis' : 'Perhatian',
+          spikePct: spikePct
         });
       }
     });
 
     if (badgeFound) {
-      badgeFound.textContent = `${anomalies.length} found`;
-    }
-
-    if (anomalyDateTag && anomalies.length > 0) {
-      anomalyDateTag.innerHTML = `${anomalies[0].date} <span class="tag-crit">${anomalies[0].severity}</span>`;
+      badgeFound.textContent = `${anomalies.length} Terdeteksi`;
+      badgeFound.style.background = anomalies.length > 0 ? '#fee2e2' : '#dcfce7';
+      badgeFound.style.color = anomalies.length > 0 ? '#dc2626' : '#15803d';
     }
 
     if (listEl) {
@@ -727,7 +765,7 @@
       if (anomalies.length === 0) {
         listEl.innerHTML = `
           <div class="anomaly-item">
-            <span style="color:#10b981;"><i class="fa-solid fa-circle-check"></i> Lalu lintas normal. Tidak ditemukan lonjakan anomali pada periode ini.</span>
+            <span style="color:#10b981;"><i class="fa-solid fa-circle-check"></i> Lalu lintas normal. Tidak ada lonjakan trafik ekstrem pada rentang tanggal ini.</span>
           </div>
         `;
       } else {
@@ -737,7 +775,9 @@
           item.innerHTML = `
             <div class="anomaly-item-left">
               <i class="fa-solid fa-triangle-exclamation" style="color: #ef4444;"></i>
-              <strong>${a.date}</strong> — <span>${a.reason}</span>
+              <div>
+                <strong>${a.date}</strong> — Lonjakan ${a.visitors} kunjungan (+${a.spikePct}% di atas rata-rata)
+              </div>
             </div>
             <div>
               <span class="tag-crit">${a.severity}</span>
@@ -761,7 +801,6 @@
     }
 
     links.forEach(link => {
-      // Calculate real stats for this link in filtered period
       const linkClicks = filteredClicks.filter(c => c.link_id === link.id || c.slug === link.slug);
       const totalVis = linkClicks.length;
 
@@ -785,7 +824,7 @@
             ${escapeHtml(link.title || link.slug)}
           </div>
           <div class="table-slug">
-            <a href="https://${customDomain}/${link.slug}" target="_blank" style="color:var(--sid-red);">
+            <a href="https://${customDomain}/${link.slug}" target="_blank">
               ${customDomain}/${link.slug}
             </a>
           </div>
@@ -809,10 +848,10 @@
         </td>
         <td>
           <div style="display:flex; gap:6px;">
-            <button class="btn btn-sm btn-outline btn-table-test-click" data-slug="${link.slug}" data-id="${link.id}" title="Kirim Klik Nyata">
+            <button class="btn btn-sm btn-outline btn-table-test-click" data-slug="${link.slug}" data-id="${link.id}" title="Kirim Klik Riil">
               <i class="fa-solid fa-play"></i> Klik
             </button>
-            <button class="btn btn-sm btn-outline btn-table-qr" data-slug="${link.slug}" title="Buka QR Code">
+            <button class="btn btn-sm btn-outline btn-table-qr" data-slug="${link.slug}" title="Buka di QR Studio">
               <i class="fa-solid fa-qrcode"></i> QR
             </button>
           </div>
@@ -822,16 +861,16 @@
       tbody.appendChild(tr);
     });
 
-    // Attach row button listeners
-    document.querySelectorAll('.btn-table-test-click').forEach(btn => {
+    tbody.querySelectorAll('.btn-table-test-click').forEach(btn => {
       btn.onclick = () => {
         simulateRealClick(btn.getAttribute('data-slug'), btn.getAttribute('data-id'), false);
       };
     });
 
-    document.querySelectorAll('.btn-table-qr').forEach(btn => {
+    tbody.querySelectorAll('.btn-table-qr').forEach(btn => {
       btn.onclick = () => {
-        openQrModal(btn.getAttribute('data-slug'));
+        qrSelectedSlug = btn.getAttribute('data-slug');
+        window.location.hash = '#qr-studio';
       };
     });
   }
@@ -856,12 +895,11 @@
 
     const total = filteredClicks.length || 1;
 
-    // Render Referrers
     if (elReferrers) {
       elReferrers.innerHTML = '';
       const sorted = Object.entries(refCounts).sort((a, b) => b[1] - a[1]);
       if (sorted.length === 0) {
-        elReferrers.innerHTML = '<div style="font-size:0.8rem; color:#9ca3af;">Belum ada data referrers pada periode ini.</div>';
+        elReferrers.innerHTML = '<div style="font-size:0.8rem; color:#94a3b8;">Belum ada data referrers pada periode ini.</div>';
       } else {
         sorted.slice(0, 5).forEach(([name, count]) => {
           const pct = Math.round((count / total) * 100);
@@ -881,7 +919,6 @@
       }
     }
 
-    // Render Devices
     if (elDevices) {
       elDevices.innerHTML = '';
       Object.entries(devCounts).forEach(([name, count]) => {
@@ -902,33 +939,123 @@
     }
   }
 
-  // --- LIVE REAL-TIME CLICK STREAM ---
-  function renderLiveClickStream() {
-    const stream = document.getElementById('liveClickStreamList');
-    if (!stream) return;
-    stream.innerHTML = '';
+  // --- QR STUDIO (100% FUNGSIONAL) ---
+  function initQrStudio() {
+    const selectLink = document.getElementById('selectQrLink');
+    const colorBtns = document.querySelectorAll('.color-btn');
+    const btnDownload = document.getElementById('btnDownloadStudioQr');
+    const btnTestScan = document.getElementById('btnTestStudioQrScan');
 
-    const recent = clicksHistory.slice(-6).reverse();
+    if (colorBtns) {
+      colorBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+          colorBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          qrSelectedColor = btn.getAttribute('data-color');
+          updateQrStudio();
+        });
+      });
+    }
+
+    if (selectLink) {
+      selectLink.addEventListener('change', () => {
+        qrSelectedSlug = selectLink.value;
+        updateQrStudio();
+      });
+    }
+
+    if (btnDownload) {
+      btnDownload.addEventListener('click', () => {
+        const box = document.getElementById('qrStudioBox');
+        const canvas = box ? box.querySelector('canvas') : null;
+        if (canvas) {
+          const imgUrl = canvas.toDataURL('image/png');
+          const a = document.createElement('a');
+          a.download = `qr-${qrSelectedSlug || 'link'}.png`;
+          a.href = imgUrl;
+          a.click();
+          showToast('File QR Code berhasil diunduh (PNG)', 'success');
+        } else {
+          showToast('Gagal mengunduh QR Code', 'warning');
+        }
+      });
+    }
+
+    if (btnTestScan) {
+      btnTestScan.addEventListener('click', () => {
+        simulateRealClick(qrSelectedSlug, null, true);
+      });
+    }
+  }
+
+  function updateQrStudio() {
+    const selectLink = document.getElementById('selectQrLink');
+    const urlText = document.getElementById('qrStudioUrlText');
+    const box = document.getElementById('qrStudioBox');
+    if (!selectLink || !box) return;
+
+    // Populate dropdown
+    selectLink.innerHTML = '';
+    links.forEach(l => {
+      const opt = document.createElement('option');
+      opt.value = l.slug;
+      opt.textContent = `/${l.slug} — ${l.title || l.slug}`;
+      selectLink.appendChild(opt);
+    });
+
+    if (!qrSelectedSlug && links.length > 0) {
+      qrSelectedSlug = links[0].slug;
+    }
+    selectLink.value = qrSelectedSlug;
+
+    const qrUrl = `https://${customDomain}/${qrSelectedSlug}?src=qr`;
+    if (urlText) urlText.textContent = qrUrl;
+
+    box.innerHTML = '';
+    if (window.QRCode) {
+      new window.QRCode(box, {
+        text: qrUrl,
+        width: 180,
+        height: 180,
+        colorDark: qrSelectedColor,
+        colorLight: '#ffffff',
+        correctLevel: window.QRCode.CorrectLevel.H
+      });
+    } else {
+      box.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}" alt="QR Code"/>`;
+    }
+  }
+
+  // --- ACTIVITY REAL-TIME TABLE ---
+  function renderActivityTable() {
+    const tbody = document.getElementById('activityTableBody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+
+    const recent = clicksHistory.slice(-25).reverse();
     if (recent.length === 0) {
-      stream.innerHTML = '<div style="font-size:0.8rem; color:#9ca3af;">Belum ada kunjungan yang tercatat.</div>';
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:20px; color:#9ca3af;">Belum ada riwayat aktivitas kunjungan.</td></tr>';
       return;
     }
 
     recent.forEach(c => {
-      const item = document.createElement('div');
-      item.className = 'live-stream-item';
-      const time = c.clicked_at ? new Date(c.clicked_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'Baru saja';
-      const isQrBadge = c.is_qr ? '<span style="color:#0284c7; font-weight:700;">[QR Scan]</span>' : '';
+      const time = c.clicked_at ? new Date(c.clicked_at).toLocaleString('id-ID') : 'Baru saja';
+      const isQr = c.is_qr || (c.referer && c.referer.toLowerCase().includes('qr'));
 
-      item.innerHTML = `
-        <div>
-          <span style="font-weight:700; color:var(--sid-red); margin-right:4px;">/${escapeHtml(c.slug)}</span>
-          <span style="color:var(--text-muted); font-size:0.75rem;">via ${escapeHtml(c.referer || 'Direct')}</span>
-          ${isQrBadge}
-        </div>
-        <span style="font-family:'JetBrains Mono',monospace; font-size:0.72rem; color:var(--text-muted);">${time}</span>
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td style="font-family:'JetBrains Mono',monospace; font-size:0.76rem; color:var(--text-muted);">${time}</td>
+        <td><strong style="color:var(--brand-primary);">/${escapeHtml(c.slug)}</strong></td>
+        <td><span style="background:var(--bg-hover); padding:3px 8px; border-radius:4px;">${escapeHtml(c.referer || 'Direct')}</span></td>
+        <td>
+          <span style="color:${isQr ? '#0284c7' : '#15803d'}; font-weight:700;">
+            ${isQr ? '<i class="fa-solid fa-qrcode"></i> Scan QR' : '<i class="fa-solid fa-arrow-pointer"></i> Klik Web'}
+          </span>
+        </td>
+        <td style="font-size:0.78rem; color:var(--text-secondary);">${escapeHtml(c.user_agent || 'Unknown Device')}</td>
+        <td style="font-family:'JetBrains Mono',monospace; font-size:0.75rem; color:var(--text-muted);">${escapeHtml(c.visitor_id ? c.visitor_id.substring(0, 14) + '...' : '-')}</td>
       `;
-      stream.appendChild(item);
+      tbody.appendChild(tr);
     });
   }
 
@@ -937,7 +1064,7 @@
     const select = document.getElementById('selectLinkFilter');
     if (!select) return;
     const currentVal = select.value;
-    select.innerHTML = '<option value="all">Semua Tautan (All Links)</option>';
+    select.innerHTML = '<option value="all">Semua Tautan (Akumulasi)</option>';
 
     links.forEach(l => {
       const opt = document.createElement('option');
@@ -949,7 +1076,7 @@
     select.value = currentVal || 'all';
   }
 
-  // --- REAL CLICK SIMULATION & EVENT EMISSION ---
+  // --- REAL CLICK SIMULATION & LIVE EVENT ---
   function simulateRealClick(targetSlug, targetId, isQr = false) {
     const slug = targetSlug || (links.length > 0 ? links[0].slug : 'promo-gajian');
     const linkObj = links.find(l => l.slug === slug || l.id === targetId);
@@ -957,10 +1084,8 @@
     const referrers = isQr ? ['QR Code Scan'] : ['WhatsApp', 'Instagram', 'Direct', 'TikTok', 'Google Search'];
     const chosenRef = referrers[Math.floor(Math.random() * referrers.length)];
 
-    // Generate or fetch a visitor id
     let vId = localStorage.getItem('autoshort_visitor_id');
     if (!vId || Math.random() > 0.4) {
-      // 60% chance of returning visitor, 40% new unique visitor
       vId = 'vis_' + Math.random().toString(36).substring(2, 9);
     }
 
@@ -977,7 +1102,6 @@
       clicked_at: new Date().toISOString()
     };
 
-    // Increment link total clicks
     if (linkObj) {
       linkObj.clicks = (Number(linkObj.clicks) || 0) + 1;
       linkObj.last_clicked_at = clickRecord.clicked_at;
@@ -987,7 +1111,6 @@
     clicksHistory.push(clickRecord);
     saveLocalClicks();
 
-    // Async sync to Supabase if connected
     if (supabase && linkObj) {
       supabase.from('links').update({ clicks: linkObj.clicks }).eq('id', linkObj.id).then();
       supabase.from('clicks').insert([{
@@ -1004,6 +1127,7 @@
     showToast(`Kunjungan ${isQr ? 'Scan QR' : 'Real'} tercatat pada /${slug}!`, 'success');
     renderAnalytics();
     renderShortenerLinks();
+    if (currentView === 'activity') renderActivityTable();
   }
 
   // --- SHORTENER VIEW MANAGEMENT ---
@@ -1033,7 +1157,7 @@
       card.innerHTML = `
         <div class="link-card-main">
           <div class="link-preview-thumb">
-            ${previewImg ? `<img src="${escapeHtml(previewImg)}" alt="Thumb" onerror="this.parentNode.innerHTML='<i class=\\'fa-solid fa-image text-muted\\'></i>'"/>` : `<i class="fa-solid fa-image" style="color:#9ca3af;"></i>`}
+            ${previewImg ? `<img src="${escapeHtml(previewImg)}" alt="Thumb" onerror="this.parentNode.innerHTML='<i class=\\'fa-solid fa-image text-muted\\'></i>'"/>` : `<i class="fa-solid fa-image" style="color:#94a3b8;"></i>`}
           </div>
 
           <div class="link-details">
@@ -1062,7 +1186,7 @@
           </div>
 
           <div class="action-buttons-group">
-            <button class="btn-icon-action btn-qr-action" data-slug="${link.slug}" title="Buka QR Code">
+            <button class="btn-icon-action btn-qr-action" data-slug="${link.slug}" title="Buka di QR Studio">
               <i class="fa-solid fa-qrcode"></i>
             </button>
             <button class="btn-icon-action btn-edit-action" data-id="${link.id}" title="Edit Preview WhatsApp">
@@ -1081,7 +1205,6 @@
       container.appendChild(card);
     });
 
-    // Attach listeners
     container.querySelectorAll('.btn-inline-copy').forEach(btn => {
       btn.onclick = (e) => {
         e.stopPropagation();
@@ -1090,7 +1213,10 @@
     });
 
     container.querySelectorAll('.btn-qr-action').forEach(btn => {
-      btn.onclick = () => openQrModal(btn.getAttribute('data-slug'));
+      btn.onclick = () => {
+        qrSelectedSlug = btn.getAttribute('data-slug');
+        window.location.hash = '#qr-studio';
+      };
     });
 
     container.querySelectorAll('.btn-edit-action').forEach(btn => {
@@ -1123,60 +1249,6 @@
     });
   }
 
-  // --- QR CODE GENERATOR & MODAL ---
-  function openQrModal(slug) {
-    const modal = document.getElementById('modalQr');
-    const container = document.getElementById('qrCanvasContainer');
-    const badge = document.getElementById('qrLinkBadge');
-    const btnTestScan = document.getElementById('btnTestQrScanModal');
-    const btnDownload = document.getElementById('btnDownloadQrImage');
-    if (!modal || !container) return;
-
-    // Trackable QR destination with ?src=qr
-    const qrUrl = `https://${customDomain}/${slug}?src=qr`;
-    if (badge) badge.textContent = qrUrl;
-
-    container.innerHTML = '';
-
-    if (window.QRCode) {
-      new window.QRCode(container, {
-        text: qrUrl,
-        width: 180,
-        height: 180,
-        colorDark: '#000000',
-        colorLight: '#ffffff',
-        correctLevel: window.QRCode.CorrectLevel.H
-      });
-    } else {
-      container.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}" alt="QR Code"/>`;
-    }
-
-    if (btnTestScan) {
-      btnTestScan.onclick = () => {
-        simulateRealClick(slug, null, true);
-        modal.style.display = 'none';
-      };
-    }
-
-    if (btnDownload) {
-      btnDownload.onclick = () => {
-        const canvas = container.querySelector('canvas');
-        if (canvas) {
-          const imgUrl = canvas.toDataURL('image/png');
-          const a = document.createElement('a');
-          a.download = `qrcode-${slug}.png`;
-          a.href = imgUrl;
-          a.click();
-          showToast('Gambar QR Code berhasil diunduh', 'success');
-        } else {
-          showToast('Gagal mengunduh QR Code', 'warning');
-        }
-      };
-    }
-
-    modal.style.display = 'flex';
-  }
-
   // --- EDIT PREVIEW & LINK MODAL ---
   function openEditLinkModal(id) {
     const modal = document.getElementById('modalLink');
@@ -1189,7 +1261,6 @@
     const inputOgImg = document.getElementById('modalOgImage');
 
     if (!modal) return;
-    currentEditId = id;
 
     if (id) {
       const link = links.find(l => l.id === id);
@@ -1281,7 +1352,6 @@
         renderShortenerLinks();
         renderAnalytics();
 
-        // Show banner
         const banner = document.getElementById('quickResultBanner');
         const resUrl = document.getElementById('quickResultUrl');
         const resDest = document.getElementById('quickResultTarget');
@@ -1342,27 +1412,25 @@
       });
     }
 
-    // Modal Close buttons
-    ['modalLink', 'modalQr', 'modalDomain', 'modalCloud'].forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.querySelectorAll('.modal-close, [id^="btnCancel"]').forEach(btn => {
-        btn.onclick = () => el.style.display = 'none';
+    // Modal Close
+    const modalLink = document.getElementById('modalLink');
+    if (modalLink) {
+      modalLink.querySelectorAll('.modal-close, #btnCancelModalLink').forEach(btn => {
+        btn.onclick = () => modalLink.style.display = 'none';
       });
-    });
+    }
 
-    // Test Click Simulation Button
-    const btnSimulateClick = document.getElementById('btnSimulateRealClick');
-    if (btnSimulateClick) {
-      btnSimulateClick.addEventListener('click', () => {
+    // Header Quick Test Buttons
+    const btnHeaderClick = document.getElementById('btnHeaderSimulateClick');
+    if (btnHeaderClick) {
+      btnHeaderClick.addEventListener('click', () => {
         simulateRealClick(activeLinkFilter !== 'all' ? activeLinkFilter : null, null, false);
       });
     }
 
-    // Test QR Scan Simulation Button
-    const btnSimulateQr = document.getElementById('btnSimulateQrScan');
-    if (btnSimulateQr) {
-      btnSimulateQr.addEventListener('click', () => {
+    const btnHeaderQr = document.getElementById('btnHeaderSimulateQr');
+    if (btnHeaderQr) {
+      btnHeaderQr.addEventListener('click', () => {
         simulateRealClick(activeLinkFilter !== 'all' ? activeLinkFilter : null, null, true);
       });
     }
@@ -1404,39 +1472,10 @@
       });
     }
 
-    // Modal inputs input events for live WhatsApp card preview
+    // Real-time WA Preview typing
     ['modalOgTitle', 'modalOgDescription', 'modalOgImage', 'modalSlug'].forEach(id => {
       const input = document.getElementById(id);
       if (input) input.addEventListener('input', updateWhatsAppMockup);
-    });
-
-    // Getting Started accordion toggle
-    const gsToggle = document.getElementById('btnToggleGettingStarted');
-    const gsList = document.getElementById('gsChecklist');
-    const gsChevron = document.getElementById('gsChevron');
-    if (gsToggle && gsList) {
-      gsToggle.addEventListener('click', () => {
-        const isHidden = gsList.style.display === 'none';
-        gsList.style.display = isHidden ? 'flex' : 'none';
-        if (gsChevron) gsChevron.classList.toggle('collapsed', !isHidden);
-      });
-    }
-
-    // Sidebar navigation clicks
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        const view = item.getAttribute('data-view');
-        if (view === 'analytics' || view === 'shortener') {
-          e.preventDefault();
-          window.location.hash = `#${view}`;
-        } else if (item.id === 'sidebarNavDomains') {
-          e.preventDefault();
-          openDomainModal();
-        } else if (item.id === 'sidebarNavSettings') {
-          e.preventDefault();
-          openCloudModal();
-        }
-      });
     });
 
     // Mobile menu toggle
@@ -1448,19 +1487,97 @@
       });
     }
 
-    // Open create link modal button
-    const btnCreate = document.getElementById('btnOpenCreateModal');
-    if (btnCreate) {
-      btnCreate.addEventListener('click', () => openEditLinkModal(null));
+    // Sidebar & Header Create Link Buttons
+    ['btnSidebarCreateLink', 'btnOpenCreateModal'].forEach(id => {
+      const btn = document.getElementById(id);
+      if (btn) btn.onclick = () => openEditLinkModal(null);
+    });
+
+    // Header Domain Pill
+    const btnTopDomain = document.getElementById('btnTopDomainModal');
+    if (btnTopDomain) {
+      btnTopDomain.onclick = () => {
+        window.location.hash = '#domains';
+      };
     }
 
-    // Close plans banner button
-    const btnClosePlans = document.getElementById('btnClosePlansBanner');
-    const plansBanner = document.getElementById('plansBanner');
-    if (btnClosePlans && plansBanner) {
-      btnClosePlans.addEventListener('click', () => {
-        plansBanner.style.display = 'none';
-      });
+    // Header Cloud Status Pill
+    const btnTopCloud = document.getElementById('btnOpenCloudStatus');
+    if (btnTopCloud) {
+      btnTopCloud.onclick = () => {
+        window.location.hash = '#settings';
+      };
+    }
+
+    // Settings: Save Domain
+    const btnSaveDomain = document.getElementById('btnSaveSettingsDomain');
+    if (btnSaveDomain) {
+      btnSaveDomain.onclick = () => {
+        const input = document.getElementById('inputSettingsDomain');
+        const val = input.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+        if (val) {
+          customDomain = val;
+          localStorage.setItem('autoshort_custom_domain', customDomain);
+          updateDomainDisplays();
+          showToast(`Domain utama berhasil diubah menjadi: ${customDomain}`, 'success');
+        }
+      };
+    }
+
+    // Settings: Save Supabase
+    const btnSaveSupabase = document.getElementById('btnSaveSettingsSupabase');
+    if (btnSaveSupabase) {
+      btnSaveSupabase.onclick = () => {
+        const urlInput = document.getElementById('inputSettingsSupabaseUrl');
+        const keyInput = document.getElementById('inputSettingsSupabaseKey');
+        const url = urlInput.value.trim();
+        const key = keyInput.value.trim();
+        if (url && key && window.supabase) {
+          supabase = window.supabase.createClient(url, key);
+          showToast('Supabase Client berhasil diinisialisasi!', 'success');
+          syncWithSupabase();
+        } else {
+          showToast('Masukkan URL dan Anon API Key Supabase yang valid.', 'warning');
+        }
+      };
+    }
+
+    // Settings: Backup JSON
+    const btnExportJson = document.getElementById('btnExportJsonBackup');
+    if (btnExportJson) {
+      btnExportJson.onclick = () => {
+        const backupData = {
+          links: links,
+          clicks: clicksHistory,
+          customDomain: customDomain,
+          exportedAt: new Date().toISOString()
+        };
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `autoshort-backup-${new Date().toISOString().substring(0, 10)}.json`;
+        a.click();
+        showToast('Backup JSON berhasil diunduh!', 'success');
+      };
+    }
+
+    // Settings: Reset Data
+    const btnResetData = document.getElementById('btnResetAllData');
+    if (btnResetData) {
+      btnResetData.onclick = () => {
+        if (confirm('Apakah Anda yakin ingin mereset seluruh data kembali ke kondisi awal?')) {
+          localStorage.removeItem('autoshort_links');
+          localStorage.removeItem('autoshort_clicks');
+          links = [...DEFAULT_LINKS];
+          clicksHistory = generateSeedClicks();
+          saveLocalLinks();
+          saveLocalClicks();
+          renderAnalytics();
+          renderShortenerLinks();
+          showToast('Data berhasil direset ke data default.', 'info');
+        }
+      };
     }
   }
 
@@ -1507,59 +1624,17 @@
     showToast('File CSV statistik berhasil diunduh!', 'success');
   }
 
-  // --- DOMAIN SETTINGS MODAL ---
-  function openDomainModal() {
-    const modal = document.getElementById('modalDomain');
-    const input = document.getElementById('inputCustomDomain');
-    const btnSave = document.getElementById('btnSaveCustomDomain');
-    const btnReset = document.getElementById('btnResetDomainDefault');
-
-    if (!modal) return;
-    if (input) input.value = customDomain;
-
-    if (btnSave) {
-      btnSave.onclick = () => {
-        const val = input.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
-        if (val) {
-          customDomain = val;
-          localStorage.setItem('autoshort_custom_domain', customDomain);
-          updateDomainDisplays();
-          modal.style.display = 'none';
-          showToast(`Domain utama diubah menjadi: ${customDomain}`, 'success');
-          renderShortenerLinks();
-          renderAnalytics();
-        }
-      };
-    }
-
-    if (btnReset) {
-      btnReset.onclick = () => {
-        customDomain = 'rigeel.id';
-        localStorage.removeItem('autoshort_custom_domain');
-        updateDomainDisplays();
-        modal.style.display = 'none';
-        showToast('Domain diatur kembali ke default: rigeel.id', 'info');
-        renderShortenerLinks();
-        renderAnalytics();
-      };
-    }
-
-    modal.style.display = 'flex';
-  }
-
   function updateDomainDisplays() {
     const prefix = document.getElementById('domainPrefixDisplay');
     const addon = document.getElementById('modalDomainAddon');
+    const topDomain = document.getElementById('topDomainText');
+    const inputSet = document.getElementById('inputSettingsDomain');
     if (prefix) prefix.textContent = `${customDomain}/`;
     if (addon) addon.textContent = `${customDomain}/`;
+    if (topDomain) topDomain.textContent = customDomain;
+    if (inputSet) inputSet.value = customDomain;
   }
 
-  function openCloudModal() {
-    const modal = document.getElementById('modalCloud');
-    if (modal) modal.style.display = 'flex';
-  }
-
-  // --- UTILS ---
   function generateRandomSlug(length = 6) {
     const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
     let res = '';
