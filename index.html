@@ -1,21 +1,13 @@
 <!DOCTYPE html>
 <html lang="id" data-theme="light">
 <head>
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2400550373404770"
-     crossorigin="anonymous"></script>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>AutoShort — Dashboard Analisis Data & URL Shortener Real-Time</title>
-  <meta name="description" content="Dashboard shortlink modern dengan analisis statistik pengunjung real-time, pengunjung unik, tracking QR code, deteksi anomali trafik, dan preview WhatsApp.">
+  <meta name="description" content="Dashboard shortlink modern dengan analisis statistik pengunjung real-time, pengunjung unik, kunjungan QR, dan pratinjau tautan.">
 
-  <!-- Google Fonts: Plus Jakarta Sans & JetBrains Mono -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  
-  <!-- FontAwesome 6 Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-  
+  <link rel="stylesheet" href="assets/fontawesome/css/all.min.css">
+
   <!-- QRCode.js for generating trackable QR codes -->
   <script src="/assets/qrcode.min.js"></script>
 
@@ -24,8 +16,10 @@
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="workspace.css">
 </head>
 <body>
+  <button class="skip-link" id="btnSkipToContent">Lewati ke konten</button>
 
   <button id="menuBackdrop" class="menu-backdrop" aria-label="Tutup menu" hidden></button>
   <div class="sid-layout">
@@ -37,52 +31,53 @@
       
       <!-- Brand Logo -->
       <div class="sidebar-header">
-        <a href="#analytics" class="sid-brand-logo">
+        <a href="#shortener" class="sid-brand-logo">
           <div class="brand-icon-square"><i class="fa-solid fa-bolt"></i></div>
           <span class="brand-text-main">Auto<span class="brand-text-accent">Short</span></span>
         </a>
+        <button type="button" class="sidebar-close" id="btnCloseSidebar" aria-label="Tutup menu navigasi"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
       </div>
 
       <!-- Functional Navigation Menu -->
       <nav class="sidebar-nav">
-        <div class="nav-section-label">ANALISIS & DATA</div>
-        <ul class="nav-list">
-          <li class="nav-item active" data-view="analytics" id="sidebarNavAnalytics">
-            <a href="#analytics" class="nav-link">
-              <i class="fa-solid fa-chart-column nav-icon"></i>
-              <span class="nav-label">Data Analitik</span>
-              <span class="badge-pill badge-live">Live</span>
-            </a>
-          </li>
-
-          <li class="nav-item" data-view="activity" id="sidebarNavActivity">
-            <a href="#activity" class="nav-link">
-              <i class="fa-solid fa-wave-square nav-icon"></i>
-              <span class="nav-label">Aktivitas Real-Time</span>
-            </a>
-          </li>
-        </ul>
-
-        <div class="nav-section-label">MANAJEMEN LINK</div>
+        <div class="nav-section-label">RUANG KERJA</div>
         <ul class="nav-list">
           <li class="nav-item" data-view="shortener" id="sidebarNavShortener">
             <a href="#shortener" class="nav-link">
               <i class="fa-solid fa-link nav-icon"></i>
-              <span class="nav-label">Kelola Shortlink</span>
+              <span class="nav-label">Tautan</span>
             </a>
           </li>
 
           <li class="nav-item" data-view="qr-studio" id="sidebarNavQr">
             <a href="#qr-studio" class="nav-link">
               <i class="fa-solid fa-qrcode nav-icon"></i>
-              <span class="nav-label">QR Code Studio</span>
+              <span class="nav-label">QR Studio</span>
             </a>
           </li>
 
           <li class="nav-item" data-view="domains" id="sidebarNavDomains">
             <a href="#domains" class="nav-link">
               <i class="fa-solid fa-globe nav-icon"></i>
-              <span class="nav-label">Custom Domain</span>
+              <span class="nav-label">Domain</span>
+            </a>
+          </li>
+        </ul>
+
+        <div class="nav-section-label">RINGKASAN</div>
+        <ul class="nav-list">
+          <li class="nav-item active" data-view="analytics" id="sidebarNavAnalytics">
+            <a href="#analytics" class="nav-link">
+              <i class="fa-solid fa-chart-column nav-icon"></i>
+              <span class="nav-label">Analitik</span>
+
+            </a>
+          </li>
+
+          <li class="nav-item" data-view="activity" id="sidebarNavActivity">
+            <a href="#activity" class="nav-link">
+              <i class="fa-solid fa-wave-square nav-icon"></i>
+              <span class="nav-label">Aktivitas</span>
             </a>
           </li>
         </ul>
@@ -92,7 +87,7 @@
           <li class="nav-item" data-view="settings" id="sidebarNavSettings">
             <a href="#settings" class="nav-link">
               <i class="fa-solid fa-gear nav-icon"></i>
-              <span class="nav-label">Pengaturan & Cloud</span>
+              <span class="nav-label">Pengaturan</span>
             </a>
           </li>
         </ul>
@@ -108,12 +103,12 @@
 
         <!-- User Profile Card -->
         <div class="sidebar-user-card" id="sidebarUserCard">
-          <div class="user-avatar-circle" id="userAvatarCircle">GM</div>
+          <div class="user-avatar-circle" id="userAvatarCircle">AS</div>
           <div class="user-info-text">
-            <div class="user-name-label" id="userNameLabel">Geel Mlbb</div>
-            <div class="user-role-label" id="userRoleLabel">Mode Lokal & Cloud</div>
+            <div class="user-name-label" id="userNameLabel">Ruang kerja Anda</div>
+            <div class="user-role-label" id="userRoleLabel">AutoShort</div>
           </div>
-          <button class="user-options-btn" id="btnThemeToggle" title="Ganti Tema (Gelap / Terang)">
+          <button class="user-options-btn" id="btnThemeToggle" title="Ganti tema" aria-label="Ganti tema terang atau gelap">
             <i class="fa-solid fa-moon" id="themeIcon"></i>
           </button>
         </div>
@@ -150,18 +145,6 @@
             <i class="fa-solid fa-globe" style="color: #06b6d4;"></i>
             <span id="topDomainText">rigeel.id</span>
           </button>
-
-          <!-- Quick Test Real Click -->
-          <button class="btn btn-test-action" id="btnHeaderSimulateClick" title="Buka tautan untuk menguji redirect dan tracking">
-            <i class="fa-solid fa-play"></i>
-            <span>Test Klik</span>
-          </button>
-
-          <!-- Quick Test QR Scan -->
-          <button class="btn btn-test-action qr" id="btnHeaderSimulateQr" title="Buka tautan QR untuk menguji tracking">
-            <i class="fa-solid fa-qrcode"></i>
-            <span>Test QR</span>
-          </button>
         </div>
       </header>
 
@@ -169,8 +152,48 @@
       <!-- VIEW 1: DATA ANALISIS (ANALYTICS) -->
       <!-- ======================================================== -->
       <p id="storageNotice" class="storage-notice" role="status">Memeriksa penyimpanan…</p>
-      <main class="sid-content-area" id="viewAnalytics">
+      <main tabindex="-1" class="sid-content-area" id="viewAnalytics">
+        <div class="page-heading"><span class="page-eyebrow">RINGKASAN</span><h2>Performa tautan</h2><p>Lihat kunjungan, sumber trafik, dan aktivitas dari tautan Anda.</p></div>
         
+        <!-- 4 KPI SUMMARY METRICS ROW -->
+        <div class="sid-metrics-row">
+          <!-- 1. Total Links -->
+          <div class="sid-kpi-col">
+            <div class="kpi-number" id="kpiTotalLinks">0</div>
+            <div class="kpi-label">
+              <span class="dot-indicator dot-blue"></span>
+              <span>Total Tautan</span>
+            </div>
+          </div>
+
+          <!-- 2. Visitors -->
+          <div class="sid-kpi-col">
+            <div class="kpi-number" id="kpiTotalVisitors">0</div>
+            <div class="kpi-label">
+              <span class="dot-indicator dot-red"></span>
+              <span>Total Kunjungan</span>
+            </div>
+          </div>
+
+          <!-- 3. Unique Visitor -->
+          <div class="sid-kpi-col">
+            <div class="kpi-number" id="kpiUniqueVisitors">0</div>
+            <div class="kpi-label">
+              <span class="dot-indicator dot-purple"></span>
+              <span>Pengunjung Unik</span>
+            </div>
+          </div>
+
+          <!-- 4. QR Code Visitor -->
+          <div class="sid-kpi-col">
+            <div class="kpi-number" id="kpiQrVisitors">0</div>
+            <div class="kpi-label">
+              <span class="dot-indicator dot-cyan"></span>
+              <span>Pengunjung QR Code</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Controls & Filter Toolbar -->
         <div class="analytics-controls-bar">
           <div class="controls-left">
@@ -247,16 +270,16 @@
               <span>Segarkan Data</span>
             </button>
 
-            <!-- Export PDF Button -->
+            <!-- Simpan PDF Button -->
             <button class="btn btn-outline-clean" id="btnExportPdf" title="Cetak / Simpan laporan PDF rapi">
               <i class="fa-solid fa-file-pdf" style="color: #ef4444;"></i>
-              <span>Export PDF</span>
+              <span>Simpan PDF</span>
             </button>
 
-            <!-- Download CSV Button -->
+            <!-- Ekspor CSV Button -->
             <button class="btn btn-outline-clean" id="btnDownloadCsv" title="Unduh data klik dalam format CSV / Excel">
               <i class="fa-solid fa-file-csv" style="color: #10b981;"></i>
-              <span>Download CSV</span>
+              <span>Ekspor CSV</span>
             </button>
           </div>
         </div>
@@ -265,11 +288,11 @@
         <div class="analytics-chart-card">
           <div class="chart-top-bar">
             <div class="chart-legend">
-              <span class="legend-item"><span class="legend-dot red"></span> Total Pengunjung (Visitors)</span>
-              <span class="legend-item"><span class="legend-dot purple"></span> Pengunjung Unik (Unique Visitor)</span>
+              <span class="legend-item"><span class="legend-dot red"></span> Total kunjungan</span>
+              <span class="legend-item"><span class="legend-dot purple"></span> Pengunjung unik</span>
             </div>
             <div class="chart-hint-label">
-              <i class="fa-solid fa-circle-info"></i> Arahkan kursor pada batang untuk detail harian
+              <i class="fa-solid fa-circle-info"></i> Pilih batang untuk detail harian
             </div>
           </div>
 
@@ -287,68 +310,11 @@
           </div>
         </div>
 
-        <!-- 4 KPI SUMMARY METRICS ROW -->
-        <div class="sid-metrics-row">
-          <!-- 1. Total Links -->
-          <div class="sid-kpi-col">
-            <div class="kpi-number" id="kpiTotalLinks">0</div>
-            <div class="kpi-label">
-              <span class="dot-indicator dot-blue"></span>
-              <span>Total Tautan</span>
-            </div>
-          </div>
-
-          <!-- 2. Visitors -->
-          <div class="sid-kpi-col">
-            <div class="kpi-number" id="kpiTotalVisitors">0</div>
-            <div class="kpi-label">
-              <span class="dot-indicator dot-red"></span>
-              <span>Total Kunjungan</span>
-            </div>
-          </div>
-
-          <!-- 3. Unique Visitor -->
-          <div class="sid-kpi-col">
-            <div class="kpi-number" id="kpiUniqueVisitors">0</div>
-            <div class="kpi-label">
-              <span class="dot-indicator dot-purple"></span>
-              <span>Pengunjung Unik</span>
-            </div>
-          </div>
-
-          <!-- 4. QR Code Visitor -->
-          <div class="sid-kpi-col">
-            <div class="kpi-number" id="kpiQrVisitors">0</div>
-            <div class="kpi-label">
-              <span class="dot-indicator dot-cyan"></span>
-              <span>Pengunjung QR Code</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- REAL ANOMALY DETECTION SECTION -->
-        <div class="anomaly-section-card">
-          <div class="anomaly-header-bar">
-            <div class="anomaly-title-row">
-              <span class="anomaly-icon"><i class="fa-solid fa-chart-line"></i></span>
-              <span class="anomaly-title">Deteksi Anomali Trafik (Statistik Real)</span>
-              <span class="anomaly-badge" id="anomalyFoundBadge">0 Terdeteksi</span>
-            </div>
-            <div class="anomaly-meta-info" id="anomalyMetaInfo">
-              Rata-rata Harian: <strong id="anomalyAvgDaily">0</strong> klik | Batas Anomali: <strong id="anomalyThreshold">0</strong> klik
-            </div>
-          </div>
-
-          <div class="anomaly-details-list" id="anomalyDetailsList">
-            <!-- Dynamically rendered based on actual traffic calculations -->
-          </div>
-        </div>
-
         <!-- REAL PERFORMANCE BREAKDOWN PER SHORTLINK TABLE -->
         <div class="performance-table-card">
           <div class="perf-header">
-            <h3><i class="fa-solid fa-list-check" style="color: #ef4444; margin-right: 8px;"></i> Rincian Performa per Tautan (Real Data)</h3>
-            <span class="perf-subtitle">Data aktual jumlah klik, pengunjung unik, dan scan QR code pada rentang tanggal terpilih.</span>
+            <h3><i class="fa-solid fa-list-check" style="color: #ef4444; margin-right: 8px;"></i> Performa per tautan</h3>
+            <span class="perf-subtitle">Rincian kunjungan dalam rentang tanggal yang dipilih.</span>
           </div>
 
           <div class="table-responsive">
@@ -373,17 +339,17 @@
 
         <!-- DEEP-DIVE BREAKDOWNS: REFERRERS & DEVICES -->
         <div class="deep-dive-grid">
-          <!-- Sumber Trafik (Referrers) -->
+          <!-- Sumber trafik -->
           <div class="deep-card">
-            <h4><i class="fa-solid fa-share-nodes" style="color: #6366f1;"></i> Sumber Trafik (Referrers)</h4>
+            <h4><i class="fa-solid fa-share-nodes" style="color: #6366f1;"></i> Sumber trafik</h4>
             <div class="breakdown-list" id="anaReferrersList">
               <!-- Rendered by JS -->
             </div>
           </div>
 
-          <!-- Perangkat Pengunjung (Devices) -->
+          <!-- Perangkat -->
           <div class="deep-card">
-            <h4><i class="fa-solid fa-mobile-screen" style="color: #06b6d4;"></i> Perangkat Pengunjung (Devices)</h4>
+            <h4><i class="fa-solid fa-mobile-screen" style="color: #06b6d4;"></i> Perangkat</h4>
             <div class="breakdown-list" id="anaDevicesList">
               <!-- Rendered by JS -->
             </div>
@@ -395,36 +361,37 @@
       <!-- ======================================================== -->
       <!-- VIEW 2: KELOLA SHORTLINK (SHORTENER & WA PREVIEW) -->
       <!-- ======================================================== -->
-      <main class="sid-content-area" id="viewShortener" style="display: none;">
+      <main tabindex="-1" class="sid-content-area" id="viewShortener" style="display: none;">
+        <div class="page-heading"><span class="page-eyebrow">RUANG KERJA</span><h2>Tautan Anda</h2><p>Satu tempat untuk membuat, membagikan, dan mengelola tautan.</p></div>
         
         <!-- Shortlink Quick Creator Card -->
         <section class="quick-shorten-card">
           <div class="quick-shorten-header">
-            <h2>Perpendek Tautan & Kustomisasi Tampilan</h2>
-            <p>Buat shortlink rapi dan atur gambar thumbnail, judul, serta deskripsi yang muncul saat link dikirim ke WhatsApp / Sosmed.</p>
+            <div><h2>Buat tautan baru</h2><p>Tempel URL dan pilih nama tautan.</p></div>
+            <button type="button" class="btn btn-quiet btn-sm" id="btnOpenCreateModal"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Opsi lengkap</button>
           </div>
 
           <form id="quickShortenForm" class="quick-shorten-form">
             <div class="quick-input-group">
               <i class="fa-solid fa-link input-prefix-icon"></i>
-              <input type="text" id="quickUrlInput" inputmode="url" aria-label="URL tujuan" placeholder="Tempel URL panjang (contoh: https://tokopedia.com/promo-spesial)..." required />
+              <input type="text" id="quickUrlInput" inputmode="url" aria-label="URL tujuan" placeholder="https://contoh.com/tautan-anda" required />
             </div>
 
             <div class="quick-custom-slug-group">
               <span class="domain-prefix" id="domainPrefixDisplay">rigeel.id/</span>
-              <input type="text" id="quickSlugInput" minlength="2" maxlength="64" aria-label="Slug tautan" placeholder="kustom-slug" pattern="[a-zA-Z0-9_-]+" title="Huruf, angka, strip" />
+              <input type="text" id="quickSlugInput" minlength="2" maxlength="64" aria-label="Slug tautan" placeholder="nama-tautan" pattern="[a-zA-Z0-9_-]+" title="Huruf, angka, strip" />
             </div>
 
             <button type="submit" class="btn btn-primary btn-submit-shorten" id="btnQuickSubmit">
               <i class="fa-solid fa-wand-magic-sparkles"></i>
-              <span>Perpendek</span>
+              <span>Buat tautan</span>
             </button>
           </form>
 
           <!-- Quick Result Banner -->
           <div id="quickResultBanner" class="quick-result-card" style="display: none;">
             <div class="quick-result-info">
-              <div class="result-label">Tautan Berhasil Dibuat:</div>
+              <div class="result-label">Tautan siap dibagikan</div>
               <a href="#" target="_blank" id="quickResultUrl" class="result-url">https://rigeel.id/promo</a>
               <div class="result-target" id="quickResultTarget">Menuju ke: https://target.com</div>
             </div>
@@ -433,10 +400,10 @@
                 <i class="fa-regular fa-copy"></i> Salin Link
               </button>
               <button class="btn btn-sm btn-outline" id="btnEditPreviewQuickResult">
-                <i class="fa-solid fa-image"></i> Atur Tampilan WA
+                <i class="fa-solid fa-image"></i> Edit tampilan
               </button>
               <button class="btn btn-sm btn-outline" id="btnStatsQuickResult">
-                <i class="fa-solid fa-chart-line"></i> Lihat Analisis
+                <i class="fa-solid fa-chart-line"></i> Lihat statistik
               </button>
             </div>
           </div>
@@ -446,18 +413,16 @@
         <section class="links-section">
           <div class="section-toolbar">
             <div class="toolbar-left">
-              <h3>Daftar Tautan Saya</h3>
+              <h3>Semua tautan</h3>
               <span class="count-badge" id="linksCountBadge">0 Tautan</span>
             </div>
             <div class="toolbar-right">
-              <button type="button" class="btn btn-outline btn-sm" id="btnExportLinks">Ekspor Tautan CSV</button>
+              <button type="button" class="btn btn-outline btn-sm" id="btnExportLinks">Ekspor CSV</button>
               <button type="button" class="btn btn-outline btn-sm" id="btnToggleLinkView" aria-pressed="false">Tampilan ringkas</button>
-              <button class="btn btn-primary btn-sm" id="btnOpenCreateModal">
-                <i class="fa-solid fa-plus"></i> Buat Shortlink Baru
-              </button>
+
               <div class="search-box-wrap">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="searchInput" aria-label="Cari tautan" placeholder="Cari slug atau URL..." />
+                <input type="text" id="searchInput" aria-label="Cari tautan" placeholder="Cari nama, URL, atau tag…" />
               </div>
             </div>
           </div>
@@ -482,17 +447,17 @@
       <!-- ======================================================== -->
       <!-- VIEW 3: QR CODE STUDIO (FUNGSIONAL PENUH) -->
       <!-- ======================================================== -->
-      <main class="sid-content-area" id="viewQrStudio" style="display: none;">
+      <main tabindex="-1" class="sid-content-area" id="viewQrStudio" style="display: none;">
         <div class="qr-studio-card">
           <div class="qr-studio-header">
-            <h2><i class="fa-solid fa-qrcode" style="color:#06b6d4;"></i> QR Code Studio & Tracking</h2>
-            <p>Buat kode QR beresolusi tinggi untuk setiap shortlink Anda. Setiap pemindaian otomatis dilacak sebagai <strong>QR Code Visitor</strong> di analitik.</p>
+            <h2><i class="fa-solid fa-qrcode" style="color:#06b6d4;"></i> QR Studio</h2>
+            <p>Buat QR yang siap diunduh. Kunjungan dari pemindaian tercatat di analitik.</p>
           </div>
 
           <div class="qr-studio-grid">
             <div class="qr-controls-panel">
               <div class="form-group">
-                <label for="selectQrLink">Pilih Tautan Shortlink</label>
+                <label for="selectQrLink">Pilih tautan</label>
                 <select id="selectQrLink" class="input-control">
                   <!-- Populated via JS -->
                 </select>
@@ -510,7 +475,7 @@
               </div>
 
               <div class="form-group">
-                <label>Alamat Scan QR (Otomatis Dilacak)</label>
+                <label>Alamat QR</label>
                 <div class="qr-preview-url" id="qrStudioUrlText">https://rigeel.id/slug?src=qr</div>
               </div>
 
@@ -519,10 +484,10 @@
               <div class="qr-actions-row">
                 <button type="button" class="btn btn-outline" id="btnCopyQr">Salin gambar QR</button>
                 <button type="button" class="btn btn-primary" id="btnDownloadStudioQr">
-                  <i class="fa-solid fa-download"></i> Unduh Gambar QR (PNG)
+                  <i class="fa-solid fa-download"></i> Unduh PNG
                 </button>
                 <button type="button" class="btn btn-outline" id="btnTestStudioQrScan">
-                  <i class="fa-solid fa-arrow-pointer"></i> Uji Coba Scan Langsung
+                  <i class="fa-solid fa-arrow-pointer"></i> Buka tautan QR
                 </button>
               </div>
             </div>
@@ -540,16 +505,16 @@
       <!-- ======================================================== -->
       <!-- VIEW 4: AKTIVITAS REAL-TIME (LIVE STREAM) -->
       <!-- ======================================================== -->
-      <main class="sid-content-area" id="viewActivity" style="display: none;">
+      <main tabindex="-1" class="sid-content-area" id="viewActivity" style="display: none;">
         <div class="activity-card">
           <div class="activity-header">
             <div>
-              <h2><i class="fa-solid fa-wave-square" style="color:#f59e0b;"></i> Aktivitas Kunjungan Real-Time</h2>
-              <p>Feed log langsung setiap kali tautan Anda diklik atau dipindai oleh pengunjung.</p>
+              <h2><i class="fa-solid fa-wave-square" style="color:#f59e0b;"></i> Aktivitas terbaru</h2>
+              <p>Riwayat kunjungan terbaru dari tautan dan QR Anda.</p>
             </div>
             <div class="live-status-indicator">
               <span class="live-pulse"></span>
-              <span>Memantau Aliran Trafik</span>
+              <span>Diperbarui otomatis</span>
             </div>
           </div>
 
@@ -558,7 +523,7 @@
               <thead>
                 <tr>
                   <th>Waktu</th>
-                  <th>Slug Tautan</th>
+                  <th>Nama tautan</th>
                   <th>Sumber / Referrer</th>
                   <th>Metode</th>
                   <th>Perangkat & Browser</th>
@@ -576,21 +541,18 @@
       <!-- ======================================================== -->
       <!-- VIEW 5: PENGATURAN & CLOUD BACKEND -->
       <!-- ======================================================== -->
-      <main class="sid-content-area" id="viewSettings" style="display: none;">
-        <div class="settings-card">
-          <h2><i class="fa-solid fa-gear" style="color:#6366f1;"></i> Pengaturan Database & Sinkronisasi Cloud</h2>
-          <p>Kelola domain utama, hubungkan Supabase untuk akses global dari berbagai perangkat, atau ekspor data cadangan.</p>
-
-          <div class="settings-grid">
+      <main tabindex="-1" class="sid-content-area" id="viewDomains" style="display: none;">
+        <div class="page-heading"><span class="page-eyebrow">RUANG KERJA</span><h2>Domain Anda</h2><p>Alamat yang mudah dikenali, untuk setiap tautan yang dibagikan.</p></div>
+        <div class="active-domain-summary"><span class="summary-icon"><i class="fa-solid fa-globe" aria-hidden="true"></i></span><div><span class="summary-label">Alamat utama saat ini</span><strong id="activeDomainText"></strong></div><span class="summary-note">Berlaku untuk URL &amp; QR</span></div>
             <!-- Custom Domain Box -->
             <div class="settings-box domain-settings">
-              <h3><i class="fa-solid fa-globe" style="color:#06b6d4;"></i> Nama Domain Utama</h3>
-              <p>Tambahkan domain ke aplikasi, lihat record DNS, periksa HTTPS, dan pilih domain utama langsung di dashboard ini. Perubahan alamat utama tidak membutuhkan redeploy.</p>
+              <h3>Hubungkan domain Anda</h3>
+              <p>Gunakan alamat sendiri untuk semua tautan. Tambahkan domain, ikuti petunjuk DNS, lalu aktifkan setelah pemeriksaan berhasil.</p>
               <details id="vercelConnectionPanel" open>
-                <summary>Koneksi Vercel</summary>
-                <p>Hubungkan satu kali menggunakan token dengan akses ke team AutoShort. Token dikirim melalui HTTPS, disimpan terenkripsi di server, dan tidak dikembalikan ke browser.</p>
+                <summary>Koneksi Vercel <span class="connection-caption">· satu kali pengaturan</span></summary>
+                <p>Hubungkan token Vercel yang memiliki akses ke proyek AutoShort. Token disimpan terenkripsi dan tidak ditampilkan kembali.</p>
                 <label for="inputVercelToken">Secret token Vercel</label>
-                <input type="password" id="inputVercelToken" class="input-control" autocomplete="new-password" placeholder="Tempel token Vercel di sini, bukan di chat" />
+                <input type="password" id="inputVercelToken" class="input-control" autocomplete="new-password" placeholder="Token Vercel Anda" />
                 <div class="domain-actions">
                   <button type="button" class="btn btn-primary btn-sm" id="btnConnectVercel" disabled>Hubungkan Vercel</button>
                   <button type="button" class="btn btn-outline btn-sm" id="btnDisconnectVercel" disabled>Putus Koneksi</button>
@@ -598,7 +560,7 @@
                 </div>
               </details>
               <p id="vercelIntegrationStatus" role="status" aria-live="polite">Masuk sebagai admin untuk mengelola domain.</p>
-              <div class="form-group" style="margin-top:12px;">
+              <div class="form-group domain-host-field" style="margin-top:12px;">
                 <label for="inputSettingsDomain">Hostname domain</label>
                 <input type="text" id="inputSettingsDomain" class="input-control" placeholder="contoh: go.domainanda.com" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="domainStatus" />
               </div>
@@ -613,16 +575,23 @@
               <p id="domainStatus" role="status" aria-live="polite" style="margin-top:12px;overflow-wrap:anywhere;">Memuat konfigurasi domain…</p>
             </div>
 
+      </main>
+
+      <main tabindex="-1" class="sid-content-area" id="viewSettings" style="display: none;">
+        <div class="settings-card">
+          <div class="page-heading"><span class="page-eyebrow">PREFERENSI</span><h2>Pengaturan</h2><p>Kelola sesi admin dan simpan cadangan data Anda.</p></div>
+
+          <div class="settings-grid">
             <!-- Supabase Cloud Sync Box -->
             <div class="settings-box">
-              <h3><i class="fa-solid fa-database" style="color:#10b981;"></i> Cloud Backend (Supabase)</h3>
-              <p>Aktifkan cloud dengan SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, dan ADMIN_TOKEN di konfigurasi server, lalu jalankan migrasi database. Token hanya disimpan selama sesi browser ini.</p>
+              <h3><i class="fa-solid fa-database" aria-hidden="true"></i> Akses admin</h3>
+              <p>Masukkan token admin untuk mengelola tautan cloud. Sesi hanya berlaku di tab browser ini.</p>
               <div class="form-group" style="margin-top:12px;">
                 <label for="inputAdminToken">Token admin</label>
-                <input type="password" id="inputAdminToken" class="input-control" autocomplete="off" placeholder="Token dari konfigurasi server" />
+                <input type="password" id="inputAdminToken" class="input-control" autocomplete="off" placeholder="Masukkan token admin" />
               </div>
-              <button class="btn btn-primary btn-sm" id="btnSaveAdminToken" disabled>Hubungkan &amp; Sinkronkan</button>
-              <button class="btn btn-outline btn-sm" id="btnLogoutAdmin" disabled>Keluar Admin</button>
+              <button class="btn btn-primary btn-sm" id="btnSaveAdminToken" disabled>Masuk admin</button>
+              <button class="btn btn-outline btn-sm" id="btnLogoutAdmin" disabled>Keluar</button>
               <p id="adminSessionStatus" role="status" aria-live="polite" style="margin-top:12px;">Token hanya berlaku selama sesi tab ini.</p>
             </div>
 
@@ -644,18 +613,6 @@
           </div>
         </div>
       </main>
-
-      <!-- Google AdSense Container (Unobtrusive & Collapsed when unfilled) -->
-      <footer class="sid-footer-ads" id="footerAds">
-        <ins class="adsbygoogle"
-             style="display:block"
-             data-ad-format="horizontal"
-             data-ad-client="ca-pub-2400550373404770"
-             data-ad-slot="9001899727"></ins>
-        <script>
-             (adsbygoogle = window.adsbygoogle || []).push({});
-        </script>
-      </footer>
 
     </div>
 
@@ -680,12 +637,12 @@
           <div class="form-column">
             
             <div class="form-group">
-              <label for="modalDestUrl">URL Tujuan (Long URL) <span class="required">*</span></label>
+              <label for="modalDestUrl">URL tujuan <span class="required">*</span></label>
               <input type="text" inputmode="url" id="modalDestUrl" class="input-control" placeholder="https://example.com/promo" required />
             </div>
 
             <div class="form-group">
-              <label for="modalSlug">Slug Tautan <span class="required">*</span></label>
+              <label for="modalSlug">Nama tautan <span class="required">*</span></label>
               <div class="slug-input-wrapper">
                 <span class="slug-domain-addon" id="modalDomainAddon">rigeel.id/</span>
                 <input type="text" id="modalSlug" minlength="2" maxlength="64" placeholder="promo-heboh" required pattern="[a-zA-Z0-9_-]+" />
@@ -696,36 +653,24 @@
             </div>
 
             <div class="form-divider">
-              <span><i class="fa-solid fa-eye"></i> Tampilan Saat Dikirim (WhatsApp / Sosmed)</span>
+              <span><i class="fa-solid fa-eye"></i> Tampilan saat dibagikan</span>
             </div>
 
-            <details class="advanced-options">
-              <summary>Kontrol tautan & kampanye</summary>
-              <div class="form-group"><label for="modalPassword">Password / PIN (opsional)</label><input id="modalPassword" type="password" maxlength="128" class="input-control" autocomplete="new-password" /></div>
-              <div class="form-group"><label><input id="removePassword" type="checkbox" /> Hapus password yang tersimpan</label></div>
-              <div class="form-group"><label for="modalExpires">Kedaluwarsa (waktu lokal)</label><input id="modalExpires" type="datetime-local" class="input-control" /></div>
-              <div class="form-group"><label for="modalTags">Tag, pisahkan dengan koma</label><input id="modalTags" class="input-control" placeholder="promo, bisnis" /></div>
-              <div class="form-group"><label><input id="modalActive" type="checkbox" checked /> Tautan aktif</label></div>
-              <div class="utm-fields">
-                <div class="form-group"><label for="utmSource">UTM Source</label><input id="utmSource" class="input-control" placeholder="instagram" /></div>
-                <div class="form-group"><label for="utmMedium">UTM Medium</label><input id="utmMedium" class="input-control" placeholder="social" /></div>
-                <div class="form-group"><label for="utmCampaign">UTM Campaign</label><input id="utmCampaign" class="input-control" placeholder="promo" /></div>
-              </div>
-            </details>
+
             <div class="form-group">
-              <label for="modalOgTitle">Judul Preview (OG Title)</label>
-              <input type="text" id="modalOgTitle" class="input-control" placeholder="Contoh: PROMO SPESIAL GAJIAN DISKON 50%!" />
+              <label for="modalOgTitle">Judul pratinjau</label>
+              <input type="text" id="modalOgTitle" class="input-control" placeholder="Judul yang mudah dikenali" />
               <span class="field-hint">Judul tebal yang muncul di gelembung chat WhatsApp.</span>
             </div>
 
             <div class="form-group">
-              <label for="modalOgDescription">Deskripsi Preview (OG Description)</label>
-              <textarea id="modalOgDescription" class="textarea-control" rows="3" placeholder="Contoh: Dapatkan diskon 50% untuk semua produk pilihan hari ini. Terbatas hanya untuk 100 pembeli pertama!"></textarea>
+              <label for="modalOgDescription">Deskripsi pratinjau</label>
+              <textarea id="modalOgDescription" class="textarea-control" rows="3" placeholder="Jelaskan isi tautan secara singkat."></textarea>
               <span class="field-hint">Teks penjelasan di bawah judul preview.</span>
             </div>
 
             <div class="form-group">
-              <label>Gambar Thumbnail (Upload Foto / Banner)</label>
+              <label>Gambar pratinjau</label>
               
               <div class="upload-dropzone" id="uploadDropzone">
                 <input type="file" id="modalFileInput" accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;" />
@@ -735,7 +680,7 @@
                   <div class="dropzone-text">
                     <strong>Pilih / Upload Gambar</strong> atau tarik file ke sini
                   </div>
-                  <span class="dropzone-hint">Format PNG, JPG, JPEG, WEBP (Maksimal 10MB)</span>
+                  <span class="dropzone-hint">Format PNG, JPG, JPEG, WEBP (Maksimal 1 MB)</span>
                 </div>
 
                 <div class="dropzone-active" id="dropzoneActive" style="display: none;">
@@ -763,6 +708,19 @@
               </div>
             </div>
 
+            <details class="advanced-options">
+              <summary>Kontrol tautan & kampanye</summary>
+              <div class="form-group"><label for="modalPassword">Password / PIN (opsional)</label><input id="modalPassword" type="password" maxlength="128" class="input-control" autocomplete="new-password" /></div>
+              <div class="form-group"><label><input id="removePassword" type="checkbox" /> Hapus password yang tersimpan</label></div>
+              <div class="form-group"><label for="modalExpires">Kedaluwarsa (waktu lokal)</label><input id="modalExpires" type="datetime-local" class="input-control" /></div>
+              <div class="form-group"><label for="modalTags">Tag, pisahkan dengan koma</label><input id="modalTags" class="input-control" placeholder="promo, bisnis" /></div>
+              <div class="form-group"><label><input id="modalActive" type="checkbox" checked /> Tautan aktif</label></div>
+              <div class="utm-fields">
+                <div class="form-group"><label for="utmSource">UTM Source</label><input id="utmSource" class="input-control" placeholder="instagram" /></div>
+                <div class="form-group"><label for="utmMedium">UTM Medium</label><input id="utmMedium" class="input-control" placeholder="social" /></div>
+                <div class="form-group"><label for="utmCampaign">UTM Campaign</label><input id="utmCampaign" class="input-control" placeholder="promo" /></div>
+              </div>
+            </details>
           </div>
 
           <!-- Kolom Kanan: Live WhatsApp Chat Bubble Preview -->
@@ -793,7 +751,7 @@
 
               <div class="preview-note">
                 <i class="fa-solid fa-circle-info"></i>
-                <span>Tampilan kartu di atas adalah visual nyata saat shortlink Anda dikirimkan ke ruang obrolan WhatsApp atau media sosial.</span>
+                <span>Pratinjau tampilan tautan saat dibagikan.</span>
               </div>
             </div>
           </div>
@@ -803,12 +761,19 @@
         <div class="modal-footer">
           <button type="button" class="btn btn-outline" id="btnCancelModalLink">Batal</button>
           <button type="submit" class="btn btn-primary" id="btnSaveModalLink">
-            <i class="fa-solid fa-check"></i> Simpan Shortlink
+            <i class="fa-solid fa-check"></i> Simpan tautan
           </button>
         </div>
       </form>
     </div>
   </div>
+
+  <nav class="mobile-bottom-nav" aria-label="Navigasi utama ponsel">
+    <a href="#shortener" class="mobile-nav-link" data-view="shortener"><i class="fa-solid fa-link" aria-hidden="true"></i><span>Tautan</span></a>
+    <a href="#analytics" class="mobile-nav-link" data-view="analytics"><i class="fa-solid fa-chart-column" aria-hidden="true"></i><span>Analitik</span></a>
+    <a href="#qr-studio" class="mobile-nav-link" data-view="qr-studio"><i class="fa-solid fa-qrcode" aria-hidden="true"></i><span>QR</span></a>
+    <a href="#domains" class="mobile-nav-link" data-view="domains"><i class="fa-solid fa-globe" aria-hidden="true"></i><span>Domain</span></a>
+  </nav>
 
   <!-- Toast Notification Container -->
   <div id="toastContainer" class="toast-container" role="status" aria-live="polite"></div>

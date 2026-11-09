@@ -21,7 +21,10 @@ try {
   page.on('pageerror', e => errors.push(e.message));
   await page.goto(base + '/#shortener');
   await page.locator('#storageNotice').filter({ hasText: 'Mode lokal' }).waitFor();
+  await page.locator('#btnSkipToContent').focus();await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>document.activeElement.id),'viewShortener');
   assert.equal(await page.locator('#btnSaveSettingsDomain').isDisabled(),true);
+  await page.evaluate(()=>document.fonts.ready);
+  assert.equal(await page.evaluate(()=>document.fonts.check('900 16px "Font Awesome 6 Free"')),true);
   await page.fill('#quickUrlInput', 'example.com/path'); await page.fill('#quickSlugInput', 'promo-test'); await page.click('#btnQuickSubmit');
   await page.locator('.link-card').waitFor();
   assert.equal(await page.locator('#quickResultUrl').getAttribute('href'), base + '/promo-test');
@@ -61,7 +64,7 @@ try {
   // Every view must fit both desktop and phone widths, including a 320 px screen.
   for (const width of [1440,768,390,320]) {
     await page.setViewportSize({width,height:900});
-    for (const view of ['analytics','shortener','qr-studio','activity','settings']) {
+    for (const view of ['analytics','shortener','qr-studio','activity','domains','settings']) {
       await page.goto(base + '/#' + view);
       await page.waitForTimeout(80);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
@@ -70,6 +73,21 @@ try {
     }
   }
   await page.setViewportSize({width:390,height:844}); await page.goto(base + '/#shortener');
+  for (const view of ['analytics','qr-studio','domains','shortener']) {
+    await page.locator(`.mobile-nav-link[data-view="${view}"]`).click();
+    await page.waitForFunction(view=>document.querySelector(`.mobile-nav-link[data-view="${view}"]`)?.getAttribute('aria-current')==='page',view);
+    assert.equal(await page.locator(`.mobile-nav-link[data-view="${view}"]`).getAttribute('aria-current'),'page');
+    assert.equal(await page.locator(view === 'domains' ? '#viewDomains' : view === 'shortener' ? '#viewShortener' : view === 'analytics' ? '#viewAnalytics' : '#viewQrStudio').isVisible(),true);
+  }
+  assert.equal(await page.locator('#viewSettings').isVisible(),false);
+  await page.click('#btnMobileMenuToggle'); await page.locator('#menuBackdrop').waitFor({state:'visible'});
+  assert.equal(await page.evaluate(()=>document.querySelector('.sid-main-wrapper').inert),true);
+  assert.equal(await page.evaluate(()=>document.activeElement.id),'btnCloseSidebar');
+  await page.locator('#btnThemeToggle').focus();await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('sid-brand-logo')),true);
+  await page.keyboard.press('Shift+Tab');assert.equal(await page.evaluate(()=>document.activeElement.id),'btnThemeToggle');
+  await page.click('#btnCloseSidebar');assert.equal(await page.evaluate(()=>document.activeElement.id),'btnMobileMenuToggle');
+  assert.equal(await page.evaluate(()=>document.querySelector('#sidSidebar').inert),true);
   await page.click('#btnMobileMenuToggle'); await page.locator('#menuBackdrop').waitFor({state:'visible'});
   await page.click('#sidebarNavAnalytics .nav-link'); assert.equal(await page.locator('#menuBackdrop').isVisible(),false);
   await page.click('#btnDateRangeDropdown'); await page.click('.cal-preset-btn[data-preset="1"]');
@@ -79,6 +97,8 @@ try {
   await page.goto(base + '/#shortener'); await page.click('#btnOpenCreateModal'); await page.fill('#modalDestUrl','example.com'); await page.fill('#modalSlug','new-mobile');
   await page.screenshot({path:'test-results/modal-mobile.png'}); await page.keyboard.press('Escape'); assert.equal(await page.locator('#modalLink').isVisible(),false);
   await page.goto(base + '/#analytics');
+  await page.waitForFunction(()=>document.body.dataset.view==='analytics');
+  assert.equal(await page.locator('#yAxisTop').textContent(),'2');
   await page.click('#btnDownloadCsv').catch(()=>{});
   // Backup and restore preserve data, and expiry blocks a visit without logging it.
   await page.goto(base + '/#settings');
@@ -96,7 +116,10 @@ try {
   // Theme persists across reload.
   await page.click('#btnMobileMenuToggle'); await page.click('#btnThemeToggle'); await page.reload(); assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
   assert.deepEqual(errors,[]);
-  console.log('PASS: create/edit/search/upload/UTM/password/QR/pause/tracking/calendar/theme and 20 responsive views.');
+  console.log('PASS: user flows, mobile navigation, separate domain/settings views and 24 responsive views.');
+  await page.screenshot({path:'test-results/analytics-dark-390.png',fullPage:true});
+  await page.goto(base+'/#domains'); await page.screenshot({path:'test-results/domains-dark-390.png',fullPage:true});
+  await page.setViewportSize({width:1440,height:1000}); await page.screenshot({path:'test-results/domains-dark-1440.png',fullPage:true});
   // Cloud mode uses API results, honors empty arrays, and never reports success after failed saves.
   const cloudContext = await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
   await cloudContext.route(/googlesyndication|doubleclick|googleads/, route => route.fulfill({body:''}));
@@ -146,6 +169,8 @@ try {
   await cloudPage.goto(base+'/#settings');
   assert.equal(await cloudPage.locator('#btnImportBackup').isDisabled(),true);
   assert.equal(await cloudPage.locator('#btnResetAllData').isDisabled(),true);
+  await cloudPage.goto(base+'/#domains');
+  assert.equal(await cloudPage.locator('#viewSettings').isVisible(),false);
   await cloudPage.fill('#inputVercelToken','test-vercel-secret');await cloudPage.click('#btnConnectVercel');
   await cloudPage.locator('#vercelIntegrationStatus').filter({hasText:'Vercel terhubung'}).waitFor();
   assert.equal(await cloudPage.locator('#inputVercelToken').inputValue(),'');
@@ -165,6 +190,8 @@ try {
   assert.equal(await cloudPage.locator('#topDomainText').textContent(),'go.example.com');
   await cloudPage.reload(); await cloudPage.locator('#topDomainText').filter({hasText:'go.example.com'}).waitFor();
   await cloudPage.click('#btnResetSettingsDomain'); await cloudPage.locator('#topDomainText').filter({hasText:'127.0.0.1:3100'}).waitFor();
+  await cloudPage.goto(base+'/#settings');
+  assert.equal(await cloudPage.locator('#viewDomains').isVisible(),false);
   await cloudPage.evaluate(()=>sessionStorage.setItem('autoshort_admin_token','previous-token'));
   failLogin=true; await cloudPage.fill('#inputAdminToken','wrong-token'); await cloudPage.click('#btnSaveAdminToken');
   await cloudPage.locator('#adminSessionStatus').filter({hasText:'Token admin diperlukan'}).waitFor();
@@ -176,4 +203,13 @@ try {
   assert.deepEqual(errors,[]);
   console.log('PASS: domain save/failure/reset/persistence, admin login/logout, cloud backup restrictions.');
   console.log('PASS: cloud CRUD, empty synchronization, isolated local data, and save failure handling.');
+  const signedOut=await browser.newContext({viewport:{width:390,height:844}});
+  await signedOut.route('**/api/**',route=>new URL(route.request().url()).pathname==='/api/config'?route.fulfill({json:{configured:true,customDomain:''}}):route.fulfill({status:401,json:{error:'Token admin diperlukan'}}));
+  const signedOutPage=await signedOut.newPage();await signedOutPage.goto(base);
+  await signedOutPage.locator('#storageNotice a').waitFor();
+  assert.equal(await signedOutPage.locator('#btnQuickSubmit').isDisabled(),true);
+  assert.match(await signedOutPage.locator('#emptyState h4').textContent(),/cloud/);
+  await signedOutPage.locator('#storageNotice a').click();await signedOutPage.locator('#viewSettings').waitFor({state:'visible'});
+  await signedOut.close();
+  console.log('PASS: keyboard menu/focus handling, local icons, signed-out cloud state and default links page.');
 } finally { await browser?.close(); server.kill(); }

@@ -28,7 +28,7 @@ Tanpa konfigurasi Supabase, aplikasi memakai **mode lokal**. Tautan dan riwayat 
 | `ADMIN_TOKEN` | Token rahasia acak untuk mengelola tautan dan membaca statistik |
 | Domain utama | Diatur melalui Pengaturan → Nama Domain Utama setelah DNS dan HTTPS aktif |
 
-4. Buka dashboard → **Pengaturan** → masukkan `ADMIN_TOKEN` → **Hubungkan & Sinkronkan**. Token disimpan di `sessionStorage`, bukan dikirim ke pengunjung shortlink.
+4. Buka dashboard → **Pengaturan** → masukkan `ADMIN_TOKEN` → **Masuk admin**. Token disimpan di `sessionStorage`, bukan dikirim ke pengunjung shortlink.
 5. Buat tautan dan uji dari browser/perangkat lain. Tautan publik menggunakan database server untuk redirect; API pengelolaan memerlukan token admin. Dashboard ini untuk satu pengelola/kelompok yang berbagi token, bukan layanan multiakun.
 
 Untuk cloud saat pengembangan lokal, salin `.env.example` menjadi `.env` dan isi di perangkat Anda. `npm run dev` memuat file tersebut. Jangan commit kredensial. Konfigurasi URL/key lewat browser tidak mengatur backend server; semua konfigurasi database dilakukan di environment server.
@@ -57,7 +57,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Tes API memakai mock database untuk validasi, otorisasi, CRUD, proteksi redirect, pencatatan klik atomik, dan pagination. Tes Chromium menjalankan server lokal terisolasi, mencoba alur pengguna, mendekode QR hasil unduhan, serta memeriksa seluruh halaman pada lebar 320, 390, 768, dan 1440 px. Screenshot disimpan ke `test-results/`. Cloud diuji menggunakan respons API terkontrol; pengujian terhadap proyek Supabase/Vercel nyata memerlukan konfigurasi deployment Anda. Iklan pihak ketiga dikecualikan dari tes deterministik.
+Tes API memakai mock database untuk validasi, otorisasi, CRUD, proteksi redirect, pencatatan klik atomik, dan pagination. Tes Chromium menjalankan server lokal terisolasi, mencoba alur pengguna, mendekode QR hasil unduhan, serta memeriksa seluruh halaman pada lebar 320, 390, 768, dan 1440 px (24 kombinasi halaman/ukuran). Screenshot disimpan ke `test-results/`. Cloud diuji menggunakan respons API terkontrol; pengujian terhadap proyek Supabase/Vercel nyata memerlukan konfigurasi deployment Anda. Iklan pihak ketiga dikecualikan dari tes deterministik.
 
 ## Struktur
 
@@ -75,7 +75,7 @@ MIT License © 2026 rigeladex44
 
 ## Kelola domain langsung dari dashboard
 
-1. Masuk sebagai admin → **Pengaturan → Nama Domain Utama → Koneksi Vercel**. Tempel secret token Vercel dengan akses ke team proyek AutoShort, lalu klik **Hubungkan Vercel**. Token dikirim melalui HTTPS dan disimpan dengan enkripsi AES-256-GCM dalam tabel server `domain_credentials`; nilainya tidak dikembalikan ke browser atau dimasukkan ke backup. Kolom token dikosongkan setelah pengiriman. Token yang kedaluwarsa dapat diganti melalui koneksi ini. Rotasi service-role key memerlukan koneksi ulang karena kunci tersebut menjadi dasar enkripsi kredensial.
+1. Masuk sebagai admin → **Domain → Koneksi Vercel**. Tempel secret token Vercel dengan akses ke team proyek AutoShort, lalu klik **Hubungkan Vercel**. Token dikirim melalui HTTPS dan disimpan dengan enkripsi AES-256-GCM dalam tabel server `domain_credentials`; nilainya tidak dikembalikan ke browser atau dimasukkan ke backup. Kolom token dikosongkan setelah pengiriman. Token yang kedaluwarsa dapat diganti melalui koneksi ini. Rotasi service-role key memerlukan koneksi ulang karena kunci tersebut menjadi dasar enkripsi kredensial.
 2. Isi hostname, misalnya `go.contoh.com`, lalu klik **Tambahkan Domain**. Server mendaftarkannya pada proyek Vercel AutoShort yang sudah dikonfigurasi, tanpa membuat proyek baru atau memindahkan domain dari proyek lain.
 3. Dashboard menampilkan rekomendasi record A/CNAME dan TXT verifikasi dari Vercel, lengkap dengan tombol salin. Pasang record di penyedia DNS yang ditunjukkan oleh nameserver Anda. DNS eksternal (misalnya Domainesia) tetap memerlukan akses ke penyedia itu; aplikasi tidak mengklaim sudah mengubah DNS eksternal.
 4. Klik **Periksa DNS & HTTPS**. Status menampilkan kepemilikan, konfigurasi DNS, pengalihan, dan kesiapan HTTPS/backend. Record TXT yang belum ada ditampilkan sebagai menunggu verifikasi, bukan sukses palsu.
@@ -86,3 +86,9 @@ MIT License © 2026 rigeladex44
 Konfigurasi server satu kali: `AUTOSHORT_VERCEL_PROJECT_ID` (atau system variable `VERCEL_PROJECT_ID`) dan `AUTOSHORT_VERCEL_TEAM_ID` untuk team. Opsional, secret server `VERCEL_DOMAINS_TOKEN` dapat dipakai sebagai pengganti koneksi token di dashboard; koneksi ini dikelola melalui secret server. Jangan masukkan token ke kode, query URL, log, atau chat.
 
 Jalankan kembali `supabase_schema.sql` sebelum menggunakan versi ini untuk membuat tabel `app_settings` dan `domain_credentials`. Data tautan/klik existing tidak dihapus. `CUSTOM_DOMAIN` pada environment tidak lagi menjadi sumber konfigurasi. Mode lokal menonaktifkan pengelolaan domain karena tautan bergantung pada penyimpanan browser. Pemeriksaan HTTPS saat ini membutuhkan IPv4 publik (record A atau CNAME yang mengarah ke A).
+
+## Tampilan dan navigasi
+
+Halaman awal membuka **Tautan**. Pada ponsel, navigasi bawah memberikan akses cepat ke Tautan, Analitik, QR, dan Domain; menu samping memuat Aktivitas, Pengaturan, serta pilihan tema. Domain dan Pengaturan merupakan halaman terpisah. Shortcut `/` membuka pencarian tautan; Escape menutup dialog/menu. Menu mobile dan dialog mendukung navigasi keyboard.
+
+Ikon Font Awesome 6.5.1 disajikan dari `assets/fontawesome/` agar navigasi tidak bergantung pada CDN. Lisensi tersedia di `assets/fontawesome/LICENSE.txt`. `workspace.css` memuat komponen tampilan dan penyesuaian layar di atas stylesheet dasar. Dashboard tidak memuat iklan atau font eksternal.

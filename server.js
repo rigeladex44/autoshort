@@ -3,8 +3,8 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 const root = new URL('./', import.meta.url);
 const apis = Object.fromEntries(await Promise.all(['config', 'domain-integration', 'domains', 'links', 'analytics', 'redirect', 'image'].map(async name => [name, (await import(`./api/${name}.js`)).default])));
-const files = new Set(['index.html', 'app.js', 'styles.css', 'redirect.html', 'redirect.js', 'lib/validation.js', 'assets/qrcode.min.js']);
-const types = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8' };
+const files = new Set(['index.html', 'app.js', 'styles.css', 'workspace.css', 'assets/fontawesome/css/all.min.css', 'assets/fontawesome/webfonts/fa-solid-900.woff2', 'assets/fontawesome/webfonts/fa-regular-400.woff2', 'assets/fontawesome/webfonts/fa-brands-400.woff2', 'redirect.html', 'redirect.js', 'lib/validation.js', 'assets/qrcode.min.js']);
+const types = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8', woff2: 'font/woff2' };
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   req.query = Object.fromEntries(url.searchParams);
