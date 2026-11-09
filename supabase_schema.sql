@@ -98,3 +98,13 @@ ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.app_settings FROM PUBLIC, anon, authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_settings TO service_role;
 NOTIFY pgrst, 'reload schema';
+
+-- Integration credentials are encrypted by the server; no browser/database anon access.
+CREATE TABLE IF NOT EXISTS public.domain_credentials (
+  id TEXT PRIMARY KEY CHECK (id = 'vercel'),
+  encrypted_token TEXT NOT NULL
+);
+ALTER TABLE public.domain_credentials ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.domain_credentials FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.domain_credentials TO service_role;
+NOTIFY pgrst, 'reload schema';

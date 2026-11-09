@@ -5,6 +5,8 @@ import redirect from '../api/redirect.js';
 import analytics from '../api/analytics.js';
 import config from '../api/config.js';
 import domains from '../api/domains.js';
+import integration from '../api/domain-integration.js';
+import { encryptToken, decryptToken, domainDetails } from '../lib/vercel-domains.js';
 import { normalizeDomain, verifyDomain, domainProof, publicIPv4 } from '../lib/domains.js';
 import { verifyPassword, hashPassword } from '../lib/db.js';
 import { normalizeUrl, normalizeSlug, csvCell } from '../lib/validation.js';
@@ -13,9 +15,9 @@ function req(method = 'GET', body, query = {}) { return { method, body, query, h
 function response() { return { code: 200, headers: {}, setHeader(k,v) { this.headers[k.toLowerCase()] = v; }, status(n) { this.code = n; return this; }, json(v) { this.body = v; return this; }, send(v) { this.body = v; return this; }, writeHead(n,h) { this.code=n; for (const [k,v] of Object.entries(h)) this.setHeader(k,v); }, end(v) { this.body=v; } }; }
 const record = { id: 'one', slug: 'hello', destination_url: 'https://example.com/', is_active: true, clicks: 0 };
 let calls;
-beforeEach(() => { process.env.SUPABASE_URL = 'https://db.example'; process.env.SUPABASE_SERVICE_ROLE_KEY = 'server-only'; process.env.ADMIN_TOKEN = 'test-token'; calls=[]; });
-afterEach(() => { globalThis.fetch = realFetch; delete process.env.SUPABASE_URL; delete process.env.SUPABASE_SERVICE_ROLE_KEY; delete process.env.ADMIN_TOKEN; });
-function mock(fn) { globalThis.fetch = async (url, options) => { calls.push({url, options}); return fn(url, options); }; }
+beforeEach(() => { process.env.SUPABASE_URL = 'https://db.example'; process.env.SUPABASE_SERVICE_ROLE_KEY = 'server-only'; process.env.ADMIN_TOKEN = 'test-token'; process.env.AUTOSHORT_VERCEL_PROJECT_ID='prj_Test'; process.env.AUTOSHORT_VERCEL_TEAM_ID='team_Test'; calls=[]; });
+afterEach(() => { globalThis.fetch = realFetch; delete process.env.SUPABASE_URL; delete process.env.SUPABASE_SERVICE_ROLE_KEY; delete process.env.ADMIN_TOKEN; delete process.env.AUTOSHORT_VERCEL_PROJECT_ID; delete process.env.AUTOSHORT_VERCEL_TEAM_ID; delete process.env.VERCEL_DOMAINS_TOKEN; });
+function mock(fn) { globalThis.fetch = async (url, options) => { calls.push({url:String(url), options}); return fn(String(url), options); }; }
 function json(value, status = 200) { return new Response(JSON.stringify(value), { status }); }
 test('URL validation rejects executable schemes; slugs reject reserved routes', () => {
   assert.equal(normalizeUrl('example.com/path'), 'https://example.com/path');
@@ -101,4 +103,50 @@ test('public config shares the saved domain and exposes only a valid challenge p
   const challenge='a'.repeat(48);const proof=response();await config(req('GET',null,{domain_challenge:challenge}),proof);assert.equal(proof.body.domainProof,domainProof(challenge));assert.ok(!JSON.stringify(proof.body).includes('server-only'));
   const bad=response();await config(req('GET',null,{domain_challenge:'bad'}),bad);assert.equal(bad.code,400);
   mock(()=>json({},500));const failed=response();await config(req(),failed);assert.equal(failed.code,502);
+});
+
+test('Vercel secret encryption rejects tampering and is never returned to dashboard', async () => {
+  const token='secret-vercel-token-for-test';const sealed=encryptToken(token);
+  assert.ok(!sealed.includes(token));assert.equal(decryptToken(sealed),token);
+  const parts=sealed.split('.');parts[2]=Buffer.from('tampered').toString('base64');assert.throws(()=>decryptToken(parts.join('.')));
+  mock(()=>json([{encrypted_token:sealed}]));const state=response();await integration(req(),state);assert.deepEqual(state.body,{connected:true,managedByServer:false});assert.ok(!JSON.stringify(state.body).includes(token));
+});
+test('dashboard connection validates the existing project before encrypting token', async () => {
+  const token='private-vercel-token-test';
+  mock(url=>json(url.includes('domain_credentials')?null:url.includes('/domains')?{domains:[]}:{id:'prj_Test',name:'autoshort'}));
+  const res=response();await integration(req('POST',{token}),res);assert.equal(res.code,200);assert.equal(res.body.connected,true);
+  const saved=calls.find(c=>c.url.includes('domain_credentials'));assert.ok(saved);assert.ok(!saved.options.body.includes(token));assert.equal(decryptToken(JSON.parse(saved.options.body).encrypted_token),token);
+  calls=[];mock(()=>json({error:{code:'forbidden',message:token}},403));const denied=response();await integration(req('POST',{token}),denied);assert.equal(denied.code,502);assert.ok(!JSON.stringify(denied.body).includes(token));assert.ok(!calls.some(c=>c.url.includes('domain_credentials')));
+});
+test('domain add registers in the configured existing project and returns actual DNS recommendations', async () => {
+  process.env.VERCEL_DOMAINS_TOKEN='server-vercel-token';
+  mock(url=>json(url.includes('/config')?{misconfigured:true,nameservers:['ns.provider.example'],recommendedCNAME:[{value:'specific.vercel-dns.com.'}]}:url.includes('/domains?')?{domains:[]}:{name:'go.example.com',apexName:'example.com',verified:false,verification:[{type:'TXT',domain:'_vercel.example.com',value:'ownership-test'}]}));
+  const res=response();await domains(req('POST',{action:'add',domain:'go.example.com'}),res);assert.equal(res.code,200);assert.equal(res.body.domain.misconfigured,true);
+  assert.deepEqual(res.body.domain.dns,[{type:'CNAME',name:'go',value:'specific.vercel-dns.com.',purpose:'routing'},{type:'TXT',name:'_vercel.example.com',value:'ownership-test',purpose:'ownership'}]);
+  const add=calls.find(c=>c.options.method==='POST');assert.match(add.url,/v10\/projects\/prj_Test\/domains/);assert.deepEqual(JSON.parse(add.options.body),{name:'go.example.com'});assert.ok(calls.every(c=>!c.url.includes('app_settings')));
+});
+test('domain status confirms membership, checks Vercel verification and does not activate pending DNS', async () => {
+  process.env.VERCEL_DOMAINS_TOKEN='server-vercel-token';
+  mock(url=>json(url.includes('/config')?{misconfigured:true,recommendedIPv4:[{value:['8.8.8.8']}]}:{name:'example.com',apexName:'example.com',verified:false}));
+  const res=response();await domains(req('POST',{action:'check',domain:'example.com'}),res);assert.equal(res.code,200);assert.equal(res.body.domain.httpsReady,false);assert.equal(res.body.domain.dns[0].type,'A');assert.ok(calls.some(c=>c.url.includes('/verify')));assert.ok(!calls.some(c=>c.url.includes('app_settings')));
+  calls=[];mock(()=>json({error:{code:'not_found'}},404));await assert.rejects(domainDetails('other.example.com'));assert.equal(calls.length,1);assert.ok(!calls[0].url.includes('/config'));
+});
+test('domain removal protects primary/current/platform domains and removes only selected hostname', async () => {
+  process.env.VERCEL_DOMAINS_TOKEN='server-vercel-token';
+  mock(url=>json(url.includes('app_settings')?[{value:'primary.example.com'}]:{}));
+  for(const domain of ['primary.example.com','short.example','project.vercel.app']){const r=response();await domains(req('DELETE',null,{domain}),r);assert.equal(r.code,409);}
+  calls=[];const removed=response();await domains(req('DELETE',null,{domain:'test.example.com'}),removed);assert.equal(removed.code,200);assert.equal(removed.body.removed,'test.example.com');assert.ok(calls.some(c=>c.url.includes('/domains/test.example.com')&&c.options.method==='DELETE'));assert.ok(!calls.some(c=>c.url.includes('/links')));
+});
+
+test('missing Vercel ownership TXT remains an actionable pending status with DNS instructions', async () => {
+  process.env.VERCEL_DOMAINS_TOKEN='server-vercel-token';
+  mock(url=>url.includes('/verify?')?json({error:{code:'missing_txt_record'}},400):json(url.includes('/config')?{misconfigured:true,recommendedCNAME:[{value:'target.vercel-dns.com'}]}:{name:'go.example.com',apexName:'example.com',verified:false,verification:[{type:'TXT',domain:'_vercel.example.com',value:'ownership-check'}]}));
+  const res=response();await domains(req('POST',{action:'check',domain:'go.example.com'}),res);assert.equal(res.code,200);assert.equal(res.body.domain.verified,false);assert.ok(res.body.domain.dns.some(d=>d.type==='TXT'&&d.value==='ownership-check'));
+});
+
+test('dashboard can clear a domain redirect without changing unrelated domain settings', async () => {
+  process.env.VERCEL_DOMAINS_TOKEN='server-vercel-token';
+  mock(url=>json(url.includes('/config')?{misconfigured:false}:{name:'example.com',apexName:'example.com',verified:true,redirect:null}));
+  const res=response();await domains(req('POST',{action:'clear_redirect',domain:'example.com'}),res);assert.equal(res.code,200);
+  const patch=calls.find(c=>c.options.method==='PATCH');assert.match(patch.url,/projects\/prj_Test\/domains\/example.com/);assert.deepEqual(JSON.parse(patch.options.body),{redirect:null});
 });

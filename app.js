@@ -12,6 +12,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   // --- CONFIGURATION & STATE ---
   let cloudMode = false;
   let adminConnected = false;
+  let vercelConnected = false;
+  let vercelManagedByServer = false;
   let backendReady = Promise.resolve();
   let syncPromise = null;
   let saving = false;
@@ -60,7 +62,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     if (saving) return;
     saving = true; button.disabled = true;
     try { await backendReady; if (syncPromise) await syncPromise; await work(); } catch (error) { showToast(error.message, 'warning'); }
-    finally { saving = false; button.disabled = false; }
+    finally { saving = false; button.disabled = false; updateDomainControls(); }
   }
   function closeModal() {
     document.getElementById('modalLink').style.display = 'none';
@@ -233,7 +235,10 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
         links = linkData.links || [];
         clicksHistory = clickData.recentClicks || [];
         saveLocalLinks(); saveLocalClicks(); renderAll();
+        const firstAdminSync = !adminConnected;
         adminConnected = true;
+        updateDomainControls();
+        if (firstAdminSync) await loadDomainManager().catch(error => { document.getElementById('vercelIntegrationStatus').textContent = error.message; });
         document.getElementById('btnExportJsonBackup').disabled = false;
         document.getElementById('adminSessionStatus').textContent = 'Sesi admin aktif di tab ini.';
         status('Cloud Terhubung', true);
@@ -1490,6 +1495,31 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       };
     }
 
+    document.getElementById('btnConnectVercel').onclick = () => saveAction(document.getElementById('btnConnectVercel'), async () => {
+      const input = document.getElementById('inputVercelToken');
+      try {
+        await api('/api/domain-integration', { method: 'POST', body: JSON.stringify({ token: input.value.trim() }) });
+        await loadDomainManager();
+        showToast('Vercel terhubung. Domain dapat dikelola dari dashboard.', 'success');
+      } finally { input.value = ''; }
+    });
+    document.getElementById('btnDisconnectVercel').onclick = () => saveAction(document.getElementById('btnDisconnectVercel'), async () => {
+      if (!confirm('Putus koneksi Vercel? Domain dan tautan tetap terpasang, tetapi pengelolaan domain membutuhkan koneksi ulang.')) return;
+      await api('/api/domain-integration', { method: 'DELETE' });
+      document.getElementById('domainDetails').hidden = true;
+      await loadDomainManager();
+    });
+    document.getElementById('btnAddDomain').onclick = () => saveAction(document.getElementById('btnAddDomain'), async () => {
+      const domain = document.getElementById('inputSettingsDomain').value.trim();
+      document.getElementById('domainStatus').textContent = 'Menambahkan domain ke proyek AutoShort…';
+      try {
+        const result = await api('/api/domains', { method: 'POST', body: JSON.stringify({ action: 'add', domain }) });
+        await loadDomainManager(); renderDomainDetails(result.domain);
+        document.getElementById('domainStatus').textContent = 'Domain terpasang di proyek. Ikuti record DNS di bawah, lalu klik Periksa DNS & HTTPS.';
+      } catch (error) { document.getElementById('domainStatus').textContent = error.message; throw error; }
+    });
+    document.getElementById('btnRefreshDomains').onclick = () => saveAction(document.getElementById('btnRefreshDomains'), loadDomainManager);
+
     // Settings: only persist a domain after the server verifies DNS, TLS and this backend.
     const domainStatus = document.getElementById('domainStatus');
     const btnSaveDomain = document.getElementById('btnSaveSettingsDomain');
@@ -1500,6 +1530,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
         customDomain = result.customDomain;
         updateDomainDisplays(); renderAll(); updateQuickResultDomain();
         domainStatus.textContent = `Aktif: ${customDomain}. Tersimpan di cloud untuk semua browser.`;
+        if (vercelConnected) await loadDomainManager().catch(() => showToast('Domain tersimpan; daftar domain belum dapat dimuat ulang.', 'warning'));
         showToast('Domain terverifikasi dan tersimpan di cloud.', 'success');
       } catch (error) { domainStatus.textContent = error.message; throw error; }
     });
@@ -1508,6 +1539,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       await api('/api/domains', { method: 'DELETE' });
       customDomain = location.host;
       updateDomainDisplays(); renderAll(); updateQuickResultDomain();
+      if (vercelConnected) await loadDomainManager().catch(() => showToast('Domain direset; daftar domain belum dapat dimuat ulang.', 'warning'));
       domainStatus.textContent = 'Menggunakan alamat situs yang sedang dibuka. Tautan dan domain Vercel tidak dihapus.';
       showToast('Domain utama dikembalikan ke alamat situs.', 'success');
     });
@@ -1520,6 +1552,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       try {
         await syncWithBackend();
         document.getElementById('inputAdminToken').value = '';
+        await loadDomainManager().catch(error => { document.getElementById('vercelIntegrationStatus').textContent = error.message; });
         document.getElementById('adminSessionStatus').textContent = 'Sesi admin aktif di tab ini.';
         showToast('Token valid. Data cloud berhasil disinkronkan.', 'success');
       } catch (error) {
@@ -1532,6 +1565,12 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     document.getElementById('btnLogoutAdmin').onclick = () => {
       sessionStorage.removeItem('autoshort_admin_token');
       adminConnected = false;
+      vercelConnected = false;
+      document.getElementById('domainList').replaceChildren();
+      document.getElementById('domainDetails').hidden = true;
+      document.getElementById('inputVercelToken').value = '';
+      document.getElementById('vercelIntegrationStatus').textContent = 'Masuk sebagai admin untuk mengelola domain.';
+      updateDomainControls();
       localStorage.removeItem('autoshort_cloud_links');
       localStorage.removeItem('autoshort_cloud_clicks');
       document.getElementById('btnExportJsonBackup').disabled = cloudMode;
@@ -1717,6 +1756,85 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     showToast('File CSV statistik berhasil diunduh!', 'success');
   }
 
+  function updateDomainControls() {
+    const enabled = cloudMode && adminConnected;
+    for (const id of ['btnSaveSettingsDomain', 'btnResetSettingsDomain']) document.getElementById(id).disabled = !enabled;
+    document.getElementById('btnConnectVercel').disabled = !enabled || vercelManagedByServer;
+    document.getElementById('inputVercelToken').disabled = !enabled || vercelManagedByServer;
+    for (const id of ['btnAddDomain', 'btnRefreshDomains']) document.getElementById(id).disabled = !enabled || !vercelConnected;
+    document.getElementById('btnDisconnectVercel').disabled = !enabled || !vercelConnected || vercelManagedByServer;
+  }
+  async function loadDomainManager() {
+    if (!cloudMode || !adminConnected) return;
+    let result;
+    try { result = await api('/api/domains'); }
+    catch (error) { document.getElementById('vercelIntegrationStatus').textContent = error.message; throw error; }
+    vercelConnected = result.connected === true;
+    vercelManagedByServer = result.managedByServer === true;
+    updateDomainControls();
+    document.getElementById('vercelConnectionPanel').open = !vercelConnected;
+    document.getElementById('vercelIntegrationStatus').textContent = vercelConnected
+      ? 'Vercel terhubung. Penambahan, pemeriksaan, dan pelepasan domain dilakukan dari dashboard ini.'
+      : 'Hubungkan secret token Vercel satu kali untuk menambahkan dan mengelola domain dari dashboard.';
+    const container = document.getElementById('domainList');
+    container.replaceChildren();
+    for (const domain of result.domains || []) {
+      const item = document.createElement('div'); item.className = 'domain-item';
+      const name = document.createElement('strong'); name.textContent = domain.name; item.append(name);
+      const state = document.createElement('p');
+      state.textContent = domain.name === result.customDomain ? 'Domain utama' : domain.redirect ? `Mengalihkan ke ${domain.redirect}` : domain.verified ? 'Kepemilikan terverifikasi · Periksa DNS & HTTPS untuk kesiapan' : 'Menunggu verifikasi kepemilikan'; item.append(state);
+      const actions = document.createElement('div'); actions.className = 'domain-actions'; item.append(actions);
+      const inspect = document.createElement('button'); inspect.className = 'btn btn-outline btn-sm'; inspect.textContent = 'Periksa DNS & HTTPS';
+      inspect.onclick = () => saveAction(inspect, async () => {
+        document.getElementById('inputSettingsDomain').value = domain.name;
+        const result = await api('/api/domains', {method:'POST',body:JSON.stringify({action:'check',domain:domain.name})});
+        renderDomainDetails(result.domain);
+      }); actions.append(inspect);
+      const select = document.createElement('button'); select.className = 'btn btn-outline btn-sm'; select.textContent = 'Pilih Domain';
+      select.onclick = () => { document.getElementById('inputSettingsDomain').value = domain.name; document.getElementById('inputSettingsDomain').focus(); }; actions.append(select);
+      if (!domain.platform && domain.name !== result.customDomain && domain.name !== location.hostname) {
+        const remove = document.createElement('button'); remove.className = 'btn btn-outline btn-sm'; remove.textContent = 'Lepas Domain';
+        remove.onclick = () => saveAction(remove, async () => {
+          if (!confirm(`Lepas ${domain.name} dari proyek? Semua shortlink pada hostname ini akan berhenti bekerja. Data tautan tidak dihapus.`)) return;
+          await api('/api/domains?domain='+encodeURIComponent(domain.name), {method:'DELETE'});
+          document.getElementById('domainDetails').hidden=true;
+          await loadDomainManager(); showToast('Domain dilepas. Data tautan tetap tersimpan.', 'success');
+        }); actions.append(remove);
+      }
+      container.append(item);
+    }
+  }
+  function renderDomainDetails(domain) {
+    const root = document.getElementById('domainDetails'); root.replaceChildren(); root.hidden = false;
+    const title = document.createElement('strong'); title.textContent = 'Konfigurasi ' + domain.name; root.append(title);
+    const state = document.createElement('p');
+    state.textContent = domain.redirect ? `Domain mengalihkan ke ${domain.redirect}. Pilih hostname tujuan sebagai domain utama.`
+      : domain.httpsReady ? 'DNS, HTTPS, dan backend siap. Domain dapat dijadikan domain utama.'
+      : !domain.verified ? 'Verifikasi kepemilikan diperlukan. Tambahkan record verifikasi di bawah.'
+      : domain.misconfigured ? 'DNS belum sesuai. Perbarui record di penyedia DNS, lalu periksa ulang.'
+      : domain.readinessError || 'DNS sesuai. Klik Periksa DNS & HTTPS untuk memeriksa kesiapan sertifikat dan aplikasi.';
+    root.append(state);
+    if (domain.redirect) {
+      const clear = document.createElement('button'); clear.className = 'btn btn-outline btn-sm'; clear.textContent = 'Gunakan Tanpa Pengalihan';
+      clear.onclick = () => saveAction(clear, async () => {
+        if (!confirm(`Hapus pengalihan ${domain.name} ke ${domain.redirect}? Domain ini akan menyajikan AutoShort langsung.`)) return;
+        const result = await api('/api/domains', {method:'POST',body:JSON.stringify({action:'clear_redirect',domain:domain.name})});
+        await loadDomainManager(); renderDomainDetails(result.domain);
+      }); root.append(clear);
+    }
+    if (domain.nameservers?.length) { const p=document.createElement('p');p.textContent='Nameserver: '+domain.nameservers.join(', ')+'. Jika DNS dikelola penyedia lain, pasang record berikut di penyedia tersebut.';root.append(p); }
+    for(const record of domain.dns || []) {
+      const row=document.createElement('div');row.className='domain-record';
+      const label=document.createElement('strong');label.textContent=record.type+' · '+record.name+(record.purpose==='ownership'?' · Verifikasi kepemilikan':'');row.append(label);
+      const value=document.createElement('code');value.textContent=record.value;row.append(value);
+      const copy=document.createElement('button');copy.className='btn btn-outline btn-sm';copy.textContent='Salin Nilai';copy.onclick=()=>copyToClipboard(record.value,copy);row.append(copy);root.append(row);
+    }
+    if (!domain.dns?.length) {const p=document.createElement('p');p.textContent='Vercel belum memberikan rekomendasi record DNS untuk domain ini. Periksa kembali setelah proses pemasangan selesai.';root.append(p);}
+    if (domain.conflicts?.length) {const p=document.createElement('p');p.textContent='Ada record DNS yang bertentangan. Sesuaikan record hostname ini dengan rekomendasi di atas tanpa mengubah record domain lain.';root.append(p);}
+    const check=document.createElement('button');check.className='btn btn-outline btn-sm';check.textContent='Periksa DNS & HTTPS';
+    check.onclick=()=>saveAction(check,async()=>{const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'check',domain:domain.name})});renderDomainDetails(result.domain);});root.append(check);
+  }
+
   function updateQuickResultDomain() {
     const link = links.find(l => l.id === lastCreatedId);
     if (!link) return;
@@ -1726,7 +1844,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   function updateSettingsState() {
     for (const id of ['btnSaveSettingsDomain', 'btnResetSettingsDomain', 'inputSettingsDomain', 'btnSaveAdminToken', 'btnLogoutAdmin']) document.getElementById(id).disabled = !cloudMode;
     document.getElementById('domainStatus').textContent = cloudMode
-      ? 'Hubungkan domain ke proyek AutoShort di Vercel, lalu verifikasi di sini. Hanya domain dengan DNS dan HTTPS aktif yang dapat disimpan.'
+      ? 'Tambahkan domain, pasang record DNS yang ditampilkan, lalu periksa dan pilih domain utama di dashboard ini.'
       : 'Mode lokal: custom domain tidak tersedia. Tautan memakai alamat browser ini.';
     document.getElementById('btnExportJsonBackup').disabled = cloudMode && !adminConnected;
     document.getElementById('btnImportBackup').disabled = cloudMode;

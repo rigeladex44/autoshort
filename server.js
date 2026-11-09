@@ -2,7 +2,7 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 const root = new URL('./', import.meta.url);
-const apis = Object.fromEntries(await Promise.all(['config', 'domains', 'links', 'analytics', 'redirect', 'image'].map(async name => [name, (await import(`./api/${name}.js`)).default])));
+const apis = Object.fromEntries(await Promise.all(['config', 'domain-integration', 'domains', 'links', 'analytics', 'redirect', 'image'].map(async name => [name, (await import(`./api/${name}.js`)).default])));
 const files = new Set(['index.html', 'app.js', 'styles.css', 'redirect.html', 'redirect.js', 'lib/validation.js', 'assets/qrcode.min.js']);
 const types = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8' };
 const server = http.createServer(async (req, res) => {

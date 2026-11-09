@@ -100,13 +100,24 @@ try {
   // Cloud mode uses API results, honors empty arrays, and never reports success after failed saves.
   const cloudContext = await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
   await cloudContext.route(/googlesyndication|doubleclick|googleads/, route => route.fulfill({body:''}));
-  let cloudLinks = []; let failSave = false; let cloudDomain = 'short.example'; let domainFailure = false; let failLogin = false;
+  let cloudLinks = []; let failSave = false; let cloudDomain = 'short.example'; let domainFailure = false; let failLogin = false; let vercelConnected = false; let attachedDomains = [];
   await cloudContext.route('**/api/**', async route => {
     const url = new URL(route.request().url());
     if (url.pathname === '/api/config') return route.fulfill({json:{configured:true,customDomain:cloudDomain}});
+    if (url.pathname === '/api/domain-integration') {
+      vercelConnected=route.request().method() !== 'DELETE';return route.fulfill({json:{connected:vercelConnected}});
+    }
     if (url.pathname === '/api/domains') {
+      const method=route.request().method();
+      if(method==='GET')return route.fulfill({json:{connected:vercelConnected,customDomain:cloudDomain,domains:attachedDomains}});
+      if(method==='DELETE'&&url.searchParams.has('domain')){attachedDomains=attachedDomains.filter(d=>d.name!==url.searchParams.get('domain'));return route.fulfill({json:{removed:url.searchParams.get('domain')}});}
+      const input=route.request().postDataJSON()||{};
+      if(input.action==='add'||input.action==='check'){
+        if(input.action==='add')attachedDomains.push({name:input.domain,verified:false});
+        return route.fulfill({json:{domain:{name:input.domain,verified:false,misconfigured:true,nameservers:['ns.provider.test'],dns:[{type:'CNAME',name:'go',value:'target.vercel-dns.example',purpose:'routing'}]}}});
+      }
       if (domainFailure) return route.fulfill({status:422,json:{error:'DNS belum tersedia'}});
-      cloudDomain = route.request().method() === 'DELETE' ? '' : route.request().postDataJSON().domain;
+      cloudDomain = method === 'DELETE' ? '' : input.domain;
       return route.fulfill({json:{customDomain:cloudDomain,verified:true}});
     }
     if (failLogin && ['/api/links','/api/analytics'].includes(url.pathname)) return route.fulfill({status:401,json:{error:'Token admin diperlukan'}});
@@ -135,6 +146,17 @@ try {
   await cloudPage.goto(base+'/#settings');
   assert.equal(await cloudPage.locator('#btnImportBackup').isDisabled(),true);
   assert.equal(await cloudPage.locator('#btnResetAllData').isDisabled(),true);
+  await cloudPage.fill('#inputVercelToken','test-vercel-secret');await cloudPage.click('#btnConnectVercel');
+  await cloudPage.locator('#vercelIntegrationStatus').filter({hasText:'Vercel terhubung'}).waitFor();
+  assert.equal(await cloudPage.locator('#inputVercelToken').inputValue(),'');
+  await cloudPage.fill('#inputSettingsDomain','go.pending.example');await cloudPage.click('#btnAddDomain');
+  await cloudPage.locator('#domainList').filter({hasText:'go.pending.example'}).waitFor();
+  await cloudPage.locator('#domainDetails').filter({hasText:'target.vercel-dns.example'}).waitFor();
+  await cloudPage.locator('#domainList').getByRole('button',{name:'Periksa DNS & HTTPS',exact:true}).click();
+  await cloudPage.locator('#domainDetails').filter({hasText:'Verifikasi kepemilikan diperlukan'}).waitFor();
+  await cloudPage.locator('#domainList').getByRole('button',{name:'Lepas Domain'}).click();
+  await cloudPage.locator('#domainList .domain-item').waitFor({state:'hidden'});
+  for(const width of [320,390,768,1440]){await cloudPage.setViewportSize({width,height:1000});assert.equal(await cloudPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Domain settings overflow '+width);}
   domainFailure=true; await cloudPage.fill('#inputSettingsDomain','bad.example'); await cloudPage.click('#btnSaveSettingsDomain');
   await cloudPage.locator('#domainStatus').filter({hasText:'DNS belum tersedia'}).waitFor();
   assert.equal(await cloudPage.locator('#topDomainText').textContent(),'short.example');

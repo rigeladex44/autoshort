@@ -73,13 +73,16 @@ QRCode.js © David Shim, MIT; lihat [`assets/QRCode-LICENSE.txt`](assets/QRCode-
 
 MIT License © 2026 rigeladex44
 
-## Custom domain yang terverifikasi
+## Kelola domain langsung dari dashboard
 
-1. Di proyek Vercel **yang sama**, buka Settings → Domains dan tambahkan hostname Anda, misalnya `go.contoh.com`. Atur DNS sesuai nilai yang ditampilkan Vercel; jangan menebak IP atau target CNAME.
-2. Tunggu DNS dan sertifikat HTTPS aktif. Domain harus membuka aplikasi ini secara langsung, bukan mengalihkan ke hostname lain. Jika domain apex mengalihkan ke `www`, gunakan hostname `www`.
-3. Masuk sebagai admin di AutoShort, buka Pengaturan, isi hostname lalu klik **Verifikasi & Simpan**. Server memeriksa DNS publik, TLS, serta bukti kriptografis dari backend yang sama. Domain yang belum siap tidak disimpan.
-4. Pengaturan tersimpan di tabel `app_settings` dan dipakai seluruh browser untuk tautan, salin URL, QR, dan preview sosial. Tidak perlu redeploy untuk mengganti domain utama. **Gunakan Alamat Situs** menghapus pilihan utama saja, tanpa menghapus domain Vercel atau tautan.
+1. Masuk sebagai admin → **Pengaturan → Nama Domain Utama → Koneksi Vercel**. Tempel secret token Vercel dengan akses ke team proyek AutoShort, lalu klik **Hubungkan Vercel**. Token dikirim melalui HTTPS dan disimpan dengan enkripsi AES-256-GCM dalam tabel server `domain_credentials`; nilainya tidak dikembalikan ke browser atau dimasukkan ke backup. Kolom token dikosongkan setelah pengiriman. Token yang kedaluwarsa dapat diganti melalui koneksi ini. Rotasi service-role key memerlukan koneksi ulang karena kunci tersebut menjadi dasar enkripsi kredensial.
+2. Isi hostname, misalnya `go.contoh.com`, lalu klik **Tambahkan Domain**. Server mendaftarkannya pada proyek Vercel AutoShort yang sudah dikonfigurasi, tanpa membuat proyek baru atau memindahkan domain dari proyek lain.
+3. Dashboard menampilkan rekomendasi record A/CNAME dan TXT verifikasi dari Vercel, lengkap dengan tombol salin. Pasang record di penyedia DNS yang ditunjukkan oleh nameserver Anda. DNS eksternal (misalnya Domainesia) tetap memerlukan akses ke penyedia itu; aplikasi tidak mengklaim sudah mengubah DNS eksternal.
+4. Klik **Periksa DNS & HTTPS**. Status menampilkan kepemilikan, konfigurasi DNS, pengalihan, dan kesiapan HTTPS/backend. Record TXT yang belum ada ditampilkan sebagai menunggu verifikasi, bukan sukses palsu.
+5. Pilih hostname dan klik **Jadikan Domain Utama**. Server memeriksa DNS publik, TLS, dan bukti dari backend yang sama sebelum menyimpan ke `app_settings`. Pengaturan berlaku untuk semua browser, tautan, salin URL, QR, dan preview sosial tanpa redeploy. Domain yang mengalihkan ke hostname lain tidak dapat dijadikan domain utama; pilih hostname tujuannya atau gunakan **Gunakan Tanpa Pengalihan** di rincian domain untuk menghapus pengalihan dari dashboard.
 
-Jalankan kembali `supabase_schema.sql` sebelum menggunakan versi ini untuk membuat `app_settings`; data tautan/klik existing tidak dihapus. `CUSTOM_DOMAIN` pada environment tidak lagi menjadi sumber konfigurasi; gunakan pengaturan cloud ini. Mode lokal menonaktifkan custom domain, karena tautan lokal bergantung pada penyimpanan browser.
+**Gunakan Alamat Situs** menghapus pilihan domain utama tanpa melepas domain Vercel atau menghapus tautan. **Lepas Domain** melepas hanya hostname yang dipilih dari proyek setelah konfirmasi, tanpa menghapus data tautan. Domain utama, hostname dashboard yang sedang digunakan, dan domain bawaan Vercel dilindungi dari pelepasan. **Putus Koneksi** menghapus kredensial integrasi yang disimpan, tanpa mengubah domain/tautan yang sudah terpasang.
 
-Pemasangan domain dan perubahan DNS tetap dilakukan lewat Vercel/penyedia DNS. Aplikasi tidak menyimpan token Vercel dan tidak mengklaim memasang DNS dari tombol simpan. Pemeriksaan saat ini membutuhkan record IPv4 publik (A, atau CNAME yang mengarah ke A).
+Konfigurasi server satu kali: `AUTOSHORT_VERCEL_PROJECT_ID` (atau system variable `VERCEL_PROJECT_ID`) dan `AUTOSHORT_VERCEL_TEAM_ID` untuk team. Opsional, secret server `VERCEL_DOMAINS_TOKEN` dapat dipakai sebagai pengganti koneksi token di dashboard; koneksi ini dikelola melalui secret server. Jangan masukkan token ke kode, query URL, log, atau chat.
+
+Jalankan kembali `supabase_schema.sql` sebelum menggunakan versi ini untuk membuat tabel `app_settings` dan `domain_credentials`. Data tautan/klik existing tidak dihapus. `CUSTOM_DOMAIN` pada environment tidak lagi menjadi sumber konfigurasi. Mode lokal menonaktifkan pengelolaan domain karena tautan bergantung pada penyimpanan browser. Pemeriksaan HTTPS saat ini membutuhkan IPv4 publik (record A atau CNAME yang mengarah ke A).

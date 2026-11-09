@@ -2235,3 +2235,17 @@ button:disabled { opacity: .55; cursor: wait; }
 /* Total visits and unique visitors are related measures, so show them side by side. */
 .stacked-bar-fill { flex-direction: row; align-items: flex-end; gap: 2px; background: transparent; }
 .bar-segment-unique, .bar-segment-visitors { width: calc(50% - 1px); border-radius: 3px 3px 0 0; }
+
+/* Domain management */
+.domain-settings { grid-column: 1 / -1; min-width: 0; }
+.domain-settings details { padding: 14px; border: 1px solid var(--border-color, #dbe3ee); border-radius: 10px; margin-top: 16px; }
+.domain-settings summary { cursor: pointer; font-weight: 600; }
+.domain-settings details p { margin: 10px 0; }
+.domain-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0; }
+.domain-list { display: grid; gap: 10px; margin-top: 16px; }
+.domain-item { border: 1px solid var(--border-color, #dbe3ee); border-radius: 10px; padding: 12px; min-width: 0; }
+.domain-item strong, .domain-details code { overflow-wrap: anywhere; word-break: break-word; }
+.domain-details { padding: 14px; border: 1px solid var(--border-color, #dbe3ee); border-radius: 10px; margin-top: 12px; min-width: 0; }
+.domain-record { padding: 10px 0; border-bottom: 1px solid var(--border-color, #dbe3ee); }
+.domain-record code { display: block; white-space: normal; margin: 5px 0; }
+.domain-settings button:disabled { cursor: not-allowed; opacity: .5; }

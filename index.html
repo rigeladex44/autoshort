@@ -583,15 +583,33 @@
 
           <div class="settings-grid">
             <!-- Custom Domain Box -->
-            <div class="settings-box">
+            <div class="settings-box domain-settings">
               <h3><i class="fa-solid fa-globe" style="color:#06b6d4;"></i> Nama Domain Utama</h3>
-              <p>Tambahkan domain ke proyek AutoShort melalui Vercel → Settings → Domains, lalu pasang DNS persis seperti petunjuk Vercel. Setelah HTTPS aktif, verifikasi dan simpan di sini. Tidak perlu redeploy untuk mengganti domain utama.</p>
+              <p>Tambahkan domain ke aplikasi, lihat record DNS, periksa HTTPS, dan pilih domain utama langsung di dashboard ini. Perubahan alamat utama tidak membutuhkan redeploy.</p>
+              <details id="vercelConnectionPanel" open>
+                <summary>Koneksi Vercel</summary>
+                <p>Hubungkan satu kali menggunakan token dengan akses ke team AutoShort. Token dikirim melalui HTTPS, disimpan terenkripsi di server, dan tidak dikembalikan ke browser.</p>
+                <label for="inputVercelToken">Secret token Vercel</label>
+                <input type="password" id="inputVercelToken" class="input-control" autocomplete="new-password" placeholder="Tempel token Vercel di sini, bukan di chat" />
+                <div class="domain-actions">
+                  <button type="button" class="btn btn-primary btn-sm" id="btnConnectVercel" disabled>Hubungkan Vercel</button>
+                  <button type="button" class="btn btn-outline btn-sm" id="btnDisconnectVercel" disabled>Putus Koneksi</button>
+                  <a href="https://vercel.com/account/tokens" target="_blank" rel="noopener noreferrer">Buat token</a>
+                </div>
+              </details>
+              <p id="vercelIntegrationStatus" role="status" aria-live="polite">Masuk sebagai admin untuk mengelola domain.</p>
               <div class="form-group" style="margin-top:12px;">
+                <label for="inputSettingsDomain">Hostname domain</label>
                 <input type="text" id="inputSettingsDomain" class="input-control" placeholder="contoh: go.domainanda.com" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="domainStatus" />
               </div>
-              <a class="btn btn-outline btn-sm" href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">Buka Vercel</a>
-              <button class="btn btn-primary btn-sm" id="btnSaveSettingsDomain" disabled>Verifikasi &amp; Simpan</button>
+              <div class="domain-actions">
+              <button type="button" class="btn btn-primary btn-sm" id="btnAddDomain" disabled>Tambahkan Domain</button>
+              <button type="button" class="btn btn-outline btn-sm" id="btnRefreshDomains" disabled>Muat Ulang Domain</button>
+              <button class="btn btn-primary btn-sm" id="btnSaveSettingsDomain" disabled>Jadikan Domain Utama</button>
               <button class="btn btn-outline btn-sm" id="btnResetSettingsDomain" disabled>Gunakan Alamat Situs</button>
+              </div>
+              <div id="domainList" class="domain-list" aria-label="Domain terpasang"></div>
+              <div id="domainDetails" class="domain-details" hidden></div>
               <p id="domainStatus" role="status" aria-live="polite" style="margin-top:12px;overflow-wrap:anywhere;">Memuat konfigurasi domain…</p>
             </div>
 
