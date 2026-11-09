@@ -27,108 +27,33 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+import { configured, findLink, recordClick, fail, verifyPassword } from '../lib/db.js';
+import { normalizeSlug, normalizeUrl, linkState } from '../lib/validation.js';
 export default async function handler(req, res) {
+  res.setHeader('Cache-Control', 'no-store');
+  if (!['GET', 'POST', 'HEAD'].includes(req.method)) return res.status(405).end();
   try {
-    const { slug } = req.query;
-
-    if (!slug) {
-      res.writeHead(302, { Location: '/' });
-      return res.end();
-    }
-
-    const cleanSlug = String(slug).trim().toLowerCase();
+    let cleanSlug;
+    try { cleanSlug = normalizeSlug(req.query.slug); } catch { return res.status(400).send('Slug tidak valid.'); }
+    const fallback = (flag = '') => { res.writeHead(302, { Location: `/redirect.html?slug=${encodeURIComponent(cleanSlug)}${req.query.src === 'qr' ? '&src=qr' : ''}${flag}` }); return res.end(); };
+    if (!configured()) return fallback();
+    const link = await findLink(cleanSlug);
+    if (!link) return fallback('&missing=true');
+    const state = linkState(link);
+    if (state === 'paused' || state === 'expired') return fallback(`&${state}=true`);
+    if (state === 'protected' && req.method !== 'POST') return fallback('&protected=true');
+    if (state === 'protected' && !verifyPassword(req.body?.password, link.password)) return res.status(403).json({ error: 'Kata sandi salah.' });
     const userAgent = req.headers['user-agent'] || '';
-    const referer = req.headers['referer'] || req.headers['referrer'] || 'Direct';
-    const country = req.headers['x-vercel-ip-country'] || 'Unknown';
-    const city = req.headers['x-vercel-ip-city'] || 'Unknown';
-
-    const supabaseUrl = process.env.SUPABASE_URL || 'https://miipmgzjxpyokchrctdj.supabase.co';
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1paXBtZ3pqeHB5b2tjaHJjdGRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1NjYyMjMsImV4cCI6MjEwNjE0MjIyM30.SfEbfXimbA7VTZrRYzgJLezH6fv64QWR6yYuHnbHUMQ';
-    const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
-    const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-
-    let link = null;
-
-    // 1. Check Supabase
-    if (supabaseUrl && supabaseKey) {
-      try {
-        const response = await fetch(`${supabaseUrl}/rest/v1/links?slug=eq.${encodeURIComponent(cleanSlug)}&select=*`, {
-          headers: {
-            'apikey': supabaseKey,
-            'Authorization': `Bearer ${supabaseKey}`
-          }
-        });
-        if (response.ok) {
-          const links = await response.json();
-          if (links && links.length > 0) link = links[0];
-        }
-      } catch (e) {
-        console.error('Supabase lookup error:', e);
-      }
+    const destination = normalizeUrl(link.destination_url);
+    link.destination_url = destination;
+    if (!isSocialBot(userAgent) && req.method !== 'HEAD') {
+      try { await recordClick(req, link); } catch { console.error('Click tracking failed for link', link.id); }
     }
-
-    // 2. Check Upstash Redis fallback
-    if (!link && upstashUrl && upstashToken) {
-      try {
-        const upstashResp = await fetch(`${upstashUrl}/get/link:${encodeURIComponent(cleanSlug)}`, {
-          headers: { Authorization: `Bearer ${upstashToken}` }
-        });
-        const data = await upstashResp.json();
-        if (data && data.result) {
-          link = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-        }
-      } catch (e) {
-        console.error('Upstash lookup error:', e);
-      }
-    }
-
-    // If link found from database
-    if (link && link.destination_url) {
-      // Check if link is paused
-      if (link.is_active === false) {
-        res.writeHead(302, { Location: `/redirect.html?slug=${encodeURIComponent(cleanSlug)}&paused=true` });
-        return res.end();
-      }
-
-      // Log click asynchronously (if not a crawler bot)
-      if (!isSocialBot(userAgent)) {
-        const isQr = req.query.src === 'qr' || req.query.qr === '1' || req.query.utm_source === 'qr';
-        const clientIp = req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '127.0.0.1';
-        const visitorId = Buffer.from(`${clientIp}-${userAgent.substring(0, 30)}`).toString('base64').substring(0, 16);
-
-        if (supabaseUrl && supabaseKey && link.id) {
-          fetch(`${supabaseUrl}/rest/v1/links?id=eq.${link.id}`, {
-            method: 'PATCH',
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({ clicks: (link.clicks || 0) + 1, last_clicked_at: new Date().toISOString() })
-          }).catch(console.error);
-
-          fetch(`${supabaseUrl}/rest/v1/clicks`, {
-            method: 'POST',
-            headers: { 'apikey': supabaseKey, 'Authorization': `Bearer ${supabaseKey}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              link_id: link.id,
-              slug: cleanSlug,
-              visitor_id: visitorId,
-              is_qr: Boolean(isQr),
-              referer: isQr && referer === 'Direct' ? 'QR Code Scan' : referer,
-              country: country,
-              city: city,
-              user_agent: userAgent,
-              clicked_at: new Date().toISOString()
-            })
-          }).catch(console.error);
-        } else if (upstashUrl && upstashToken) {
-          fetch(`${upstashUrl}/incr/clicks:${encodeURIComponent(cleanSlug)}`, {
-            headers: { Authorization: `Bearer ${upstashToken}` }
-          }).catch(console.error);
-        }
-      }
-
+    if (req.method === 'POST') return res.status(200).json({ destination_url: destination });
       // Check if social preview metadata exists
       const previewTitle = link.og_title || link.title || cleanSlug;
       const previewDesc = link.og_description || '';
-      const host = process.env.CUSTOM_DOMAIN || req.headers['host'] || 'rigeel.id';
+      const host = (process.env.CUSTOM_DOMAIN || req.headers['host']).replace(/^https?:\/\//, '').replace(/\/$/, '');
       const shortUrl = `https://${host}/${cleanSlug}`;
 
       let previewImageUrl = link.og_image || '';
@@ -164,27 +89,13 @@ export default async function handler(req, res) {
 </head>
 <body style="font-family:sans-serif; background:#090d16; color:#fff; text-align:center; padding:50px 20px;">
   <p>Mengalihkan Anda ke <a href="${escapeHtml(link.destination_url)}" style="color:#38bdf8;">${escapeHtml(link.destination_url)}</a>...</p>
-  <script>window.location.replace(${JSON.stringify(link.destination_url)});</script>
+
 </body>
 </html>`);
       }
 
-      // Direct instant HTTP 307 Redirect for human browsers (Chrome, Safari, etc.)
-      res.writeHead(307, {
-        Location: link.destination_url,
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
-      });
-      return res.end();
-    }
 
-    // 3. Fallback to client-side redirect page (for Local Storage / Zero-Config mode)
-    res.writeHead(302, {
-      Location: `/redirect.html?slug=${encodeURIComponent(cleanSlug)}`
-    });
+    res.writeHead(307, { Location: destination });
     return res.end();
-  } catch (err) {
-    console.error('Fatal redirect error:', err);
-    res.writeHead(302, { Location: '/' });
-    return res.end();
-  }
+  } catch (error) { return fail(res, error); }
 }

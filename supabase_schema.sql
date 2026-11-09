@@ -41,17 +41,33 @@ CREATE INDEX IF NOT EXISTS idx_clicks_clicked_at ON public.clicks(clicked_at DES
 ALTER TABLE public.links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clicks ENABLE ROW LEVEL SECURITY;
 
--- 5. Policies allowing anon key access (or service role)
-DROP POLICY IF EXISTS "Allow anon all on links" ON public.links;
-CREATE POLICY "Allow anon all on links" ON public.links
-  FOR ALL
-  TO anon, authenticated, service_role
-  USING (true)
-  WITH CHECK (true);
+-- Upgrade existing installations (idempotent).
+ALTER TABLE public.links ADD COLUMN IF NOT EXISTS og_title TEXT;
+ALTER TABLE public.links ADD COLUMN IF NOT EXISTS og_description TEXT;
+ALTER TABLE public.links ADD COLUMN IF NOT EXISTS og_image TEXT;
+ALTER TABLE public.clicks ADD COLUMN IF NOT EXISTS visitor_id TEXT;
+ALTER TABLE public.clicks ADD COLUMN IF NOT EXISTS is_qr BOOLEAN DEFAULT FALSE;
 
+-- Only the server's service-role credential may manage links or read analytics.
+DROP POLICY IF EXISTS "Allow anon all on links" ON public.links;
 DROP POLICY IF EXISTS "Allow anon all on clicks" ON public.clicks;
-CREATE POLICY "Allow anon all on clicks" ON public.clicks
-  FOR ALL
-  TO anon, authenticated, service_role
-  USING (true)
-  WITH CHECK (true);
+REVOKE ALL ON public.links, public.clicks FROM anon, authenticated;
+GRANT ALL ON public.links, public.clicks TO service_role;
+GRANT USAGE, SELECT ON SEQUENCE public.clicks_id_seq TO service_role;
+
+CREATE OR REPLACE FUNCTION public.record_click(
+  p_link_id TEXT, p_visitor_id TEXT, p_is_qr BOOLEAN, p_referer TEXT,
+  p_country TEXT, p_city TEXT, p_user_agent TEXT
+) RETURNS VOID LANGUAGE plpgsql SET search_path = public AS $$
+DECLARE v_slug TEXT;
+BEGIN
+  UPDATE public.links SET clicks = COALESCE(clicks, 0) + 1, last_clicked_at = NOW()
+    WHERE id = p_link_id AND is_active = TRUE
+      AND (expires_at IS NULL OR expires_at > NOW()) RETURNING slug INTO v_slug;
+  IF v_slug IS NULL THEN RAISE EXCEPTION 'Link unavailable'; END IF;
+  INSERT INTO public.clicks(link_id, slug, visitor_id, is_qr, referer, country, city, user_agent)
+    VALUES(p_link_id, v_slug, p_visitor_id, p_is_qr, p_referer, p_country, p_city, p_user_agent);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.record_click(TEXT,TEXT,BOOLEAN,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_click(TEXT,TEXT,BOOLEAN,TEXT,TEXT,TEXT,TEXT) TO service_role;

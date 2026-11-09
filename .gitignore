@@ -1,7 +1,5 @@
-.DS_Store
-._*
 node_modules/
-.vercel/
 .env
-.env.local
-*.log
+.env.*
+!.env.example
+test-results/

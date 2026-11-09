@@ -1,6 +1,7 @@
+import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from './lib/validation.js';
 /**
  * AutoShort — Real-Time Analytics Engine & Shortlink Suite
- * Provides 100% functional, real data analytics, interactive calendar,
+ * Provides visitor analytics, an interactive calendar,
  * stacked visitor tracking, QR Studio, live activity monitoring,
  * anomaly detection, and cloud database synchronization.
  */
@@ -9,8 +10,68 @@
   'use strict';
 
   // --- CONFIGURATION & STATE ---
-  let supabase = null;
-  let customDomain = 'rigeel.id';
+  let cloudMode = false;
+  let backendReady = Promise.resolve();
+  let syncPromise = null;
+  let saving = false;
+  let searchTerm = '';
+  let lastCreatedId = null;
+  let returnFocus = null;
+  const adminToken = () => sessionStorage.getItem('autoshort_admin_token') || '';
+  function shortUrl(slug, qr = false) {
+    const base = cloudMode ? (customDomain === location.host ? location.origin : `https://${customDomain}`) : location.origin;
+    return `${base}/${encodeURIComponent(slug)}${qr ? '?src=qr' : ''}`;
+  }
+  async function api(path, options = {}) {
+    const response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken()}`, ...options.headers } });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Permintaan server gagal.');
+    return data;
+  }
+  function status(text, ok = false) {
+    document.getElementById('cloudStatusText').textContent = text;
+    document.getElementById('cloudStatusDot').style.background = ok ? '#10b981' : '#f59e0b';
+  }
+  async function persistLink(record, id = null) {
+    const normalized = normalizeLink(record);
+    if (cloudMode && !Object.hasOwn(record, 'password')) delete normalized.password;
+    if (links.some(l => l.slug === normalized.slug && l.id !== id)) throw new Error('Slug sudah digunakan.');
+    let saved = { ...normalized, id: id || crypto.randomUUID(), clicks: 0, created_at: new Date().toISOString() };
+    if (cloudMode) saved = (await api('/api/links', { method: id ? 'PATCH' : 'POST', body: JSON.stringify({ ...normalized, ...(id ? { id } : {}) }) })).link;
+    const index = links.findIndex(l => l.id === id);
+    const previous = index >= 0 ? links[index] : null;
+    if (index >= 0) links[index] = { ...previous, ...saved, ...(!cloudMode ? { clicks: previous.clicks, created_at: previous.created_at } : {}) };
+    else links.unshift(saved);
+    if (previous && previous.slug !== saved.slug) {
+      if (activeLinkFilter === previous.slug) activeLinkFilter = saved.slug;
+      clicksHistory.forEach(c => { if (c.link_id === id) c.slug = saved.slug; });
+    }
+    saveLocalLinks(); saveLocalClicks(); renderAll();
+    if (lastCreatedId === id) { document.getElementById('quickResultUrl').href = shortUrl(saved.slug); document.getElementById('quickResultUrl').textContent = shortUrl(saved.slug); document.getElementById('quickResultTarget').textContent = `Menuju ke: ${saved.destination_url}`; }
+    return saved;
+  }
+  function renderAll() {
+    renderAnalytics(); renderShortenerLinks();
+    if (currentView === 'qr-studio') updateQrStudio();
+    if (currentView === 'activity') renderActivityTable();
+  }
+  async function saveAction(button, work) {
+    if (saving) return;
+    saving = true; button.disabled = true;
+    try { await backendReady; if (syncPromise) await syncPromise; await work(); } catch (error) { showToast(error.message, 'warning'); }
+    finally { saving = false; button.disabled = false; }
+  }
+  function closeModal() {
+    document.getElementById('modalLink').style.display = 'none';
+    document.body.classList.remove('modal-open');
+    returnFocus?.focus();
+  }
+  function closeMenu() {
+    document.getElementById('sidSidebar').classList.remove('open');
+    document.getElementById('menuBackdrop').hidden = true;
+    document.getElementById('btnMobileMenuToggle').setAttribute('aria-expanded', 'false');
+  }
+  let customDomain = location.host;
   let currentView = 'analytics';
 
   // Dynamic Date Range (Defaults to last 7 days up to today)
@@ -32,10 +93,9 @@
   let qrSelectedSlug = '';
   let qrSelectedColor = '#000000';
 
-  // Links & Clicks Data (100% Real Tracking Baseline)
+  // Links and click history
   let links = [];
   let clicksHistory = [];
-  const DEFAULT_LINKS = [];
 
   // --- INITIALIZATION ---
   document.addEventListener('DOMContentLoaded', () => {
@@ -43,11 +103,13 @@
     initTheme();
     initCalendar();
     initEventListeners();
+    initExtraControls();
     setupRouting();
     renderAnalytics();
     renderShortenerLinks();
     initQrStudio();
-    fetchBackendConfig();
+    backendReady = fetchBackendConfig();
+    backendReady.catch(error => showToast(error.message, 'warning'));
   });
 
   // --- THEME ---
@@ -77,35 +139,28 @@
   // --- DATA STORAGE & SYNC (REAL DATA ONLY) ---
   function loadStoredData() {
     try {
-      const dummyIds = new Set(['link_1', 'link_2', 'link_3', 'link_4']);
-      const dummySlugs = new Set(['promo-gajian', 'wa-admin', 'katalog-baru', 'join-reseller']);
-
       const storedLinks = localStorage.getItem('autoshort_links');
       if (storedLinks) {
         try {
           const parsed = JSON.parse(storedLinks);
-          links = Array.isArray(parsed) ? parsed.filter(l => l && !dummyIds.has(l.id) && !dummySlugs.has(l.slug)) : [];
+          links = Array.isArray(parsed) ? parsed.filter(l => l && l.slug && l.id) : [];
         } catch {
           links = [];
         }
       } else {
         links = [];
       }
-      saveLocalLinks();
-
       const storedClicks = localStorage.getItem('autoshort_clicks');
       if (storedClicks) {
         try {
           const parsedClicks = JSON.parse(storedClicks);
-          clicksHistory = Array.isArray(parsedClicks) ? parsedClicks.filter(c => c && !dummySlugs.has(c.slug) && !String(c.visitor_id || '').startsWith('vis_202609')) : [];
+          clicksHistory = Array.isArray(parsedClicks) ? parsedClicks.filter(c => c && c.clicked_at) : [];
         } catch {
           clicksHistory = [];
         }
       } else {
         clicksHistory = [];
       }
-      saveLocalClicks();
-
       // Clear legacy dummy toggle flag
       localStorage.removeItem('autoshort_pure_real_mode');
 
@@ -120,16 +175,17 @@
   }
 
   function saveLocalLinks() {
-    localStorage.setItem('autoshort_links', JSON.stringify(links));
+    try { localStorage.setItem(cloudMode ? 'autoshort_cloud_links' : 'autoshort_links', JSON.stringify(links)); } catch { showToast('Opslag browser penuh atau tidak tersedia. Unduh cadangan data.', 'warning'); }
   }
 
   function saveLocalClicks() {
-    localStorage.setItem('autoshort_clicks', JSON.stringify(clicksHistory));
+    try { localStorage.setItem(cloudMode ? 'autoshort_cloud_clicks' : 'autoshort_clicks', JSON.stringify(clicksHistory)); } catch { showToast('Riwayat tidak dapat disimpan di browser.', 'warning'); }
   }
 
   // --- REAL-TIME LISTENERS (CROSS-TAB & WEBSOCKET) ---
   // 1. Cross-tab real-time listener (fires instantly when someone visits link in another tab)
   window.addEventListener('storage', (e) => {
+    if (cloudMode) return;
     if (e.key === 'autoshort_clicks' || e.key === 'autoshort_links') {
       const prevCount = clicksHistory.length;
       loadStoredData();
@@ -145,79 +201,40 @@
 
   async function fetchBackendConfig() {
     try {
-      const res = await fetch('/api/config');
-      if (res.ok) {
-        const config = await res.json();
-        if (config.configured && config.supabaseUrl && config.supabaseAnonKey) {
-          if (window.supabase) {
-            supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-            const statusDot = document.getElementById('cloudStatusDot');
-            const statusText = document.getElementById('cloudStatusText');
-            if (statusDot) statusDot.style.background = '#10b981';
-            if (statusText) statusText.textContent = 'Cloud Terhubung (Live)';
-            
-            // Connect Realtime WebSocket Channel
-            subscribeToSupabaseRealtime();
-            syncWithSupabase();
-
-            // Periodic polling fallback every 6 seconds
-            setInterval(syncWithSupabase, 6000);
-          }
-        }
-        if (config.customDomain) {
-          customDomain = config.customDomain;
-          updateDomainDisplays();
-        }
-      }
-    } catch {
-      // Local fallback
+      const config = await api('/api/config');
+      cloudMode = config.configured;
+      if (cloudMode) { links = []; clicksHistory = []; renderAll(); }
+      if (config.customDomain) customDomain = new URL('https://' + config.customDomain.replace(/^https?:\/\//, '')).host;
+      document.getElementById('storageNotice').textContent = cloudMode
+        ? 'Mode cloud: tautan tersedia lintas perangkat. Masukkan token admin di Pengaturan untuk mengelola data.'
+        : 'Mode lokal: tautan hanya bekerja di browser ini. Aktifkan database cloud agar dapat dibagikan ke perangkat lain.';
+      updateDomainDisplays();
+      if (cloudMode) await syncWithBackend().catch(error => showToast(error.message, 'warning'));
+      else status('Mode Lokal');
+    } catch (error) {
+      status('Server tidak terhubung');
+      document.getElementById('storageNotice').textContent = 'Konfigurasi server tidak dapat dimuat. Periksa koneksi lalu muat ulang sebelum membuat tautan.';
+      throw error;
     }
+    setInterval(() => { if (cloudMode && !document.hidden && !saving) syncWithBackend().catch(() => {}); }, 15000);
   }
-
-  function subscribeToSupabaseRealtime() {
-    if (!supabase) return;
-    try {
-      supabase
-        .channel('public_clicks_realtime')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'clicks' }, (payload) => {
-          if (payload.new) {
-            clicksHistory.unshift(payload.new);
-            saveLocalClicks();
-            renderAnalytics();
-            if (currentView === 'activity') renderActivityTable();
-            showToast(`🌐 Kunjungan live baru: /${payload.new.slug} (${payload.new.referer || 'Direct'})!`, 'success');
-          }
-        })
-        .subscribe();
-    } catch (e) {
-      console.warn('Realtime subscription error:', e);
-    }
+  async function syncWithBackend() {
+    if (!cloudMode) return;
+    if (syncPromise) return syncPromise;
+    syncPromise = (async () => {
+      try {
+        const [linkData, clickData] = await Promise.all([api('/api/links'), api('/api/analytics')]);
+        links = linkData.links || [];
+        clicksHistory = clickData.recentClicks || [];
+        saveLocalLinks(); saveLocalClicks(); renderAll();
+        status('Cloud Terhubung', true);
+      } catch (error) { status('Cloud: perlu perhatian'); throw error; }
+    })();
+    try { await syncPromise; } finally { syncPromise = null; }
   }
-
-  async function syncWithSupabase() {
-    if (!supabase) return;
-    try {
-      const { data: dbLinks } = await supabase.from('links').select('*').order('created_at', { ascending: false });
-      if (dbLinks && dbLinks.length > 0) {
-        links = dbLinks;
-        saveLocalLinks();
-      }
-      const { data: dbClicks } = await supabase.from('clicks').select('*').order('clicked_at', { ascending: false }).limit(2000);
-      if (dbClicks && dbClicks.length > 0) {
-        clicksHistory = dbClicks;
-        saveLocalClicks();
-      }
-      renderAnalytics();
-      renderShortenerLinks();
-    } catch (e) {
-      console.warn('Supabase sync warning:', e);
-    }
-  }
-
-  function refreshAnalyticsData() {
-    renderAnalytics();
-    if (currentView === 'activity') renderActivityTable();
-    showToast('Data analitik berhasil disegarkan.', 'success');
+  async function refreshAnalyticsData() {
+    try { await backendReady; await syncWithBackend(); renderAll(); showToast('Data berhasil disegarkan.', 'success'); }
+    catch (error) { showToast(error.message, 'warning'); }
   }
 
   // --- ROUTING / VIEW SWITCHING ---
@@ -232,6 +249,7 @@
   }
 
   function switchView(viewName) {
+    closeMenu();
     currentView = viewName;
     const views = {
       analytics: document.getElementById('viewAnalytics'),
@@ -292,6 +310,8 @@
     const yearSelect = document.getElementById('calYearSelect');
     const btnPrev = document.getElementById('btnCalPrevMonth');
     const btnNext = document.getElementById('btnCalNextMonth');
+    yearSelect.replaceChildren(...Array.from({ length: 31 }, (_, index) => { const option = document.createElement('option'); option.value = now.getFullYear() - 15 + index; option.textContent = option.value; return option; }));
+    yearSelect.value = calViewYear; monthSelect.value = calViewMonth;
 
     if (btnDropdown && popup) {
       btnDropdown.addEventListener('click', (e) => {
@@ -300,6 +320,7 @@
         popup.style.display = isOpen ? 'none' : 'block';
         btnDropdown.classList.toggle('open', !isOpen);
         if (!isOpen) {
+          tempRangeStart = null;
           calViewMonth = selectedEndDate.getMonth();
           calViewYear = selectedEndDate.getFullYear();
           if (monthSelect) monthSelect.value = calViewMonth;
@@ -371,7 +392,9 @@
   }
 
   function applyPreset(preset) {
-    const end = new Date(selectedEndDate);
+    const end = new Date();
+    end.setHours(23, 59, 59, 999);
+    tempRangeStart = null;
     let start = new Date(end);
 
     if (preset === '1') {
@@ -423,8 +446,8 @@
       grid.appendChild(cell);
     }
 
-    const startISO = toISODate(selectedStartDate);
-    const endISO = toISODate(selectedEndDate);
+    const startISO = toISODate(tempRangeStart || selectedStartDate);
+    const endISO = toISODate(tempRangeStart || selectedEndDate);
 
     for (let d = 1; d <= daysInMonth; d++) {
       const dateObj = new Date(calViewYear, calViewMonth, d);
@@ -466,9 +489,6 @@
     if (!tempRangeStart) {
       tempRangeStart = new Date(dateObj);
       tempRangeStart.setHours(0, 0, 0, 0);
-      selectedStartDate = tempRangeStart;
-      selectedEndDate = new Date(tempRangeStart);
-      selectedEndDate.setHours(23, 59, 59, 999);
       renderCalendarGrid();
     } else {
       let start = tempRangeStart;
@@ -512,12 +532,12 @@
 
     const filteredClicks = clicksHistory.filter(c => {
       if (!c.clicked_at) return false;
-      const cDate = c.clicked_at.substring(0, 10);
+      const cDate = toISODate(new Date(c.clicked_at));
       const inDateRange = cDate >= startISO && cDate <= endISO;
       if (!inDateRange) return false;
 
       if (activeLinkFilter !== 'all') {
-        const match = c.link_id === activeLinkFilter || c.slug === activeLinkFilter;
+        const match = c.link_id === links.find(l => l.slug === activeLinkFilter)?.id || c.slug === activeLinkFilter;
         if (!match) return false;
       }
       return true;
@@ -566,7 +586,7 @@
     });
 
     filteredClicks.forEach(c => {
-      const cDate = c.clicked_at.substring(0, 10);
+      const cDate = toISODate(new Date(c.clicked_at));
       if (dailyMap[cDate]) {
         dailyMap[cDate].visitors++;
         const vId = c.visitor_id || c.id;
@@ -639,28 +659,31 @@
 
     track.innerHTML = '';
 
-    const maxDayTotal = Math.max(...chartData.map(d => d.visitors + d.unique), 10);
+    const maxDayTotal = Math.max(...chartData.map(d => d.visitors), 10);
     const scaleMax = Math.ceil(maxDayTotal / 35) * 35 || 70;
     const scaleMid = Math.round(scaleMax / 2);
 
     if (yAxisTop) yAxisTop.textContent = scaleMax;
     if (yAxisMid) yAxisMid.textContent = scaleMid;
 
-    chartData.forEach(d => {
+    const labelStep = Math.ceil(chartData.length / (window.innerWidth <= 768 ? 4 : 10));
+    chartData.forEach((d, index) => {
       const col = document.createElement('div');
       col.className = 'chart-bar-column';
+      col.tabIndex = 0;
+      col.setAttribute('aria-label', `${d.label}: ${d.visitors} kunjungan, ${d.unique} unik, ${d.qr} QR`);
 
-      const totalVal = d.visitors + d.unique;
+      const totalVal = d.visitors;
       const heightPercent = totalVal > 0 ? Math.min(100, Math.round((totalVal / scaleMax) * 100)) : 0;
-      const uniquePct = totalVal > 0 ? (d.unique / totalVal) * 100 : 0;
-      const visitorsPct = 100 - uniquePct;
+      const uniquePct = totalVal > 0 ? (Math.min(d.unique, d.visitors) / totalVal) * 100 : 0;
+      const visitorsPct = 100;
 
       col.innerHTML = `
         <div class="stacked-bar-fill" style="height: ${heightPercent}%;">
           <div class="bar-segment-unique" style="height: ${uniquePct}%;"></div>
           <div class="bar-segment-visitors" style="height: ${visitorsPct}%;"></div>
         </div>
-        <span class="bar-date-label">${d.label}</span>
+        <span class="bar-date-label" style="visibility:${index % labelStep === 0 ? 'visible' : 'hidden'}">${d.label.replace(/ \d{2}$/, '')}</span>
         
         <div class="chart-tooltip">
           <div style="font-weight:700; margin-bottom:4px; color:#fff;">${d.label}</div>
@@ -674,11 +697,12 @@
             <span class="dot-indicator dot-cyan"></span> Scan QR: <strong>${d.qr}</strong>
           </div>
           <div style="color:#94a3b8; font-size:0.7rem; margin-top:4px;">
-            Sumber Teratas: ${d.topRef}
+            Sumber Teratas: ${escapeHtml(d.topRef)}
           </div>
         </div>
       `;
 
+      col.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); col.click(); } });
       col.addEventListener('click', () => {
         showToast(`Detail tanggal ${d.label}: ${d.visitors} kunjungan, ${d.unique} unik.`, 'info');
       });
@@ -712,7 +736,8 @@
     if (thresholdEl) thresholdEl.textContent = threshold;
 
     const anomalies = [];
-    chartData.forEach(d => {
+    const labelStep = Math.ceil(chartData.length / (window.innerWidth <= 768 ? 4 : 10));
+    chartData.forEach((d, index) => {
       if (d.visitors >= threshold && d.visitors >= 25) {
         const spikePct = Math.round(((d.visitors - mean) / (mean || 1)) * 100);
         anomalies.push({
@@ -771,7 +796,7 @@
       return;
     }
 
-    links.forEach(link => {
+    links.filter(l => activeLinkFilter === 'all' || l.slug === activeLinkFilter).forEach(link => {
       const linkClicks = filteredClicks.filter(c => c.link_id === link.id || c.slug === link.slug);
       const totalVis = linkClicks.length;
 
@@ -795,8 +820,8 @@
             ${escapeHtml(link.title || link.slug)}
           </div>
           <div class="table-slug">
-            <a href="https://${customDomain}/${link.slug}" target="_blank">
-              ${customDomain}/${link.slug}
+            <a href="${escapeHtml(shortUrl(link.slug))}" target="_blank">
+              ${escapeHtml(cloudMode ? customDomain : location.host)}/${escapeHtml(link.slug)}
             </a>
           </div>
         </td>
@@ -815,14 +840,14 @@
           <span style="color:#06b6d4; font-weight:700;">${qrVis}</span>
         </td>
         <td>
-          <span style="background:var(--bg-hover); padding:3px 8px; border-radius:4px; font-size:0.76rem;">${topSource}</span>
+          <span style="background:var(--bg-hover); padding:3px 8px; border-radius:4px; font-size:0.76rem;">${escapeHtml(topSource)}</span>
         </td>
         <td>
           <div style="display:flex; gap:6px;">
-            <button class="btn btn-sm btn-outline btn-table-test-click" data-slug="${link.slug}" data-id="${link.id}" title="Kirim Klik Riil">
+            <button class="btn btn-sm btn-outline btn-table-test-click" data-slug="${escapeHtml(link.slug)}" data-id="${escapeHtml(link.id)}" title="Kirim Klik Riil">
               <i class="fa-solid fa-play"></i> Klik
             </button>
-            <button class="btn btn-sm btn-outline btn-table-qr" data-slug="${link.slug}" title="Buka di QR Studio">
+            <button class="btn btn-sm btn-outline btn-table-qr" data-slug="${escapeHtml(link.slug)}" title="Buka di QR Studio">
               <i class="fa-solid fa-qrcode"></i> QR
             </button>
           </div>
@@ -852,7 +877,7 @@
     const elDevices = document.getElementById('anaDevicesList');
 
     const refCounts = {};
-    const devCounts = { 'Smartphone (Mobile)': 0, 'PC / Laptop (Desktop)': 0, 'Tablet / iPad': 0 };
+    const devCounts = { 'Smartphone (Mobile)': 0, 'PC / Laptop (Desktop)': 0, 'Tablet / iPad': 0, 'Tidak diketahui': 0 };
 
     filteredClicks.forEach(c => {
       const ref = c.referer || 'Direct';
@@ -861,7 +886,8 @@
       const ua = (c.user_agent || '').toLowerCase();
       if (ua.includes('tablet') || ua.includes('ipad')) devCounts['Tablet / iPad']++;
       else if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) devCounts['Smartphone (Mobile)']++;
-      else devCounts['PC / Laptop (Desktop)']++;
+      else if (/windows|macintosh|linux|cros/.test(ua)) devCounts['PC / Laptop (Desktop)']++;
+      else devCounts['Tidak diketahui']++;
     });
 
     const total = filteredClicks.length || 1;
@@ -914,7 +940,7 @@
     }
   }
 
-  // --- QR STUDIO (100% FUNGSIONAL) ---
+  // --- QR STUDIO ---
   function initQrStudio() {
     const selectLink = document.getElementById('selectQrLink');
     const colorBtns = document.querySelectorAll('.color-btn');
@@ -941,18 +967,11 @@
 
     if (btnDownload) {
       btnDownload.addEventListener('click', () => {
-        const box = document.getElementById('qrStudioBox');
-        const canvas = box ? box.querySelector('canvas') : null;
-        if (canvas) {
-          const imgUrl = canvas.toDataURL('image/png');
-          const a = document.createElement('a');
-          a.download = `qr-${qrSelectedSlug || 'link'}.png`;
-          a.href = imgUrl;
-          a.click();
-          showToast('File QR Code berhasil diunduh (PNG)', 'success');
-        } else {
-          showToast('Gagal mengunduh QR Code', 'warning');
-        }
+        try {
+          const canvas = qrCanvas();
+          const a = document.createElement('a'); a.download = `qr-${qrSelectedSlug}.png`; a.href = canvas.toDataURL('image/png'); a.click();
+          showToast('QR Code berhasil diunduh.', 'success');
+        } catch (error) { showToast(error.message, 'warning'); }
       });
     }
 
@@ -994,22 +1013,12 @@
     }
     selectLink.value = qrSelectedSlug;
 
-    const qrUrl = `https://${customDomain}/${qrSelectedSlug}?src=qr`;
+    const qrUrl = shortUrl(qrSelectedSlug, true);
     if (urlText) urlText.textContent = qrUrl;
 
     box.innerHTML = '';
-    if (window.QRCode) {
-      new window.QRCode(box, {
-        text: qrUrl,
-        width: 180,
-        height: 180,
-        colorDark: qrSelectedColor,
-        colorLight: '#ffffff',
-        correctLevel: window.QRCode.CorrectLevel.H
-      });
-    } else {
-      box.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrUrl)}" alt="QR Code"/>`;
-    }
+    try { const canvas = qrCanvas(240); canvas.style.width = '240px'; canvas.style.height = '240px'; box.appendChild(canvas); }
+    catch (error) { box.textContent = error.message; }
   }
 
   // --- ACTIVITY REAL-TIME TABLE ---
@@ -1018,7 +1027,7 @@
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    const recent = clicksHistory.slice(-25).reverse();
+    const recent = [...clicksHistory].sort((a, b) => new Date(b.clicked_at) - new Date(a.clicked_at)).slice(0, 25);
     if (recent.length === 0) {
       tbody.innerHTML = '<tr><td colspan="6" class="text-center" style="padding:20px; color:#9ca3af;">Belum ada riwayat aktivitas kunjungan.</td></tr>';
       return;
@@ -1059,74 +1068,15 @@
       select.appendChild(opt);
     });
 
-    select.value = currentVal || 'all';
+    if (!links.some(l => l.slug === activeLinkFilter)) activeLinkFilter = 'all';
+    select.value = activeLinkFilter;
   }
 
   // --- REAL CLICK TRACKING & LIVE EVENT ---
   function simulateRealClick(targetSlug, targetId, isQr = false) {
-    if (links.length === 0) {
-      showToast('Belum ada shortlink aktif. Buat shortlink baru terlebih dahulu!', 'warning');
-      return;
-    }
-
-    const linkObj = targetSlug
-      ? links.find(l => l.slug === targetSlug)
-      : (targetId ? links.find(l => l.id === targetId) : links[0]);
-
-    if (!linkObj) {
-      showToast('Tautan tidak ditemukan.', 'warning');
-      return;
-    }
-
-    const slug = linkObj.slug;
-
-    const referrers = isQr ? ['QR Code Scan'] : ['WhatsApp', 'Instagram', 'Direct', 'TikTok', 'Google Search'];
-    const chosenRef = referrers[Math.floor(Math.random() * referrers.length)];
-
-    let vId = localStorage.getItem('autoshort_visitor_id');
-    if (!vId || Math.random() > 0.4) {
-      vId = 'vis_' + Math.random().toString(36).substring(2, 9);
-    }
-
-    const clickRecord = {
-      id: 'clk_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
-      slug: slug,
-      link_id: linkObj ? linkObj.id : ('link_' + slug),
-      visitor_id: vId,
-      is_qr: Boolean(isQr),
-      referer: chosenRef,
-      country: 'Indonesia',
-      city: 'Jakarta',
-      user_agent: isQr ? 'Mobile (iPhone/Camera-QR)' : 'Mobile (Android/WhatsApp)',
-      clicked_at: new Date().toISOString()
-    };
-
-    if (linkObj) {
-      linkObj.clicks = (Number(linkObj.clicks) || 0) + 1;
-      linkObj.last_clicked_at = clickRecord.clicked_at;
-      saveLocalLinks();
-    }
-
-    clicksHistory.push(clickRecord);
-    saveLocalClicks();
-
-    if (supabase && linkObj) {
-      supabase.from('links').update({ clicks: linkObj.clicks }).eq('id', linkObj.id).then();
-      supabase.from('clicks').insert([{
-        link_id: linkObj.id,
-        slug: slug,
-        visitor_id: vId,
-        is_qr: Boolean(isQr),
-        referer: chosenRef,
-        user_agent: clickRecord.user_agent,
-        clicked_at: clickRecord.clicked_at
-      }]).then();
-    }
-
-    showToast(`Kunjungan ${isQr ? 'Scan QR' : 'Real'} tercatat pada /${slug}!`, 'success');
-    renderAnalytics();
-    renderShortenerLinks();
-    if (currentView === 'activity') renderActivityTable();
+    const link = targetSlug ? links.find(l => l.slug === targetSlug) : (targetId ? links.find(l => l.id === targetId) : links[0]);
+    if (!link) return showToast('Buat tautan terlebih dahulu.', 'warning');
+    window.open(shortUrl(link.slug, isQr), '_blank', 'noopener');
   }
 
   // --- SHORTENER VIEW MANAGEMENT ---
@@ -1145,28 +1095,31 @@
     }
     if (emptyState) emptyState.style.display = 'none';
 
-    links.forEach(link => {
+    const visible = links.filter(l => [l.title, l.og_title, l.slug, l.destination_url, ...(l.tags || [])].join(' ').toLowerCase().includes(searchTerm));
+    if (!visible.length) container.innerHTML = '<p class="search-empty">Tidak ada tautan yang cocok dengan pencarian.</p>';
+    visible.forEach(link => {
       const card = document.createElement('div');
       card.className = 'link-card';
 
-      const shortUrl = `https://${customDomain}/${link.slug}`;
+      const linkUrl = shortUrl(link.slug);
       const previewImg = link.og_image || '';
       const displayTitle = link.og_title || link.title || link.slug;
 
       card.innerHTML = `
         <div class="link-card-main">
           <div class="link-preview-thumb">
-            ${previewImg ? `<img src="${escapeHtml(previewImg)}" alt="Thumb" onerror="this.parentNode.innerHTML='<i class=\\'fa-solid fa-image text-muted\\'></i>'"/>` : `<i class="fa-solid fa-image" style="color:#94a3b8;"></i>`}
+            ${previewImg ? `<img src="${escapeHtml(previewImg)}" alt="Thumb"/>` : `<i class="fa-solid fa-image" style="color:#94a3b8;"></i>`}
           </div>
 
           <div class="link-details">
             <span class="link-title">${escapeHtml(displayTitle)}</span>
+            <div class="link-status-row"><span class="link-status status-${linkState(link)}">${({active:'Aktif',paused:'Dijeda',expired:'Kedaluwarsa',protected:'Dilindungi'})[linkState(link)]}</span>${(link.tags || []).map(t => `<span class="link-tag">${escapeHtml(t)}</span>`).join('')}</div>
 
             <div class="link-url-row">
-              <a href="${shortUrl}" target="_blank" class="short-url-link">
-                ${customDomain}/${link.slug}
+              <a href="${escapeHtml(linkUrl)}" target="_blank" class="short-url-link">
+                ${escapeHtml(cloudMode ? customDomain : location.host)}/${escapeHtml(link.slug)}
               </a>
-              <button class="btn-inline-copy" data-url="${shortUrl}">
+              <button class="btn-inline-copy" data-url="${escapeHtml(linkUrl)}">
                 <i class="fa-regular fa-copy"></i> Salin Link
               </button>
             </div>
@@ -1185,16 +1138,17 @@
           </div>
 
           <div class="action-buttons-group">
-            <button class="btn-icon-action btn-qr-action" data-slug="${link.slug}" title="Buka di QR Studio">
+            <button class="btn-icon-action btn-pause-action" data-id="${escapeHtml(link.id)}" title="${link.is_active === false ? 'Aktifkan' : 'Jeda'} tautan"><i class="fa-solid ${link.is_active === false ? 'fa-play' : 'fa-pause'}"></i></button>
+            <button class="btn-icon-action btn-qr-action" data-slug="${escapeHtml(link.slug)}" title="Buka di QR Studio">
               <i class="fa-solid fa-qrcode"></i>
             </button>
-            <button class="btn-icon-action btn-edit-action" data-id="${link.id}" title="Edit Preview WhatsApp">
+            <button class="btn-icon-action btn-edit-action" data-id="${escapeHtml(link.id)}" title="Edit Preview WhatsApp">
               <i class="fa-solid fa-image"></i>
             </button>
-            <button class="btn-icon-action btn-view-stats-action" data-slug="${link.slug}" title="Buka Analisis Tautan Ini">
+            <button class="btn-icon-action btn-view-stats-action" data-slug="${escapeHtml(link.slug)}" title="Buka Analisis Tautan Ini">
               <i class="fa-solid fa-chart-column"></i>
             </button>
-            <button class="btn-icon-action delete btn-delete-action" data-id="${link.id}" data-slug="${link.slug}" title="Hapus Link">
+            <button class="btn-icon-action delete btn-delete-action" data-id="${escapeHtml(link.id)}" data-slug="${escapeHtml(link.slug)}" title="Hapus Link">
               <i class="fa-regular fa-trash-can"></i>
             </button>
           </div>
@@ -1231,20 +1185,26 @@
       };
     });
 
+    container.querySelectorAll('.btn-pause-action').forEach(btn => {
+      btn.onclick = () => saveAction(btn, async () => { const link = links.find(l => l.id === btn.dataset.id); await persistLink({ ...link, is_active: link.is_active === false }, link.id); });
+    });
+
     container.querySelectorAll('.btn-delete-action').forEach(btn => {
-      btn.onclick = () => {
+      btn.onclick = () => saveAction(btn, async () => {
         const id = btn.getAttribute('data-id');
         const slug = btn.getAttribute('data-slug');
         if (confirm(`Hapus shortlink "/${slug}"?`)) {
+          if (cloudMode) await api(`/api/links?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
           links = links.filter(l => l.id !== id);
           clicksHistory = clicksHistory.filter(c => c.link_id !== id && c.slug !== slug);
           saveLocalLinks();
           saveLocalClicks();
-          renderShortenerLinks();
-          renderAnalytics();
+          if (activeLinkFilter === slug) activeLinkFilter = 'all';
+          if (lastCreatedId === id) document.getElementById('quickResultBanner').style.display = 'none';
+          renderAll();
           showToast('Tautan berhasil dihapus', 'info');
         }
-      };
+      });
     });
   }
 
@@ -1281,8 +1241,21 @@
       if (inputOgImg) inputOgImg.value = '';
     }
 
+    const existing = links.find(l => l.id === id);
+    document.getElementById('modalPassword').value = '';
+    document.getElementById('modalPassword').placeholder = (existing?.password || existing?.has_password) ? 'Biarkan kosong untuk mempertahankan password' : 'Tanpa password';
+    document.getElementById('removePassword').checked = false;
+    document.getElementById('modalExpires').value = existing?.expires_at ? new Date(new Date(existing.expires_at).getTime() - new Date(existing.expires_at).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
+    document.getElementById('modalTags').value = (existing?.tags || []).join(', ');
+    document.getElementById('modalActive').checked = existing?.is_active !== false;
+    ['utmSource', 'utmMedium', 'utmCampaign'].forEach(field => document.getElementById(field).value = '');
+    document.getElementById('manualImageUrlInput').value = existing?.og_image?.startsWith('http') ? existing.og_image : '';
+    updateUploadPreview();
     updateWhatsAppMockup();
+    returnFocus = document.activeElement;
     modal.style.display = 'flex';
+    document.body.classList.add('modal-open');
+    inputUrl.focus();
   }
 
   function updateWhatsAppMockup() {
@@ -1300,15 +1273,15 @@
     const titleVal = (inputTitle && inputTitle.value.trim()) || 'PROMO SPESIAL HARI INI!';
     const descVal = (inputDesc && inputDesc.value.trim()) || 'Klik tautan untuk melihat penawaran menarik.';
     const slugVal = (inputSlug && inputSlug.value.trim().toLowerCase()) || 'link';
-    const imgVal = (inputImg && inputImg.value.trim()) || 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80';
+    const imgVal = (inputImg && inputImg.value.trim()) || '';
 
     if (previewTitle) previewTitle.textContent = titleVal;
     if (previewDesc) previewDesc.textContent = descVal;
     if (previewTextLink) {
-      previewTextLink.textContent = `https://${customDomain}/${slugVal}`;
-      previewTextLink.href = `https://${customDomain}/${slugVal}`;
+      previewTextLink.textContent = shortUrl(slugVal);
+      previewTextLink.href = shortUrl(slugVal);
     }
-    if (previewImg) previewImg.src = imgVal;
+    if (previewImg) { previewImg.src = imgVal || ''; document.getElementById('waPreviewImgWrap').style.display = imgVal ? 'block' : 'none'; }
     if (previewDomain) previewDomain.textContent = customDomain.toUpperCase();
   }
 
@@ -1319,12 +1292,12 @@
     if (quickForm) {
       quickForm.addEventListener('submit', (e) => {
         e.preventDefault();
+        saveAction(document.getElementById('btnQuickSubmit'), async () => {
         const inputUrl = document.getElementById('quickUrlInput');
         const inputSlug = document.getElementById('quickSlugInput');
         if (!inputUrl || !inputUrl.value.trim()) return;
 
-        let dest = inputUrl.value.trim();
-        if (!/^https?:\/\//i.test(dest)) dest = 'https://' + dest;
+        const dest = normalizeUrl(inputUrl.value);
 
         let slug = inputSlug ? inputSlug.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-') : '';
         if (!slug) slug = generateRandomSlug(6);
@@ -1346,24 +1319,23 @@
           created_at: new Date().toISOString()
         };
 
-        links.unshift(newLink);
-        saveLocalLinks();
-        renderShortenerLinks();
-        renderAnalytics();
+        const saved = await persistLink(newLink);
+        lastCreatedId = saved.id;
 
         const banner = document.getElementById('quickResultBanner');
         const resUrl = document.getElementById('quickResultUrl');
         const resDest = document.getElementById('quickResultTarget');
         if (banner) banner.style.display = 'flex';
         if (resUrl) {
-          resUrl.textContent = `https://${customDomain}/${slug}`;
-          resUrl.href = `https://${customDomain}/${slug}`;
+          resUrl.textContent = shortUrl(slug);
+          resUrl.href = shortUrl(slug);
         }
         if (resDest) resDest.textContent = `Menuju ke: ${dest}`;
 
         showToast('Shortlink berhasil dibuat!', 'success');
         inputUrl.value = '';
         if (inputSlug) inputSlug.value = '';
+        });
       });
     }
 
@@ -1372,42 +1344,35 @@
     if (formModalLink) {
       formModalLink.addEventListener('submit', (e) => {
         e.preventDefault();
-        const id = document.getElementById('modalLinkId').value;
-        const dest = document.getElementById('modalDestUrl').value.trim();
-        const slug = document.getElementById('modalSlug').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-');
-        const ogTitle = document.getElementById('modalOgTitle').value.trim();
-        const ogDesc = document.getElementById('modalOgDescription').value.trim();
-        const ogImg = document.getElementById('modalOgImage').value.trim();
-
-        if (id) {
-          const idx = links.findIndex(l => l.id === id);
-          if (idx !== -1) {
-            links[idx].destination_url = dest;
-            links[idx].slug = slug;
-            links[idx].og_title = ogTitle;
-            links[idx].og_description = ogDesc;
-            links[idx].og_image = ogImg;
-            links[idx].title = ogTitle || slug;
+        saveAction(document.getElementById('btnSaveModalLink'), async () => {
+          const id = document.getElementById('modalLinkId').value;
+          const record = {
+            destination_url: document.getElementById('modalDestUrl').value,
+            slug: document.getElementById('modalSlug').value,
+            og_title: document.getElementById('modalOgTitle').value,
+            og_description: document.getElementById('modalOgDescription').value,
+            og_image: document.getElementById('modalOgImage').value,
+            password: document.getElementById('modalPassword').value,
+            expires_at: document.getElementById('modalExpires').value || null,
+            tags: document.getElementById('modalTags').value,
+            is_active: document.getElementById('modalActive').checked
+          };
+          const existing = links.find(l => l.id === id);
+          if (!record.password && !document.getElementById('removePassword').checked && id) {
+            if (cloudMode) delete record.password;
+            else record.password = existing?.password || null;
           }
-        } else {
-          links.unshift({
-            id: 'link_' + Date.now(),
-            slug,
-            destination_url: dest,
-            title: ogTitle || slug,
-            og_title: ogTitle,
-            og_description: ogDesc,
-            og_image: ogImg,
-            clicks: 0,
-            created_at: new Date().toISOString()
+          if (document.getElementById('removePassword').checked) record.password = null;
+          const url = new URL(normalizeUrl(record.destination_url));
+          [['utm_source','utmSource'],['utm_medium','utmMedium'],['utm_campaign','utmCampaign']].forEach(([key, field]) => {
+            const value = document.getElementById(field).value.trim();
+            if (value) url.searchParams.set(key, value);
           });
-        }
-
-        saveLocalLinks();
-        renderShortenerLinks();
-        renderAnalytics();
-        document.getElementById('modalLink').style.display = 'none';
-        showToast('Shortlink berhasil disimpan!', 'success');
+          record.destination_url = url.href;
+          await persistLink(record, id || null);
+          closeModal();
+          showToast('Shortlink berhasil disimpan!', 'success');
+        });
       });
     }
 
@@ -1415,7 +1380,7 @@
     const modalLink = document.getElementById('modalLink');
     if (modalLink) {
       modalLink.querySelectorAll('.modal-close, #btnCancelModalLink').forEach(btn => {
-        btn.onclick = () => modalLink.style.display = 'none';
+        btn.onclick = closeModal;
       });
     }
 
@@ -1488,7 +1453,9 @@
     const sidebar = document.getElementById('sidSidebar');
     if (btnMobileMenu && sidebar) {
       btnMobileMenu.addEventListener('click', () => {
-        sidebar.classList.toggle('open');
+        const open = sidebar.classList.toggle('open');
+        document.getElementById('menuBackdrop').hidden = !open;
+        btnMobileMenu.setAttribute('aria-expanded', String(open));
       });
     }
 
@@ -1521,31 +1488,20 @@
         const input = document.getElementById('inputSettingsDomain');
         const val = input.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
         if (val) {
+          try { if (new URL('https://' + val).host !== val || /[\s/?#@]/.test(val)) throw new Error(); } catch { return showToast('Masukkan nama domain yang valid tanpa path.', 'warning'); }
           customDomain = val;
           localStorage.setItem('autoshort_custom_domain', customDomain);
           updateDomainDisplays();
+          renderAll();
           showToast(`Domain utama berhasil diubah menjadi: ${customDomain}`, 'success');
         }
       };
     }
 
-    // Settings: Save Supabase
-    const btnSaveSupabase = document.getElementById('btnSaveSettingsSupabase');
-    if (btnSaveSupabase) {
-      btnSaveSupabase.onclick = () => {
-        const urlInput = document.getElementById('inputSettingsSupabaseUrl');
-        const keyInput = document.getElementById('inputSettingsSupabaseKey');
-        const url = urlInput.value.trim();
-        const key = keyInput.value.trim();
-        if (url && key && window.supabase) {
-          supabase = window.supabase.createClient(url, key);
-          showToast('Supabase Client berhasil diinisialisasi!', 'success');
-          syncWithSupabase();
-        } else {
-          showToast('Masukkan URL dan Anon API Key Supabase yang valid.', 'warning');
-        }
-      };
-    }
+    document.getElementById('btnSaveAdminToken').onclick = async () => {
+      sessionStorage.setItem('autoshort_admin_token', document.getElementById('inputAdminToken').value.trim());
+      await refreshAnalyticsData();
+    };
 
     // Settings: Backup JSON
     const btnExportJson = document.getElementById('btnExportJsonBackup');
@@ -1557,12 +1513,7 @@
           customDomain: customDomain,
           exportedAt: new Date().toISOString()
         };
-        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `autoshort-backup-${new Date().toISOString().substring(0, 10)}.json`;
-        a.click();
+        downloadFile(`autoshort-backup-${toISODate(new Date())}.json`, JSON.stringify(backupData, null, 2), 'application/json');
         showToast('Backup JSON berhasil diunduh!', 'success');
       };
     }
@@ -1571,6 +1522,7 @@
     const btnResetData = document.getElementById('btnResetAllData');
     if (btnResetData) {
       btnResetData.onclick = () => {
+        if (cloudMode) return showToast('Untuk cloud, hapus tautan melalui menu Kelola Tautan. Reset hanya tersedia untuk data lokal.', 'warning');
         if (confirm('Apakah Anda yakin ingin menghapus seluruh data tautan dan statistik kunjungan?')) {
           localStorage.removeItem('autoshort_links');
           localStorage.removeItem('autoshort_clicks');
@@ -1579,13 +1531,128 @@
           clicksHistory = [];
           saveLocalLinks();
           saveLocalClicks();
-          renderAnalytics();
-          renderShortenerLinks();
-          if (currentView === 'activity') renderActivityTable();
+          renderAll();
+          document.getElementById('quickResultBanner').style.display = 'none';
           showToast('Seluruh data berhasil dibersihkan (kembali ke 0).', 'info');
         }
       };
     }
+  }
+
+  function downloadFile(name, content, type) {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    const a = document.createElement('a'); a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  function updateUploadPreview() {
+    const image = document.getElementById('modalOgImage').value;
+    document.getElementById('dropzoneEmpty').style.display = image ? 'none' : 'block';
+    document.getElementById('dropzoneActive').style.display = image ? 'block' : 'none';
+    document.getElementById('dropzoneActiveThumb').src = image || '';
+  }
+  async function uploadImage(file) {
+    if (!file) return;
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) return showToast('Gunakan gambar PNG, JPG, atau WebP.', 'warning');
+    if (file.size > 1024 * 1024) return showToast('Ukuran gambar maksimal 1 MB.', 'warning');
+    const reader = new FileReader();
+    reader.onerror = () => showToast('Gambar gagal dibaca.', 'warning');
+    reader.onload = () => { document.getElementById('modalOgImage').value = reader.result; updateUploadPreview(); updateWhatsAppMockup(); };
+    reader.readAsDataURL(file);
+  }
+  function qrCanvas(size = Number(document.getElementById('qrResolution').value)) {
+    if (!qrSelectedSlug || !links.some(l => l.slug === qrSelectedSlug)) throw new Error('Pilih tautan terlebih dahulu.');
+    if (!window.QRCode) throw new Error('Generator QR belum tersedia. Muat ulang halaman.');
+    const holder = document.createElement('div');
+    new window.QRCode(holder, { text: shortUrl(qrSelectedSlug, true), width: size - 2 * Math.ceil(size / 16), height: size - 2 * Math.ceil(size / 16), colorDark: qrSelectedColor, colorLight: document.getElementById('qrBackground').value, correctLevel: window.QRCode.CorrectLevel.H });
+    const canvas = document.createElement('canvas'); canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d'); ctx.fillStyle = document.getElementById('qrBackground').value; ctx.fillRect(0, 0, size, size);
+    ctx.drawImage(holder.querySelector('canvas'), Math.ceil(size / 16), Math.ceil(size / 16));
+    return canvas;
+  }
+  function initExtraControls() {
+    document.querySelectorAll('.form-group').forEach(group => { const label = group.querySelector('label'); const field = group.querySelector('input:not([type=hidden]),textarea,select'); if (label && field?.id) label.htmlFor = field.id; });
+    document.getElementById('menuBackdrop').onclick = closeMenu;
+    document.querySelectorAll('.nav-link').forEach(a => a.addEventListener('click', closeMenu));
+    const modal = document.getElementById('modalLink');
+    modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { closeModal(); closeMenu(); document.getElementById('calendarPopup').style.display = 'none'; }
+      if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName) && modal.style.display === 'none') {
+        e.preventDefault(); location.hash = '#shortener'; document.getElementById('searchInput').focus();
+      }
+      if (e.key === 'Tab' && modal.style.display !== 'none') {
+        const elements = [...modal.querySelectorAll('button,input,textarea,select,summary,a[href]')].filter(el => !el.disabled && el.offsetParent !== null);
+        const first = elements[0], last = elements.at(-1);
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    });
+    document.getElementById('searchInput').oninput = e => { searchTerm = e.target.value.trim().toLowerCase(); renderShortenerLinks(); };
+    document.getElementById('btnToggleLinkView').onclick = e => {
+      const pressed = document.getElementById('linksCardsContainer').classList.toggle('compact');
+      e.currentTarget.setAttribute('aria-pressed', String(pressed));
+      e.currentTarget.textContent = pressed ? 'Tampilan kartu' : 'Tampilan ringkas';
+    };
+    document.getElementById('btnCopyQuickResult').onclick = e => copyToClipboard(document.getElementById('quickResultUrl').href, e.currentTarget);
+    document.getElementById('btnEditPreviewQuickResult').onclick = () => openEditLinkModal(lastCreatedId);
+    document.getElementById('btnStatsQuickResult').onclick = () => {
+      const link = links.find(l => l.id === lastCreatedId);
+      if (link) { activeLinkFilter = link.slug; location.hash = '#analytics'; renderAnalytics(); }
+    };
+    const file = document.getElementById('modalFileInput');
+    const drop = document.getElementById('uploadDropzone');
+    drop.tabIndex = 0; drop.setAttribute('role', 'button'); drop.setAttribute('aria-label', 'Unggah gambar preview');
+    drop.onclick = e => { if (!e.target.closest('button')) file.click(); };
+    drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); file.click(); } };
+    file.onclick = e => e.stopPropagation();
+    file.onchange = () => { uploadImage(file.files[0]); file.value = ''; };
+    drop.ondragover = e => { e.preventDefault(); drop.classList.add('dragging'); };
+    drop.ondragleave = () => drop.classList.remove('dragging');
+    drop.ondrop = e => { e.preventDefault(); drop.classList.remove('dragging'); uploadImage(e.dataTransfer.files[0]); };
+    document.getElementById('btnDropzoneChange').onclick = () => file.click();
+    document.getElementById('btnDropzoneRemove').onclick = () => { document.getElementById('modalOgImage').value = ''; document.getElementById('manualImageUrlInput').value = ''; updateUploadPreview(); updateWhatsAppMockup(); };
+    document.getElementById('btnToggleManualUrl').onclick = () => {
+      const group = document.getElementById('manualUrlGroup'); group.style.display = group.style.display === 'none' ? 'block' : 'none';
+    };
+    document.getElementById('manualImageUrlInput').oninput = e => { document.getElementById('modalOgImage').value = e.target.value.trim(); updateUploadPreview(); updateWhatsAppMockup(); };
+    document.getElementById('qrBackground').oninput = updateQrStudio;
+    document.getElementById('btnCopyQr').onclick = async () => {
+      try {
+        if (!navigator.clipboard?.write || !window.ClipboardItem) throw new Error('Browser belum mendukung salin gambar. Gunakan Unduh PNG.');
+        const canvas = qrCanvas();
+        const blob = new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+        showToast('Gambar QR tersalin.', 'success');
+      } catch (error) { showToast(error.message, 'warning'); }
+    };
+    document.getElementById('btnExportLinks').onclick = () => {
+      const rows = [['Judul', 'Slug', 'Short URL', 'Tujuan', 'Klik', 'Status', 'Tag']];
+      links.forEach(l => rows.push([l.title, l.slug, shortUrl(l.slug), l.destination_url, l.clicks, linkState(l), (l.tags || []).join(', ')]));
+      downloadFile('autoshort-links.csv', '\ufeff' + rows.map(row => row.map(csvCell).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
+    };
+    document.getElementById('btnImportBackup').onclick = () => document.getElementById('inputImportBackup').click();
+    document.getElementById('inputImportBackup').onchange = async e => {
+      try {
+        await backendReady;
+        if (cloudMode) throw new Error('Pemulihan JSON tersedia dalam mode lokal. Data cloud dikelola melalui database.');
+        const file = e.target.files[0]; if (!file) return;
+        if (file.size > 10000000) throw new Error('Cadangan maksimal 10 MB.');
+        const backup = JSON.parse(await file.text());
+        if (!Array.isArray(backup.links) || !Array.isArray(backup.clicks)) throw new Error('Format cadangan tidak valid.');
+        const imported = backup.links.map(l => ({ ...normalizeLink(l), id: String(l.id || crypto.randomUUID()), clicks: Number(l.clicks) || 0, created_at: l.created_at || new Date().toISOString() }));
+        if (new Set(imported.map(l => l.slug)).size !== imported.length || new Set(imported.map(l => l.id)).size !== imported.length) throw new Error('Slug atau ID dalam cadangan duplikat.');
+        if (!confirm('Ganti data lokal dengan cadangan ini?')) return;
+        const importedClicks = backup.clicks.filter(c => c && Number.isFinite(new Date(c.clicked_at).getTime())).map(c => ({
+          id: String(c.id || crypto.randomUUID()), link_id: String(c.link_id || ''), slug: normalizeSlug(c.slug),
+          visitor_id: String(c.visitor_id || c.id || crypto.randomUUID()), is_qr: c.is_qr === true,
+          referer: String(c.referer || 'Direct'), country: String(c.country || 'Unknown'), city: String(c.city || 'Unknown'),
+          user_agent: String(c.user_agent || ''), clicked_at: new Date(c.clicked_at).toISOString()
+        }));
+        links = imported; clicksHistory = importedClicks;
+        saveLocalLinks(); saveLocalClicks(); renderAll(); showToast('Cadangan berhasil dipulihkan.', 'success');
+      } catch (error) { showToast(error.message, 'warning'); }
+      finally { e.target.value = ''; }
+    };
   }
 
   // --- CSV EXPORT FUNCTION ---
@@ -1595,7 +1662,7 @@
 
     const filtered = clicksHistory.filter(c => {
       if (!c.clicked_at) return false;
-      const cDate = c.clicked_at.substring(0, 10);
+      const cDate = toISODate(new Date(c.clicked_at));
       return cDate >= startISO && cDate <= endISO;
     });
 
@@ -1604,29 +1671,11 @@
       return;
     }
 
-    let csvContent = 'data:text/csv;charset=utf-8,';
-    csvContent += 'Timestamp,Slug,Visitor ID,Referrer,Is QR Scan,Device,Country\n';
-
-    filtered.forEach(c => {
-      const row = [
-        `"${c.clicked_at || ''}"`,
-        `"${c.slug || ''}"`,
-        `"${c.visitor_id || ''}"`,
-        `"${c.referer || 'Direct'}"`,
-        `"${c.is_qr ? 'Yes' : 'No'}"`,
-        `"${c.user_agent || ''}"`,
-        `"${c.country || 'Indonesia'}"`
-      ];
-      csvContent += row.join(',') + '\n';
-    });
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `analytics-clicks-${startISO}-to-${endISO}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const rows = [['Timestamp', 'Slug', 'Visitor ID', 'Referrer', 'Is QR Scan', 'Device', 'Country']];
+    filtered.filter(c => activeLinkFilter === 'all' || c.slug === activeLinkFilter || c.link_id === links.find(l => l.slug === activeLinkFilter)?.id).forEach(c => rows.push([
+      c.clicked_at, c.slug, c.visitor_id, c.referer || 'Direct', c.is_qr ? 'Yes' : 'No', c.user_agent, c.country || 'Unknown'
+    ]));
+    downloadFile('analytics-clicks-' + startISO + '-to-' + endISO + '.csv', '\ufeff' + rows.map(row => row.map(csvCell).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
 
     showToast('File CSV statistik berhasil diunduh!', 'success');
   }
@@ -1636,9 +1685,10 @@
     const addon = document.getElementById('modalDomainAddon');
     const topDomain = document.getElementById('topDomainText');
     const inputSet = document.getElementById('inputSettingsDomain');
-    if (prefix) prefix.textContent = `${customDomain}/`;
-    if (addon) addon.textContent = `${customDomain}/`;
-    if (topDomain) topDomain.textContent = customDomain;
+    const displayDomain = cloudMode ? customDomain : location.host;
+    if (prefix) prefix.textContent = `${displayDomain}/`;
+    if (addon) addon.textContent = `${displayDomain}/`;
+    if (topDomain) topDomain.textContent = displayDomain;
     if (inputSet) inputSet.value = customDomain;
   }
 
@@ -1663,9 +1713,7 @@
 
   function copyToClipboard(text, btnElement) {
     if (navigator.clipboard) {
-      navigator.clipboard.writeText(text).then(() => {
-        showCopySuccess(btnElement);
-      });
+      navigator.clipboard.writeText(text).then(() => showCopySuccess(btnElement)).catch(() => showToast('Salin otomatis ditolak browser. Pilih lalu salin tautannya secara manual.', 'warning'));
     } else {
       const ta = document.createElement('textarea');
       ta.value = text;
