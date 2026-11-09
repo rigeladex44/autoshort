@@ -585,11 +585,14 @@
             <!-- Custom Domain Box -->
             <div class="settings-box">
               <h3><i class="fa-solid fa-globe" style="color:#06b6d4;"></i> Nama Domain Utama</h3>
-              <p>Gunakan domain yang sudah dihubungkan ke deployment ini di Vercel. Mengganti nama di sini tidak mengatur DNS. Mode lokal menggunakan alamat browser saat ini.</p>
+              <p>Tambahkan domain ke proyek AutoShort melalui Vercel → Settings → Domains, lalu pasang DNS persis seperti petunjuk Vercel. Setelah HTTPS aktif, verifikasi dan simpan di sini. Tidak perlu redeploy untuk mengganti domain utama.</p>
               <div class="form-group" style="margin-top:12px;">
-                <input type="text" id="inputSettingsDomain" class="input-control" value="rigeel.id" placeholder="contoh: rigeel.id" />
+                <input type="text" id="inputSettingsDomain" class="input-control" placeholder="contoh: go.domainanda.com" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="domainStatus" />
               </div>
-              <button class="btn btn-primary btn-sm" id="btnSaveSettingsDomain">Simpan Domain</button>
+              <a class="btn btn-outline btn-sm" href="https://vercel.com/dashboard" target="_blank" rel="noopener noreferrer">Buka Vercel</a>
+              <button class="btn btn-primary btn-sm" id="btnSaveSettingsDomain" disabled>Verifikasi &amp; Simpan</button>
+              <button class="btn btn-outline btn-sm" id="btnResetSettingsDomain" disabled>Gunakan Alamat Situs</button>
+              <p id="domainStatus" role="status" aria-live="polite" style="margin-top:12px;overflow-wrap:anywhere;">Memuat konfigurasi domain…</p>
             </div>
 
             <!-- Supabase Cloud Sync Box -->
@@ -600,13 +603,15 @@
                 <label for="inputAdminToken">Token admin</label>
                 <input type="password" id="inputAdminToken" class="input-control" autocomplete="off" placeholder="Token dari konfigurasi server" />
               </div>
-              <button class="btn btn-primary btn-sm" id="btnSaveAdminToken">Hubungkan & Sinkronkan</button>
+              <button class="btn btn-primary btn-sm" id="btnSaveAdminToken" disabled>Hubungkan &amp; Sinkronkan</button>
+              <button class="btn btn-outline btn-sm" id="btnLogoutAdmin" disabled>Keluar Admin</button>
+              <p id="adminSessionStatus" role="status" aria-live="polite" style="margin-top:12px;">Token hanya berlaku selama sesi tab ini.</p>
             </div>
 
             <!-- Data Backup & Reset Box -->
             <div class="settings-box">
-              <h3><i class="fa-solid fa-hard-drive" style="color:#f59e0b;"></i> Cadangan Data Lokal</h3>
-              <p>Unduh cadangan data tautan dan klik dalam format JSON atau reset ke data awal.</p>
+              <h3><i class="fa-solid fa-hard-drive" style="color:#f59e0b;"></i> Cadangan Data</h3>
+              <p id="backupScope">Unduh cadangan data tautan dan klik dalam format JSON.</p>
               <div class="settings-action-btns" style="margin-top:14px; display:flex; gap:10px;">
                 <button class="btn btn-outline btn-sm" id="btnExportJsonBackup">
                   <i class="fa-solid fa-file-export"></i> Backup JSON

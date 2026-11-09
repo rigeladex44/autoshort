@@ -41,7 +41,20 @@ CREATE INDEX IF NOT EXISTS idx_clicks_clicked_at ON public.clicks(clicked_at DES
 ALTER TABLE public.links ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.clicks ENABLE ROW LEVEL SECURITY;
 
--- Upgrade existing installations (idempotent).
+-- Upgrade existing installations (idempotent), including the earlier text-ID schema.
+ALTER TABLE public.links ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
+ALTER TABLE public.links ADD COLUMN IF NOT EXISTS password TEXT;
+ALTER TABLE public.links ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ;
+ALTER TABLE public.links ADD COLUMN IF NOT EXISTS last_clicked_at TIMESTAMPTZ;
+ALTER TABLE public.clicks ADD COLUMN IF NOT EXISTS country TEXT DEFAULT 'Unknown';
+ALTER TABLE public.clicks ADD COLUMN IF NOT EXISTS city TEXT DEFAULT 'Unknown';
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public'
+      AND table_name='clicks' AND column_name='id' AND data_type='text' AND column_default IS NULL) THEN
+    CREATE SEQUENCE IF NOT EXISTS public.clicks_id_seq;
+    ALTER TABLE public.clicks ALTER COLUMN id SET DEFAULT ('cloud-' || nextval('public.clicks_id_seq')::text);
+  END IF;
+END $$;
 ALTER TABLE public.links ADD COLUMN IF NOT EXISTS og_title TEXT;
 ALTER TABLE public.links ADD COLUMN IF NOT EXISTS og_description TEXT;
 ALTER TABLE public.links ADD COLUMN IF NOT EXISTS og_image TEXT;
@@ -51,9 +64,15 @@ ALTER TABLE public.clicks ADD COLUMN IF NOT EXISTS is_qr BOOLEAN DEFAULT FALSE;
 -- Only the server's service-role credential may manage links or read analytics.
 DROP POLICY IF EXISTS "Allow anon all on links" ON public.links;
 DROP POLICY IF EXISTS "Allow anon all on clicks" ON public.clicks;
-REVOKE ALL ON public.links, public.clicks FROM anon, authenticated;
+DROP POLICY IF EXISTS "Allow all links access" ON public.links;
+DROP POLICY IF EXISTS "Allow all clicks access" ON public.clicks;
+REVOKE ALL ON public.links, public.clicks FROM PUBLIC, anon, authenticated;
 GRANT ALL ON public.links, public.clicks TO service_role;
-GRANT USAGE, SELECT ON SEQUENCE public.clicks_id_seq TO service_role;
+DO $$ BEGIN
+  IF to_regclass('public.clicks_id_seq') IS NOT NULL THEN
+    GRANT USAGE, SELECT ON SEQUENCE public.clicks_id_seq TO service_role;
+  END IF;
+END $$;
 
 CREATE OR REPLACE FUNCTION public.record_click(
   p_link_id TEXT, p_visitor_id TEXT, p_is_qr BOOLEAN, p_referer TEXT,
@@ -71,3 +90,11 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.record_click(TEXT,TEXT,BOOLEAN,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.record_click(TEXT,TEXT,BOOLEAN,TEXT,TEXT,TEXT,TEXT) TO service_role;
+CREATE TABLE IF NOT EXISTS public.app_settings (
+  key TEXT PRIMARY KEY CHECK (key = 'custom_domain'),
+  value TEXT NOT NULL
+);
+ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.app_settings FROM PUBLIC, anon, authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.app_settings TO service_role;
+NOTIFY pgrst, 'reload schema';

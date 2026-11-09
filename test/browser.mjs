@@ -21,6 +21,7 @@ try {
   page.on('pageerror', e => errors.push(e.message));
   await page.goto(base + '/#shortener');
   await page.locator('#storageNotice').filter({ hasText: 'Mode lokal' }).waitFor();
+  assert.equal(await page.locator('#btnSaveSettingsDomain').isDisabled(),true);
   await page.fill('#quickUrlInput', 'example.com/path'); await page.fill('#quickSlugInput', 'promo-test'); await page.click('#btnQuickSubmit');
   await page.locator('.link-card').waitFor();
   assert.equal(await page.locator('#quickResultUrl').getAttribute('href'), base + '/promo-test');
@@ -99,10 +100,16 @@ try {
   // Cloud mode uses API results, honors empty arrays, and never reports success after failed saves.
   const cloudContext = await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
   await cloudContext.route(/googlesyndication|doubleclick|googleads/, route => route.fulfill({body:''}));
-  let cloudLinks = []; let failSave = false;
+  let cloudLinks = []; let failSave = false; let cloudDomain = 'short.example'; let domainFailure = false; let failLogin = false;
   await cloudContext.route('**/api/**', async route => {
     const url = new URL(route.request().url());
-    if (url.pathname === '/api/config') return route.fulfill({json:{configured:true,customDomain:'short.example'}});
+    if (url.pathname === '/api/config') return route.fulfill({json:{configured:true,customDomain:cloudDomain}});
+    if (url.pathname === '/api/domains') {
+      if (domainFailure) return route.fulfill({status:422,json:{error:'DNS belum tersedia'}});
+      cloudDomain = route.request().method() === 'DELETE' ? '' : route.request().postDataJSON().domain;
+      return route.fulfill({json:{customDomain:cloudDomain,verified:true}});
+    }
+    if (failLogin && ['/api/links','/api/analytics'].includes(url.pathname)) return route.fulfill({status:401,json:{error:'Token admin diperlukan'}});
     if (url.pathname === '/api/analytics') return route.fulfill({json:{recentClicks:[]}});
     if (url.pathname === '/api/links') {
       if (route.request().method() === 'GET') return route.fulfill({json:{links:cloudLinks}});
@@ -125,6 +132,26 @@ try {
   await cloudPage.keyboard.press('Escape'); failSave=false;
   cloudPage.on('dialog', d=>d.accept()); await cloudPage.click('.btn-delete-action'); await cloudPage.locator('.link-card').waitFor({state:'hidden'});
   await cloudPage.goto(base+'/#analytics'); await cloudPage.click('#btnRefreshAnalytics'); assert.equal(await cloudPage.locator('#kpiTotalLinks').textContent(),'0');
+  await cloudPage.goto(base+'/#settings');
+  assert.equal(await cloudPage.locator('#btnImportBackup').isDisabled(),true);
+  assert.equal(await cloudPage.locator('#btnResetAllData').isDisabled(),true);
+  domainFailure=true; await cloudPage.fill('#inputSettingsDomain','bad.example'); await cloudPage.click('#btnSaveSettingsDomain');
+  await cloudPage.locator('#domainStatus').filter({hasText:'DNS belum tersedia'}).waitFor();
+  assert.equal(await cloudPage.locator('#topDomainText').textContent(),'short.example');
+  domainFailure=false; await cloudPage.fill('#inputSettingsDomain','go.example.com'); await cloudPage.click('#btnSaveSettingsDomain');
+  await cloudPage.locator('#domainStatus').filter({hasText:'Aktif: go.example.com'}).waitFor();
+  assert.equal(await cloudPage.locator('#topDomainText').textContent(),'go.example.com');
+  await cloudPage.reload(); await cloudPage.locator('#topDomainText').filter({hasText:'go.example.com'}).waitFor();
+  await cloudPage.click('#btnResetSettingsDomain'); await cloudPage.locator('#topDomainText').filter({hasText:'127.0.0.1:3100'}).waitFor();
+  await cloudPage.evaluate(()=>sessionStorage.setItem('autoshort_admin_token','previous-token'));
+  failLogin=true; await cloudPage.fill('#inputAdminToken','wrong-token'); await cloudPage.click('#btnSaveAdminToken');
+  await cloudPage.locator('#adminSessionStatus').filter({hasText:'Token admin diperlukan'}).waitFor();
+  assert.equal(await cloudPage.evaluate(()=>sessionStorage.getItem('autoshort_admin_token')),'previous-token');
+  failLogin=false;
+  await cloudPage.fill('#inputAdminToken','session-token'); await cloudPage.click('#btnSaveAdminToken');
+  await cloudPage.locator('#adminSessionStatus').filter({hasText:'Sesi admin aktif'}).waitFor();
+  await cloudPage.click('#btnLogoutAdmin'); assert.equal(await cloudPage.evaluate(()=>sessionStorage.getItem('autoshort_admin_token')),null);
   assert.deepEqual(errors,[]);
+  console.log('PASS: domain save/failure/reset/persistence, admin login/logout, cloud backup restrictions.');
   console.log('PASS: cloud CRUD, empty synchronization, isolated local data, and save failure handling.');
 } finally { await browser?.close(); server.kill(); }

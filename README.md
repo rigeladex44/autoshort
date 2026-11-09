@@ -26,7 +26,7 @@ Tanpa konfigurasi Supabase, aplikasi memakai **mode lokal**. Tautan dan riwayat 
 | `SUPABASE_URL` | URL proyek Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | Kunci server Supabase; jangan masukkan ke browser |
 | `ADMIN_TOKEN` | Token rahasia acak untuk mengelola tautan dan membaca statistik |
-| `CUSTOM_DOMAIN` | Opsional: domain yang sudah terhubung ke deployment Vercel |
+| Domain utama | Diatur melalui Pengaturan → Nama Domain Utama setelah DNS dan HTTPS aktif |
 
 4. Buka dashboard → **Pengaturan** → masukkan `ADMIN_TOKEN` → **Hubungkan & Sinkronkan**. Token disimpan di `sessionStorage`, bukan dikirim ke pengunjung shortlink.
 5. Buat tautan dan uji dari browser/perangkat lain. Tautan publik menggunakan database server untuk redirect; API pengelolaan memerlukan token admin. Dashboard ini untuk satu pengelola/kelompok yang berbagi token, bukan layanan multiakun.
@@ -72,3 +72,14 @@ Tes API memakai mock database untuk validasi, otorisasi, CRUD, proteksi redirect
 QRCode.js © David Shim, MIT; lihat [`assets/QRCode-LICENSE.txt`](assets/QRCode-LICENSE.txt).
 
 MIT License © 2026 rigeladex44
+
+## Custom domain yang terverifikasi
+
+1. Di proyek Vercel **yang sama**, buka Settings → Domains dan tambahkan hostname Anda, misalnya `go.contoh.com`. Atur DNS sesuai nilai yang ditampilkan Vercel; jangan menebak IP atau target CNAME.
+2. Tunggu DNS dan sertifikat HTTPS aktif. Domain harus membuka aplikasi ini secara langsung, bukan mengalihkan ke hostname lain. Jika domain apex mengalihkan ke `www`, gunakan hostname `www`.
+3. Masuk sebagai admin di AutoShort, buka Pengaturan, isi hostname lalu klik **Verifikasi & Simpan**. Server memeriksa DNS publik, TLS, serta bukti kriptografis dari backend yang sama. Domain yang belum siap tidak disimpan.
+4. Pengaturan tersimpan di tabel `app_settings` dan dipakai seluruh browser untuk tautan, salin URL, QR, dan preview sosial. Tidak perlu redeploy untuk mengganti domain utama. **Gunakan Alamat Situs** menghapus pilihan utama saja, tanpa menghapus domain Vercel atau tautan.
+
+Jalankan kembali `supabase_schema.sql` sebelum menggunakan versi ini untuk membuat `app_settings`; data tautan/klik existing tidak dihapus. `CUSTOM_DOMAIN` pada environment tidak lagi menjadi sumber konfigurasi; gunakan pengaturan cloud ini. Mode lokal menonaktifkan custom domain, karena tautan lokal bergantung pada penyimpanan browser.
+
+Pemasangan domain dan perubahan DNS tetap dilakukan lewat Vercel/penyedia DNS. Aplikasi tidak menyimpan token Vercel dan tidak mengklaim memasang DNS dari tombol simpan. Pemeriksaan saat ini membutuhkan record IPv4 publik (A, atau CNAME yang mengarah ke A).

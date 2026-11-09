@@ -27,6 +27,7 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+import { savedDomain } from '../lib/domains.js';
 import { configured, findLink, recordClick, fail, verifyPassword } from '../lib/db.js';
 import { normalizeSlug, normalizeUrl, linkState } from '../lib/validation.js';
 export default async function handler(req, res) {
@@ -53,7 +54,7 @@ export default async function handler(req, res) {
       // Check if social preview metadata exists
       const previewTitle = link.og_title || link.title || cleanSlug;
       const previewDesc = link.og_description || '';
-      const host = (process.env.CUSTOM_DOMAIN || req.headers['host']).replace(/^https?:\/\//, '').replace(/\/$/, '');
+      const host = ((isSocialBot(userAgent) ? await savedDomain() : '') || req.headers['host']).replace(/^https?:\/\//, '').replace(/\/$/, '');
       const shortUrl = `https://${host}/${cleanSlug}`;
 
       let previewImageUrl = link.og_image || '';

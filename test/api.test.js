@@ -4,6 +4,8 @@ import links from '../api/links.js';
 import redirect from '../api/redirect.js';
 import analytics from '../api/analytics.js';
 import config from '../api/config.js';
+import domains from '../api/domains.js';
+import { normalizeDomain, verifyDomain, domainProof, publicIPv4 } from '../lib/domains.js';
 import { verifyPassword, hashPassword } from '../lib/db.js';
 import { normalizeUrl, normalizeSlug, csvCell } from '../lib/validation.js';
 const realFetch = globalThis.fetch;
@@ -21,7 +23,7 @@ test('URL validation rejects executable schemes; slugs reject reserved routes', 
   for (const value of ['api','redirect','a','has space']) assert.throws(() => normalizeSlug(value));
   assert.equal(csvCell('=SUM(A1)'), '"\'=SUM(A1)"'); assert.equal(csvCell('a,"b'), '"a,""b"');
 });
-test('config never discloses database credentials', async () => { const res=response(); await config(req(),res); assert.equal(res.body.configured,true); assert.ok(!JSON.stringify(res.body).includes('server-only')); });
+test('config never discloses database credentials', async () => { mock(() => json([{value:'go.example.com'}])); const res=response(); await config(req(),res); assert.equal(res.body.configured,true); assert.ok(!JSON.stringify(res.body).includes('server-only')); });
 test('management rejects unauthorized access and missing server admin token', async () => {
   const request=req(); request.headers.authorization='Bearer wrong'; const res=response(); await links(request,res); assert.equal(res.code,401); assert.equal(calls.length,0);
   delete process.env.ADMIN_TOKEN; const missing=response(); await links(req(),missing); assert.equal(missing.code,503);
@@ -52,7 +54,7 @@ test('password unlock requires exact password and awaits one atomic click RPC', 
 test('normal redirect logs once; preview bots and HEAD never log', async () => {
   mock(url => url.includes('rpc/') ? json(null) : json([record]));
   const res=response(); await redirect(req('GET',null,{slug:'hello'}),res); assert.equal(res.code,307); assert.equal(calls.length,2); assert.equal(res.headers.location,record.destination_url);
-  calls=[]; const bot=req('GET',null,{slug:'hello'}); bot.headers['user-agent']='WhatsApp'; const preview=response(); await redirect(bot,preview); assert.equal(preview.code,200); assert.match(preview.body,/og:title/); assert.equal(calls.length,1);
+  calls=[]; const bot=req('GET',null,{slug:'hello'}); bot.headers['user-agent']='WhatsApp'; const preview=response(); await redirect(bot,preview); assert.equal(preview.code,200); assert.match(preview.body,/og:title/); assert.equal(calls.length,2);
   calls=[]; await redirect(req('HEAD',null,{slug:'hello'}),response()); assert.equal(calls.length,1);
 });
 test('analytics pages past database row limit and reports errors', async () => {
@@ -71,4 +73,32 @@ test('editing other fields preserves a protected password and never exposes its 
   const res = response(); await links(req('PATCH', record), res);
   assert.equal(Object.hasOwn(JSON.parse(calls[0].options.body), 'password'), false);
   assert.equal(res.body.link.has_password, true); assert.equal(res.body.link.password, undefined);
+});
+
+test('domains reject malformed hostnames and private or reserved addresses', async () => {
+  assert.equal(normalizeDomain('https://GO.example.com/'), 'go.example.com');
+  for (const host of ['localhost','127.0.0.1','https://example.com/path','example.com:443','user@example.com','-bad.example.com','http://example.com','example..com','metadata.google.internal/private']) assert.throws(() => normalizeDomain(host));
+  for (const ip of ['127.0.0.1','10.0.0.1','169.254.169.254','192.168.1.1','100.64.0.1','224.0.0.1','::1']) assert.equal(publicIPv4(ip), false);
+  let probed = false;
+  await assert.rejects(verifyDomain('go.example.com', {resolve:async()=>['127.0.0.1'],probe:async()=>{probed=true;}}), /publik/);
+  assert.equal(probed,false);
+});
+test('domain verification requires DNS, HTTPS and a proof from this backend', async () => {
+  const resolve=async()=>['8.8.8.8'];
+  assert.equal(await verifyDomain('go.example.com', {resolve,probe:async(host,ip,challenge)=>({configured:true,domainProof:domainProof(challenge)})}), 'go.example.com');
+  await assert.rejects(verifyDomain('go.example.com', {resolve,probe:async()=>({configured:true,domainProof:'wrong'})}), /backend AutoShort/);
+  await assert.rejects(verifyDomain('go.example.com', {resolve:async()=>{throw new Error('NXDOMAIN');}}), /DNS/);
+  await assert.rejects(verifyDomain('go.example.com', {resolve,probe:async()=>{throw new Error('certificate expired');}}), /certificate expired/);
+});
+test('domain management requires admin and cloud; reset deletes only the domain setting', async () => {
+  const denied=req('DELETE');denied.headers.authorization='Bearer wrong';const res=response();await domains(denied,res);assert.equal(res.code,401);assert.equal(calls.length,0);
+  mock(()=>json(null));const reset=response();await domains(req('DELETE'),reset);assert.equal(reset.code,200);assert.equal(reset.body.customDomain,'');assert.match(calls[0].url,/app_settings\?key=eq.custom_domain$/);assert.equal(calls[0].options.method,'DELETE');
+  calls=[];const invalid=response();await domains(req('POST',{domain:'127.0.0.1'}),invalid);assert.equal(invalid.code,400);assert.equal(calls.length,0);
+  delete process.env.SUPABASE_URL;const local=response();await domains(req('POST',{domain:'go.example.com'}),local);assert.equal(local.code,503);
+});
+test('public config shares the saved domain and exposes only a valid challenge proof', async () => {
+  mock(()=>json([{value:'go.example.com'}]));const res=response();await config(req(),res);assert.equal(res.body.customDomain,'go.example.com');
+  const challenge='a'.repeat(48);const proof=response();await config(req('GET',null,{domain_challenge:challenge}),proof);assert.equal(proof.body.domainProof,domainProof(challenge));assert.ok(!JSON.stringify(proof.body).includes('server-only'));
+  const bad=response();await config(req('GET',null,{domain_challenge:'bad'}),bad);assert.equal(bad.code,400);
+  mock(()=>json({},500));const failed=response();await config(req(),failed);assert.equal(failed.code,502);
 });

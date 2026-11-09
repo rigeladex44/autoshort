@@ -11,6 +11,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
 
   // --- CONFIGURATION & STATE ---
   let cloudMode = false;
+  let adminConnected = false;
   let backendReady = Promise.resolve();
   let syncPromise = null;
   let saving = false;
@@ -51,7 +52,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     return saved;
   }
   function renderAll() {
-    renderAnalytics(); renderShortenerLinks();
+    renderAnalytics(); renderShortenerLinks(); updateQuickResultDomain();
     if (currentView === 'qr-studio') updateQrStudio();
     if (currentView === 'activity') renderActivityTable();
   }
@@ -164,8 +165,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       // Clear legacy dummy toggle flag
       localStorage.removeItem('autoshort_pure_real_mode');
 
-      const storedDomain = localStorage.getItem('autoshort_custom_domain');
-      if (storedDomain) customDomain = storedDomain;
+      // Legacy browser-only domain values were never verified.
+      localStorage.removeItem('autoshort_custom_domain');
       updateDomainDisplays();
     } catch (e) {
       console.error('Error loading stored data:', e);
@@ -204,7 +205,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       const config = await api('/api/config');
       cloudMode = config.configured;
       if (cloudMode) { links = []; clicksHistory = []; renderAll(); }
-      if (config.customDomain) customDomain = new URL('https://' + config.customDomain.replace(/^https?:\/\//, '')).host;
+      customDomain = config.customDomain || location.host;
+      updateSettingsState();
       document.getElementById('storageNotice').textContent = cloudMode
         ? 'Mode cloud: tautan tersedia lintas perangkat. Masukkan token admin di Pengaturan untuk mengelola data.'
         : 'Mode lokal: tautan hanya bekerja di browser ini. Aktifkan database cloud agar dapat dibagikan ke perangkat lain.';
@@ -223,10 +225,17 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     if (syncPromise) return syncPromise;
     syncPromise = (async () => {
       try {
-        const [linkData, clickData] = await Promise.all([api('/api/links'), api('/api/analytics')]);
+        const [linkData, clickData, domainData] = await Promise.all([api('/api/links'), api('/api/analytics'), api('/api/config')]);
+        if (customDomain !== (domainData.customDomain || location.host)) {
+          customDomain = domainData.customDomain || location.host;
+          updateDomainDisplays();
+        }
         links = linkData.links || [];
         clicksHistory = clickData.recentClicks || [];
         saveLocalLinks(); saveLocalClicks(); renderAll();
+        adminConnected = true;
+        document.getElementById('btnExportJsonBackup').disabled = false;
+        document.getElementById('adminSessionStatus').textContent = 'Sesi admin aktif di tab ini.';
         status('Cloud Terhubung', true);
       } catch (error) { status('Cloud: perlu perhatian'); throw error; }
     })();
@@ -1481,26 +1490,54 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       };
     }
 
-    // Settings: Save Domain
+    // Settings: only persist a domain after the server verifies DNS, TLS and this backend.
+    const domainStatus = document.getElementById('domainStatus');
     const btnSaveDomain = document.getElementById('btnSaveSettingsDomain');
-    if (btnSaveDomain) {
-      btnSaveDomain.onclick = () => {
-        const input = document.getElementById('inputSettingsDomain');
-        const val = input.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
-        if (val) {
-          try { if (new URL('https://' + val).host !== val || /[\s/?#@]/.test(val)) throw new Error(); } catch { return showToast('Masukkan nama domain yang valid tanpa path.', 'warning'); }
-          customDomain = val;
-          localStorage.setItem('autoshort_custom_domain', customDomain);
-          updateDomainDisplays();
-          renderAll();
-          showToast(`Domain utama berhasil diubah menjadi: ${customDomain}`, 'success');
-        }
-      };
-    }
-
-    document.getElementById('btnSaveAdminToken').onclick = async () => {
-      sessionStorage.setItem('autoshort_admin_token', document.getElementById('inputAdminToken').value.trim());
-      await refreshAnalyticsData();
+    btnSaveDomain.onclick = () => saveAction(btnSaveDomain, async () => {
+      domainStatus.textContent = 'Memeriksa DNS, HTTPS, dan koneksi ke aplikasi ini…';
+      try {
+        const result = await api('/api/domains', { method: 'POST', body: JSON.stringify({ domain: document.getElementById('inputSettingsDomain').value }) });
+        customDomain = result.customDomain;
+        updateDomainDisplays(); renderAll(); updateQuickResultDomain();
+        domainStatus.textContent = `Aktif: ${customDomain}. Tersimpan di cloud untuk semua browser.`;
+        showToast('Domain terverifikasi dan tersimpan di cloud.', 'success');
+      } catch (error) { domainStatus.textContent = error.message; throw error; }
+    });
+    const btnResetDomain = document.getElementById('btnResetSettingsDomain');
+    btnResetDomain.onclick = () => saveAction(btnResetDomain, async () => {
+      await api('/api/domains', { method: 'DELETE' });
+      customDomain = location.host;
+      updateDomainDisplays(); renderAll(); updateQuickResultDomain();
+      domainStatus.textContent = 'Menggunakan alamat situs yang sedang dibuka. Tautan dan domain Vercel tidak dihapus.';
+      showToast('Domain utama dikembalikan ke alamat situs.', 'success');
+    });
+    const btnAdmin = document.getElementById('btnSaveAdminToken');
+    btnAdmin.onclick = () => saveAction(btnAdmin, async () => {
+      const token = document.getElementById('inputAdminToken').value.trim();
+      if (!token) throw new Error('Masukkan token admin.');
+      const previous = adminToken();
+      sessionStorage.setItem('autoshort_admin_token', token);
+      try {
+        await syncWithBackend();
+        document.getElementById('inputAdminToken').value = '';
+        document.getElementById('adminSessionStatus').textContent = 'Sesi admin aktif di tab ini.';
+        showToast('Token valid. Data cloud berhasil disinkronkan.', 'success');
+      } catch (error) {
+        if (previous) sessionStorage.setItem('autoshort_admin_token', previous);
+        else sessionStorage.removeItem('autoshort_admin_token');
+        document.getElementById('adminSessionStatus').textContent = error.message;
+        throw error;
+      }
+    });
+    document.getElementById('btnLogoutAdmin').onclick = () => {
+      sessionStorage.removeItem('autoshort_admin_token');
+      adminConnected = false;
+      localStorage.removeItem('autoshort_cloud_links');
+      localStorage.removeItem('autoshort_cloud_clicks');
+      document.getElementById('btnExportJsonBackup').disabled = cloudMode;
+      document.getElementById('inputAdminToken').value = '';
+      document.getElementById('adminSessionStatus').textContent = 'Sesi admin telah diakhiri.';
+      if (cloudMode) { links = []; clicksHistory = []; renderAll(); status('Cloud: perlu token admin'); }
     };
 
     // Settings: Backup JSON
@@ -1678,6 +1715,25 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     downloadFile('analytics-clicks-' + startISO + '-to-' + endISO + '.csv', '\ufeff' + rows.map(row => row.map(csvCell).join(',')).join('\r\n'), 'text/csv;charset=utf-8');
 
     showToast('File CSV statistik berhasil diunduh!', 'success');
+  }
+
+  function updateQuickResultDomain() {
+    const link = links.find(l => l.id === lastCreatedId);
+    if (!link) return;
+    const result = document.getElementById('quickResultUrl');
+    result.href = shortUrl(link.slug); result.textContent = shortUrl(link.slug);
+  }
+  function updateSettingsState() {
+    for (const id of ['btnSaveSettingsDomain', 'btnResetSettingsDomain', 'inputSettingsDomain', 'btnSaveAdminToken', 'btnLogoutAdmin']) document.getElementById(id).disabled = !cloudMode;
+    document.getElementById('domainStatus').textContent = cloudMode
+      ? 'Hubungkan domain ke proyek AutoShort di Vercel, lalu verifikasi di sini. Hanya domain dengan DNS dan HTTPS aktif yang dapat disimpan.'
+      : 'Mode lokal: custom domain tidak tersedia. Tautan memakai alamat browser ini.';
+    document.getElementById('btnExportJsonBackup').disabled = cloudMode && !adminConnected;
+    document.getElementById('btnImportBackup').disabled = cloudMode;
+    document.getElementById('btnResetAllData').disabled = cloudMode;
+    document.getElementById('backupScope').textContent = cloudMode
+      ? 'Backup mengunduh data cloud yang berhasil dimuat. Pemulihan dan reset lokal tidak tersedia dalam mode cloud.'
+      : 'Backup, pulihkan, atau reset data lokal di browser ini.';
   }
 
   function updateDomainDisplays() {
