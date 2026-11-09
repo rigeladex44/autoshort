@@ -4,8 +4,10 @@
   "description": "Modern URL Shortener & Analytics Dashboard for Vercel (Bitly / s.id style)",
   "main": "index.html",
   "scripts": {
-    "dev": "npx -y serve . -p 3000",
-    "start": "npx -y serve . -p 3000"
+    "dev": "node --env-file-if-exists=.env server.js",
+    "start": "node --env-file-if-exists=.env server.js",
+    "test": "node --test --test-isolation=none test/api.test.js",
+    "test:browser": "node test/browser.mjs"
   },
   "keywords": [
     "shortlink",
@@ -18,5 +20,14 @@
     "qr-code"
   ],
   "author": "rigeladex44",
-  "license": "MIT"
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "^1.65.0",
+    "jsqr": "^1.4.0",
+    "pngjs": "^7.0.0"
+  },
+  "engines": {
+    "node": ">=22.9.0"
+  }
 }

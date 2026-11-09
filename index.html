@@ -17,16 +17,17 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   
   <!-- QRCode.js for generating trackable QR codes -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="/assets/qrcode.min.js"></script>
 
   <!-- Supabase Client JS (for Google Auth & Global Cloud Database) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 
   <!-- Custom CSS -->
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
+  <button id="menuBackdrop" class="menu-backdrop" aria-label="Tutup menu" hidden></button>
   <div class="sid-layout">
     
     <!-- ======================================================== -->
@@ -128,7 +129,7 @@
       <!-- Top Header Bar -->
       <header class="sid-topbar">
         <div class="topbar-left">
-          <button class="mobile-menu-toggle" id="btnMobileMenuToggle">
+          <button class="mobile-menu-toggle" id="btnMobileMenuToggle" aria-label="Buka menu navigasi" aria-controls="sidSidebar" aria-expanded="false">
             <i class="fa-solid fa-bars"></i>
           </button>
           <div class="topbar-title-wrap">
@@ -151,13 +152,13 @@
           </button>
 
           <!-- Quick Test Real Click -->
-          <button class="btn btn-test-action" id="btnHeaderSimulateClick" title="Kirim klik real simulasi untuk mengetes tracking">
+          <button class="btn btn-test-action" id="btnHeaderSimulateClick" title="Buka tautan untuk menguji redirect dan tracking">
             <i class="fa-solid fa-play"></i>
             <span>Test Klik</span>
           </button>
 
           <!-- Quick Test QR Scan -->
-          <button class="btn btn-test-action qr" id="btnHeaderSimulateQr" title="Simulasi scan QR code pengunjung">
+          <button class="btn btn-test-action qr" id="btnHeaderSimulateQr" title="Buka tautan QR untuk menguji tracking">
             <i class="fa-solid fa-qrcode"></i>
             <span>Test QR</span>
           </button>
@@ -167,6 +168,7 @@
       <!-- ======================================================== -->
       <!-- VIEW 1: DATA ANALISIS (ANALYTICS) -->
       <!-- ======================================================== -->
+      <p id="storageNotice" class="storage-notice" role="status">Memeriksa penyimpanan…</p>
       <main class="sid-content-area" id="viewAnalytics">
         
         <!-- Controls & Filter Toolbar -->
@@ -405,12 +407,12 @@
           <form id="quickShortenForm" class="quick-shorten-form">
             <div class="quick-input-group">
               <i class="fa-solid fa-link input-prefix-icon"></i>
-              <input type="url" id="quickUrlInput" placeholder="Tempel URL panjang (contoh: https://tokopedia.com/promo-spesial)..." required />
+              <input type="text" id="quickUrlInput" inputmode="url" aria-label="URL tujuan" placeholder="Tempel URL panjang (contoh: https://tokopedia.com/promo-spesial)..." required />
             </div>
 
             <div class="quick-custom-slug-group">
               <span class="domain-prefix" id="domainPrefixDisplay">rigeel.id/</span>
-              <input type="text" id="quickSlugInput" placeholder="kustom-slug" pattern="[a-zA-Z0-9_-]+" title="Huruf, angka, strip" />
+              <input type="text" id="quickSlugInput" minlength="2" maxlength="64" aria-label="Slug tautan" placeholder="kustom-slug" pattern="[a-zA-Z0-9_-]+" title="Huruf, angka, strip" />
             </div>
 
             <button type="submit" class="btn btn-primary btn-submit-shorten" id="btnQuickSubmit">
@@ -448,12 +450,14 @@
               <span class="count-badge" id="linksCountBadge">0 Tautan</span>
             </div>
             <div class="toolbar-right">
+              <button type="button" class="btn btn-outline btn-sm" id="btnExportLinks">Ekspor Tautan CSV</button>
+              <button type="button" class="btn btn-outline btn-sm" id="btnToggleLinkView" aria-pressed="false">Tampilan ringkas</button>
               <button class="btn btn-primary btn-sm" id="btnOpenCreateModal">
                 <i class="fa-solid fa-plus"></i> Buat Shortlink Baru
               </button>
               <div class="search-box-wrap">
                 <i class="fa-solid fa-magnifying-glass"></i>
-                <input type="text" id="searchInput" placeholder="Cari slug atau URL..." />
+                <input type="text" id="searchInput" aria-label="Cari tautan" placeholder="Cari slug atau URL..." />
               </div>
             </div>
           </div>
@@ -497,11 +501,11 @@
               <div class="form-group">
                 <label for="selectQrColor">Warna Kode QR</label>
                 <div class="color-picker-row">
-                  <button type="button" class="color-btn active" data-color="#000000" style="background:#000000;"></button>
-                  <button type="button" class="color-btn" data-color="#e02424" style="background:#e02424;"></button>
-                  <button type="button" class="color-btn" data-color="#2563eb" style="background:#2563eb;"></button>
-                  <button type="button" class="color-btn" data-color="#7c3aed" style="background:#7c3aed;"></button>
-                  <button type="button" class="color-btn" data-color="#059669" style="background:#059669;"></button>
+                  <button type="button" aria-label="Pilih warna QR" class="color-btn active" data-color="#000000" style="background:#000000;"></button>
+                  <button type="button" aria-label="Pilih warna QR" class="color-btn" data-color="#e02424" style="background:#e02424;"></button>
+                  <button type="button" aria-label="Pilih warna QR" class="color-btn" data-color="#2563eb" style="background:#2563eb;"></button>
+                  <button type="button" aria-label="Pilih warna QR" class="color-btn" data-color="#7c3aed" style="background:#7c3aed;"></button>
+                  <button type="button" aria-label="Pilih warna QR" class="color-btn" data-color="#059669" style="background:#059669;"></button>
                 </div>
               </div>
 
@@ -510,7 +514,10 @@
                 <div class="qr-preview-url" id="qrStudioUrlText">https://rigeel.id/slug?src=qr</div>
               </div>
 
+              <div class="form-group"><label for="qrResolution">Resolusi PNG</label><select id="qrResolution" class="input-control"><option value="512">512 × 512</option><option value="1024" selected>1024 × 1024 (HD)</option><option value="2048">2048 × 2048</option></select></div>
+              <div class="form-group"><label for="qrBackground">Warna latar QR</label><input id="qrBackground" type="color" value="#ffffff" /></div>
               <div class="qr-actions-row">
+                <button type="button" class="btn btn-outline" id="btnCopyQr">Salin gambar QR</button>
                 <button type="button" class="btn btn-primary" id="btnDownloadStudioQr">
                   <i class="fa-solid fa-download"></i> Unduh Gambar QR (PNG)
                 </button>
@@ -578,7 +585,7 @@
             <!-- Custom Domain Box -->
             <div class="settings-box">
               <h3><i class="fa-solid fa-globe" style="color:#06b6d4;"></i> Nama Domain Utama</h3>
-              <p>Tentukan domain default yang digunakan pada tautan pendek Anda.</p>
+              <p>Gunakan domain yang sudah dihubungkan ke deployment ini di Vercel. Mengganti nama di sini tidak mengatur DNS. Mode lokal menggunakan alamat browser saat ini.</p>
               <div class="form-group" style="margin-top:12px;">
                 <input type="text" id="inputSettingsDomain" class="input-control" value="rigeel.id" placeholder="contoh: rigeel.id" />
               </div>
@@ -588,16 +595,12 @@
             <!-- Supabase Cloud Sync Box -->
             <div class="settings-box">
               <h3><i class="fa-solid fa-database" style="color:#10b981;"></i> Cloud Backend (Supabase)</h3>
-              <p>Sinkronkan klik dan tautan Anda ke database PostgreSQL gratis dari Supabase.</p>
+              <p>Aktifkan cloud dengan SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, dan ADMIN_TOKEN di konfigurasi server, lalu jalankan migrasi database. Token hanya disimpan selama sesi browser ini.</p>
               <div class="form-group" style="margin-top:12px;">
-                <label>Project URL</label>
-                <input type="url" id="inputSettingsSupabaseUrl" class="input-control" placeholder="https://xxxxxxxx.supabase.co" />
+                <label for="inputAdminToken">Token admin</label>
+                <input type="password" id="inputAdminToken" class="input-control" autocomplete="off" placeholder="Token dari konfigurasi server" />
               </div>
-              <div class="form-group">
-                <label>Anon Public Key</label>
-                <input type="text" id="inputSettingsSupabaseKey" class="input-control" placeholder="eyJhbGciOiJIUzI1NiIsIn..." />
-              </div>
-              <button class="btn btn-primary btn-sm" id="btnSaveSettingsSupabase">Hubungkan Cloud</button>
+              <button class="btn btn-primary btn-sm" id="btnSaveAdminToken">Hubungkan & Sinkronkan</button>
             </div>
 
             <!-- Data Backup & Reset Box -->
@@ -608,6 +611,8 @@
                 <button class="btn btn-outline btn-sm" id="btnExportJsonBackup">
                   <i class="fa-solid fa-file-export"></i> Backup JSON
                 </button>
+                <button type="button" class="btn btn-outline btn-sm" id="btnImportBackup">Pulihkan JSON</button>
+                <input type="file" id="inputImportBackup" accept="application/json,.json" hidden />
                 <button class="btn btn-outline btn-sm delete" id="btnResetAllData">
                   <i class="fa-solid fa-trash-can"></i> Reset Data
                 </button>
@@ -636,11 +641,11 @@
   <!-- ======================================================== -->
   <!-- MODAL: BUAT / EDIT TAMPILAN LINK (SAAT DIKIRIM KE WA/SOSMED) -->
   <!-- ======================================================== -->
-  <div class="modal-backdrop" id="modalLink" style="display: none;">
+  <div class="modal-backdrop" id="modalLink" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="modalLinkTitle">
     <div class="modal-dialog modal-lg">
       <div class="modal-header">
         <h3 id="modalLinkTitle"><i class="fa-solid fa-image"></i> Edit Tampilan Saat Link Dikirim</h3>
-        <button class="modal-close" id="btnCloseModalLink"><i class="fa-solid fa-xmark"></i></button>
+        <button class="modal-close" id="btnCloseModalLink" aria-label="Tutup dialog"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
       <form id="formLinkModal">
@@ -653,14 +658,14 @@
             
             <div class="form-group">
               <label for="modalDestUrl">URL Tujuan (Long URL) <span class="required">*</span></label>
-              <input type="url" id="modalDestUrl" class="input-control" placeholder="https://example.com/promo" required />
+              <input type="text" inputmode="url" id="modalDestUrl" class="input-control" placeholder="https://example.com/promo" required />
             </div>
 
             <div class="form-group">
               <label for="modalSlug">Slug Tautan <span class="required">*</span></label>
               <div class="slug-input-wrapper">
                 <span class="slug-domain-addon" id="modalDomainAddon">rigeel.id/</span>
-                <input type="text" id="modalSlug" placeholder="promo-heboh" required pattern="[a-zA-Z0-9_-]+" />
+                <input type="text" id="modalSlug" minlength="2" maxlength="64" placeholder="promo-heboh" required pattern="[a-zA-Z0-9_-]+" />
                 <button type="button" class="btn-random-slug" id="btnRandomizeSlug" title="Buat slug acak">
                   <i class="fa-solid fa-dice"></i>
                 </button>
@@ -671,6 +676,19 @@
               <span><i class="fa-solid fa-eye"></i> Tampilan Saat Dikirim (WhatsApp / Sosmed)</span>
             </div>
 
+            <details class="advanced-options">
+              <summary>Kontrol tautan & kampanye</summary>
+              <div class="form-group"><label for="modalPassword">Password / PIN (opsional)</label><input id="modalPassword" type="password" maxlength="128" class="input-control" autocomplete="new-password" /></div>
+              <div class="form-group"><label><input id="removePassword" type="checkbox" /> Hapus password yang tersimpan</label></div>
+              <div class="form-group"><label for="modalExpires">Kedaluwarsa (waktu lokal)</label><input id="modalExpires" type="datetime-local" class="input-control" /></div>
+              <div class="form-group"><label for="modalTags">Tag, pisahkan dengan koma</label><input id="modalTags" class="input-control" placeholder="promo, bisnis" /></div>
+              <div class="form-group"><label><input id="modalActive" type="checkbox" checked /> Tautan aktif</label></div>
+              <div class="utm-fields">
+                <div class="form-group"><label for="utmSource">UTM Source</label><input id="utmSource" class="input-control" placeholder="instagram" /></div>
+                <div class="form-group"><label for="utmMedium">UTM Medium</label><input id="utmMedium" class="input-control" placeholder="social" /></div>
+                <div class="form-group"><label for="utmCampaign">UTM Campaign</label><input id="utmCampaign" class="input-control" placeholder="promo" /></div>
+              </div>
+            </details>
             <div class="form-group">
               <label for="modalOgTitle">Judul Preview (OG Title)</label>
               <input type="text" id="modalOgTitle" class="input-control" placeholder="Contoh: PROMO SPESIAL GAJIAN DISKON 50%!" />
@@ -736,7 +754,7 @@
               <div class="whatsapp-bubble-mockup">
                 <div class="wa-card">
                   <div class="wa-img-wrap" id="waPreviewImgWrap">
-                    <img id="waPreviewImg" src="https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80" alt="Preview Image" onerror="this.src='https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=800&auto=format&fit=crop&q=80'" />
+                    <img id="waPreviewImg" alt="Preview gambar tautan" />
                   </div>
                   <div class="wa-content">
                     <div class="wa-title" id="waPreviewTitle">PROMO SPESIAL DISKON 50%!</div>
@@ -770,9 +788,9 @@
   </div>
 
   <!-- Toast Notification Container -->
-  <div id="toastContainer" class="toast-container"></div>
+  <div id="toastContainer" class="toast-container" role="status" aria-live="polite"></div>
 
   <!-- Application Script -->
-  <script src="app.js"></script>
+  <script type="module" src="app.js"></script>
 </body>
 </html>

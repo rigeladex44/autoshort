@@ -1,3 +1,4 @@
+import { configured, db, fail } from '../lib/db.js';
 // Vercel Serverless Function: Image Serving Endpoint for Uploaded Thumbnails
 // Serves image binaries directly so WhatsApp, Telegram & Facebook scrapers can fetch them
 
@@ -9,45 +10,12 @@ export default async function handler(req, res) {
   }
 
   const cleanSlug = String(slug || '').trim().toLowerCase();
-  const supabaseUrl = process.env.SUPABASE_URL || 'https://miipmgzjxpyokchrctdj.supabase.co';
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1paXBtZ3pqeHB5b2tjaHJjdGRqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA1NjYyMjMsImV4cCI6MjEwNjE0MjIyM30.SfEbfXimbA7VTZrRYzgJLezH6fv64QWR6yYuHnbHUMQ';
-  const upstashUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const upstashToken = process.env.UPSTASH_REDIS_REST_TOKEN;
-
   let link = null;
-
-  // 1. Try Supabase
-  if (supabaseUrl && supabaseKey) {
+  if (configured()) {
     try {
-      const q = id ? `id=eq.${id}` : `slug=eq.${encodeURIComponent(cleanSlug)}`;
-      const response = await fetch(`${supabaseUrl}/rest/v1/links?${q}&select=*`, {
-        headers: {
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${supabaseKey}`
-        }
-      });
-      if (response.ok) {
-        const links = await response.json();
-        if (links && links.length > 0) link = links[0];
-      }
-    } catch (e) {
-      console.error('Supabase image lookup error:', e);
-    }
-  }
-
-  // 2. Try Upstash Redis
-  if (!link && upstashUrl && upstashToken && cleanSlug) {
-    try {
-      const upstashResp = await fetch(`${upstashUrl}/get/link:${encodeURIComponent(cleanSlug)}`, {
-        headers: { Authorization: `Bearer ${upstashToken}` }
-      });
-      const data = await upstashResp.json();
-      if (data && data.result) {
-        link = typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
-      }
-    } catch (e) {
-      console.error('Upstash image lookup error:', e);
-    }
+      const query = id ? `id=eq.${encodeURIComponent(id)}` : `slug=eq.${encodeURIComponent(cleanSlug)}`;
+      link = (await db(`links?${query}&select=og_image&limit=1`))?.[0];
+    } catch (error) { return fail(res, error); }
   }
 
   const rawImage = link ? link.og_image : null;
@@ -64,13 +32,13 @@ export default async function handler(req, res) {
         </linearGradient>
       </defs>
       <rect width="100%" height="100%" fill="url(#bg)"/>
-      <text x="50%" y="46%" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="bold" fill="#ffffff" text-anchor="middle">rigeel.id</text>
+      <text x="50%" y="46%" font-family="system-ui, -apple-system, sans-serif" font-size="64" font-weight="bold" fill="#ffffff" text-anchor="middle">AutoShort</text>
       <text x="50%" y="58%" font-family="system-ui, -apple-system, sans-serif" font-size="32" fill="#06b6d4" text-anchor="middle">/${escapeXml(cleanSlug)}</text>
     </svg>`);
   }
 
   // If it's a Base64 Data URL (uploaded from device)
-  if (rawImage.startsWith('data:image/')) {
+  if (/^data:image\/(png|jpeg|webp);base64,/.test(rawImage)) {
     const matches = rawImage.match(/^data:(image\/[a-zA-Z0-9-+.]+);base64,(.+)$/);
     if (matches) {
       const mimeType = matches[1];
@@ -78,14 +46,14 @@ export default async function handler(req, res) {
       const buffer = Buffer.from(base64Data, 'base64');
 
       res.setHeader('Content-Type', mimeType);
-      res.setHeader('Cache-Control', 'public, max-age=604800, s-maxage=31536000, immutable');
+      res.setHeader('Cache-Control', 'public, max-age=60');
       res.setHeader('Content-Length', buffer.length);
       return res.end(buffer);
     }
   }
 
   // If it's a standard HTTP/HTTPS URL, redirect directly to it
-  if (rawImage.startsWith('http')) {
+  if (/^https?:\/\//i.test(rawImage)) {
     res.writeHead(302, {
       Location: rawImage,
       'Cache-Control': 'public, max-age=86400'
