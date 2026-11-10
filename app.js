@@ -1588,17 +1588,21 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
         await loadDomainManager(); renderDomainDetails(result.domain);
       }); root.append(clear);
     }
+    if(domain.dnsZone){const zone=document.createElement('p');zone.textContent='Pasang record di zona DNS '+domain.dnsZone+'. Gunakan Nama/Host dan Nilai di bawah; TTL Auto/default.';root.append(zone);}
     if (domain.nameservers?.length) { const p=document.createElement('p');p.textContent='Nameserver: '+domain.nameservers.join(', ')+'. Jika DNS dikelola penyedia lain, pasang record berikut di penyedia tersebut.';root.append(p); }
     for(const record of domain.dns || []) {
       const row=document.createElement('div');row.className='domain-record';
-      const label=document.createElement('strong');label.textContent=record.type+' · '+record.name+(record.purpose==='ownership'?' · Verifikasi kepemilikan':'');row.append(label);
+      const label=document.createElement('strong');const host=domain.dnsZone&&(record.name===domain.dnsZone||record.name.endsWith('.'+domain.dnsZone))?(record.name===domain.dnsZone?'@':record.name.slice(0,-domain.dnsZone.length-1)):record.name;label.textContent=record.type+(record.purpose==='ownership'?' · Verifikasi kepemilikan':' · Arahkan domain');row.append(label);
+      const hostname=document.createElement('p');hostname.textContent='Nama / Host: '+host;row.append(hostname);
+      const copyHost=document.createElement('button');copyHost.className='btn btn-outline btn-sm';copyHost.textContent='Salin Nama';copyHost.onclick=()=>copyToClipboard(host,copyHost);row.append(copyHost);
       const value=document.createElement('code');value.textContent=record.value;row.append(value);
       const copy=document.createElement('button');copy.className='btn btn-outline btn-sm';copy.textContent='Salin Nilai';copy.onclick=()=>copyToClipboard(record.value,copy);row.append(copy);root.append(row);
     }
     if (!domain.dns?.length) {const p=document.createElement('p');p.textContent='Vercel belum memberikan rekomendasi record DNS untuk domain ini. Periksa kembali setelah proses pemasangan selesai.';root.append(p);}
     if (domain.conflicts?.length) {const p=document.createElement('p');p.textContent='Ada record DNS yang bertentangan. Sesuaikan record hostname ini dengan rekomendasi di atas tanpa mengubah record domain lain.';root.append(p);}
     const check=document.createElement('button');check.className='btn btn-outline btn-sm';check.textContent='Periksa DNS & HTTPS';
-    check.onclick=()=>saveAction(check,async()=>{const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'check',domain:domain.name})});renderDomainDetails(result.domain);});root.append(check);
+    check.onclick=()=>saveAction(check,async()=>{const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'check',domain:domain.name})});renderDomainDetails(result.domain);await loadDomainManager();});root.append(check);
+    if(domain.httpsReady&&!domain.redirect){const activate=document.createElement('button');activate.className='btn btn-primary btn-sm';activate.textContent='Jadikan Domain Utama';activate.onclick=()=>saveAction(activate,async()=>{const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'activate',domain:domain.name})});customDomain=result.customDomain;document.getElementById('inputSettingsDomain').value=customDomain;updateDomainDisplays();renderAll();await loadDomainManager();showToast('Domain utama akun Anda sudah aktif.','success');});root.append(activate);}
   }
 
   function updateSettingsState() {

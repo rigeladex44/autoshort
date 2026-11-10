@@ -491,12 +491,18 @@
       <!-- VIEW 5: PENGATURAN & CLOUD BACKEND -->
       <!-- ======================================================== -->
       <main tabindex="-1" class="sid-content-area" id="viewDomains" style="display: none;">
-        <div class="page-heading"><span class="page-eyebrow">RUANG KERJA</span><h2>Domain Anda</h2><p>Alamat yang mudah dikenali, untuk setiap tautan yang dibagikan.</p></div>
+        <div class="page-heading"><span class="page-eyebrow">RUANG KERJA</span><h2>Domain Anda</h2><p>Domain pribadi untuk tautan Anda. Domain dan pengaturannya hanya dapat dikelola oleh akun Anda.</p></div>
         <div class="active-domain-summary"><span class="summary-icon"><i class="fa-solid fa-globe" aria-hidden="true"></i></span><div><span class="summary-label">Alamat utama saat ini</span><strong id="activeDomainText"></strong></div><span class="summary-note">Berlaku untuk URL &amp; QR</span></div>
             <!-- Custom Domain Box -->
             <div class="settings-box domain-settings">
               <h3>Hubungkan domain Anda</h3>
               <p>Gunakan alamat sendiri untuk semua tautan. Tambahkan domain, ikuti petunjuk DNS, lalu aktifkan setelah pemeriksaan berhasil.</p>
+              <ol class="domain-setup-steps">
+                <li><strong>Tambahkan hostname</strong><span>Disarankan memakai subdomain seperti go.domainanda.com agar website utama tetap berjalan.</span></li>
+                <li><strong>Pasang record DNS</strong><span>Buka pengelola DNS domain Anda, lalu salin record yang muncul setelah domain ditambahkan.</span></li>
+                <li><strong>Periksa dan aktifkan</strong><span>Periksa DNS &amp; HTTPS. Setelah siap, jadikan domain utama untuk URL dan QR akun Anda.</span></li>
+              </ol>
+              <details class="domain-dns-help"><summary>Di mana saya mengatur DNS?</summary><p>Gunakan layanan yang mengelola nameserver domain: misalnya Domainesia → Kelola Domain → DNS Management, atau Cloudflare → DNS → Records jika nameserver memakai Cloudflare.</p><p>Gunakan TTL Auto/default. Di Cloudflare, pilih DNS only (awan abu-abu) selama penyiapan. Tidak perlu mengganti nameserver. Jangan menghapus record email (MX, SPF, DKIM) atau record hostname lain.</p><p>Jika memakai subdomain, isi Nama/Host sesuai petunjuk yang muncul, misalnya go. Untuk domain utama gunakan @. Record TXT verifikasi mungkin perlu dipasang pada zona domain utama.</p><p>Perubahan DNS bisa memerlukan beberapa menit hingga 24–48 jam. Sertifikat HTTPS diproses otomatis setelah DNS dan kepemilikan terverifikasi. Periksa ulang sebelum mengaktifkan domain.</p></details>
               <details id="vercelConnectionPanel" hidden>
                 <summary>Koneksi Vercel <span class="connection-caption">· satu kali pengaturan</span></summary>
                 <p>Hubungkan token Vercel yang memiliki akses ke proyek AutoShort. Token disimpan terenkripsi dan tidak ditampilkan kembali.</p>
@@ -508,7 +514,7 @@
                   <a href="https://vercel.com/account/tokens" target="_blank" rel="noopener noreferrer">Buat token</a>
                 </div>
               </details>
-              <p id="vercelIntegrationStatus" role="status" aria-live="polite">Masuk sebagai admin untuk mengelola domain.</p>
+              <p id="vercelIntegrationStatus" role="status" aria-live="polite">Masuk untuk mengelola domain pribadi Anda.</p>
               <div class="form-group domain-host-field" style="margin-top:12px;">
                 <label for="inputSettingsDomain">Hostname domain</label>
                 <input type="text" id="inputSettingsDomain" class="input-control" placeholder="contoh: go.domainanda.com" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="domainStatus" />
@@ -528,7 +534,7 @@
 
       <main tabindex="-1" class="sid-content-area" id="viewSettings" style="display: none;">
         <div class="settings-card">
-          <div class="page-heading"><span class="page-eyebrow">PREFERENSI</span><h2>Pengaturan</h2><p>Kelola sesi admin dan simpan cadangan data Anda.</p></div>
+          <div class="page-heading"><span class="page-eyebrow">PREFERENSI</span><h2>Pengaturan</h2><p>Kelola akun dan simpan cadangan data pribadi Anda.</p></div>
 
           <div class="settings-grid">
             <div class="settings-box">

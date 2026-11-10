@@ -206,7 +206,7 @@ try {
       const input=route.request().postDataJSON()||{};
       if(input.action==='add'||input.action==='check'){
         if(input.action==='add')attachedDomains.push({name:input.domain,verified:false});
-        return route.fulfill({json:{domain:{name:input.domain,verified:false,misconfigured:true,nameservers:['ns.provider.test'],dns:[{type:'CNAME',name:'go',value:'target.vercel-dns.example',purpose:'routing'}]}}});
+        return route.fulfill({json:{domain:{name:input.domain,dnsZone:'pending.example',verified:false,misconfigured:true,nameservers:['ns.provider.test'],dns:[{type:'CNAME',name:'go',value:'target.vercel-dns.example',purpose:'routing'},{type:'TXT',name:'_vercel.pending.example',value:'test-ownership-value',purpose:'ownership'}]}}});
       }
       if (domainFailure) return route.fulfill({status:422,json:{error:'DNS belum tersedia'}});
       cloudDomain = method === 'DELETE' ? '' : input.domain;
@@ -247,6 +247,10 @@ try {
   await cloudPage.fill('#inputSettingsDomain','go.pending.example');await cloudPage.click('#btnAddDomain');
   await cloudPage.locator('#domainList').filter({hasText:'go.pending.example'}).waitFor();
   await cloudPage.locator('#domainDetails').filter({hasText:'target.vercel-dns.example'}).waitFor();
+  assert.match(await cloudPage.locator('#domainDetails').textContent(),/Nama \/ Host: _vercel/);
+  assert.equal(await cloudPage.locator('#domainDetails').getByRole('button',{name:'Salin Nama',exact:true}).count(),2);
+  assert.equal(await cloudPage.locator('#domainDetails').getByRole('button',{name:'Jadikan Domain Utama',exact:true}).count(),0);
+  await cloudPage.locator('.domain-dns-help summary').click();assert.match(await cloudPage.locator('.domain-dns-help').textContent(),/DNS only/);
   await cloudPage.locator('#domainList').getByRole('button',{name:'Periksa DNS & HTTPS',exact:true}).click();
   await cloudPage.locator('#domainDetails').filter({hasText:'Verifikasi kepemilikan diperlukan'}).waitFor();
   await cloudPage.locator('#domainList').getByRole('button',{name:'Lepas Domain'}).click();

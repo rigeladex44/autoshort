@@ -540,3 +540,17 @@ body.menu-open { overflow: hidden; }
   .topbar-left { gap: 8px; }
   .auth-brand-logo { width: 56px; height: 56px; margin-bottom: 12px; }
 }
+
+.domain-setup-steps { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; list-style-position: inside; padding: 0; margin: 20px 0; }
+.domain-setup-steps li { padding: 14px; border: 1px solid var(--border-card); border-radius: 10px; color: var(--text-main); font-size: .78rem; }
+.domain-setup-steps strong { font-weight: 600; }
+.domain-setup-steps span { display: block; margin-top: 8px; color: var(--text-secondary); font-size: .73rem; line-height: 1.65; }
+.domain-dns-help { padding: 14px 0; border-block: 1px solid var(--border-card); margin-bottom: 18px; font-size: .77rem; }
+.domain-dns-help summary { cursor: pointer; font-weight: 600; }
+.domain-dns-help p { line-height: 1.7; }
+.domain-record { padding: 14px 0; border-bottom: 1px solid var(--border-card); }
+.domain-record p { margin: 6px 0; overflow-wrap: anywhere; }
+.domain-record code { display: block; overflow-wrap: anywhere; margin: 8px 0; }
+.domain-record .btn { margin-right: 6px; }
+.domain-details > .btn { margin: 14px 6px 0 0; }
+@media (max-width: 768px) { .domain-setup-steps { grid-template-columns: 1fr; gap: 8px; } .domain-setup-steps li { padding: 12px; } }

@@ -131,7 +131,7 @@ test('domain add registers in the configured existing project and returns actual
 test('domain status confirms membership, checks Vercel verification and does not activate pending DNS', async () => {
   process.env.VERCEL_DOMAINS_TOKEN='server-vercel-token';
   mock(url=>json(url.includes('/config')?{misconfigured:true,recommendedIPv4:[{value:['8.8.8.8']}]}:{name:'example.com',apexName:'example.com',verified:false}));
-  const res=response();await domains(req('POST',{action:'check',domain:'example.com'}),res);assert.equal(res.code,200);assert.equal(res.body.domain.httpsReady,false);assert.equal(res.body.domain.dns[0].type,'A');assert.ok(calls.some(c=>c.url.includes('/verify')));assert.ok(!calls.some(c=>c.url.includes('app_settings')));
+  const res=response();await domains(req('POST',{action:'check',domain:'example.com'}),res);assert.equal(res.code,200);assert.equal(res.body.domain.httpsReady,false);assert.equal(res.body.domain.dns[0].type,'A');assert.equal(res.body.domain.dnsZone,'example.com');assert.ok(calls.some(c=>c.url.includes('/verify')));assert.ok(!calls.some(c=>c.url.includes('app_settings')));
   calls=[];mock(()=>json({error:{code:'not_found'}},404));await assert.rejects(domainDetails('other.example.com'));assert.equal(calls.length,1);assert.ok(!calls[0].url.includes('/config'));
 });
 test('domain removal protects primary/current/platform domains and removes only selected hostname', async () => {
