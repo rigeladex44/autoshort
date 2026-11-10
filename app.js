@@ -425,34 +425,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       });
     }
 
-    document.querySelectorAll('.cal-preset-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const preset = btn.getAttribute('data-preset');
-        applyPreset(preset);
-        document.querySelectorAll('.cal-preset-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        if (popup) popup.style.display = 'none';
-        if (btnDropdown) btnDropdown.classList.remove('open');
-      });
-    });
-
     updateDateRangeButtonLabel();
-  }
-
-  function applyPreset(preset) {
-    const end = new Date();
-    end.setHours(23, 59, 59, 999);
-    tempRangeStart = null;
-    let start = new Date(end);
-
-    const days = Number(preset);
-    if (!Number.isInteger(days) || days < 1 || days > 7) return;
-    start.setDate(end.getDate() - (days - 1));
-    start.setHours(0, 0, 0, 0);
-    selectedStartDate = start;
-    selectedEndDate = end;
-    updateDateRangeButtonLabel();
-    renderAnalytics();
   }
 
   function updateDateRangeButtonLabel() {
@@ -471,7 +444,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       const startLabel = sameYear && selectedStartDate.getMonth() === selectedEndDate.getMonth() ? selectedStartDate.getDate() : sameYear ? `${selectedStartDate.getDate()} ${selectedStartDate.toLocaleDateString('id-ID', {month:'short'})}` : format(selectedStartDate);
       range = `${startLabel} — ${format(selectedEndDate)}`;
     }
-    el.textContent = `${range} · ${days} hari`;
+    el.textContent = range;
   }
 
   function calendarDayDistance(a, b) {
@@ -481,7 +454,6 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     const grid = document.getElementById('calDaysGrid');
     if (!grid) return;
     grid.innerHTML = '';
-    document.getElementById('calendarRangeHint').textContent = tempRangeStart ? 'Pilih tanggal akhir dalam rentang maksimal 7 hari. Klik tanggal yang sama untuk 1 hari.' : 'Pilih tanggal awal dan akhir, maksimal 7 hari.';
 
     const firstDay = new Date(calViewYear, calViewMonth, 1).getDay();
     const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
@@ -554,7 +526,6 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       end.setHours(23, 59, 59, 999);
       selectedStartDate = start;
       selectedEndDate = end;
-      document.querySelectorAll('.cal-preset-btn').forEach(button=>button.classList.remove('active'));
       tempRangeStart = null;
 
       updateDateRangeButtonLabel();
@@ -1011,7 +982,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     const select = document.getElementById('selectLinkFilter');
     if (!select) return;
     const currentVal = select.value;
-    select.innerHTML = '<option value="all">Semua Tautan (Akumulasi)</option>';
+    select.innerHTML = '<option value="all">Semua link</option>';
 
     links.forEach(l => {
       const opt = document.createElement('option');

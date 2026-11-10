@@ -104,21 +104,23 @@ try {
   assert.equal(await page.evaluate(()=>document.querySelector('#sidSidebar').inert),true);
   await page.click('#btnMobileMenuToggle'); await page.locator('#menuBackdrop').waitFor({state:'visible'});
   await page.click('#sidebarNavAnalytics .nav-link'); assert.equal(await page.locator('#menuBackdrop').isVisible(),false);
-  await page.click('#btnDateRangeDropdown'); await page.click('.cal-preset-btn[data-preset="1"]');
-  assert.equal(await page.locator('.chart-bar-column').count(),1);
-  await page.click('#btnDateRangeDropdown'); await page.click('.cal-preset-btn[data-preset="7"]');
-  assert.equal(await page.locator('.chart-bar-column').count(),7);
-  assert.equal(await page.locator('#viewAnalytics .sid-metrics-row').count(),0);
-  for(let days=1;days<=7;days++){
-    await page.click('#btnDateRangeDropdown');assert.equal(await page.locator('.cal-preset-btn').count(),7);
-    await page.click(`.cal-preset-btn[data-preset="${days}"]`);assert.equal(await page.locator('.chart-bar-column').count(),days);
+  async function chooseRange(target,start,end) {
+    await target.click('#btnDateRangeDropdown');
+    const [sy,sm]=start.split('-');await target.selectOption('#calYearSelect',sy);await target.selectOption('#calMonthSelect',String(Number(sm)-1));await target.click(`[data-date="${start}"]`);
+    const [ey,em]=end.split('-');await target.selectOption('#calYearSelect',ey);await target.selectOption('#calMonthSelect',String(Number(em)-1));await target.click(`[data-date="${end}"]`);
   }
-  await page.click('#btnDateRangeDropdown');await page.selectOption('#calYearSelect','2026');await page.selectOption('#calMonthSelect','0');
-  await page.click('[data-date="2026-01-10"]');assert.equal(await page.locator('[data-date="2026-01-17"]').isDisabled(),true);assert.equal(await page.locator('[data-date="2026-01-16"]').isDisabled(),false);
+  assert.equal(await page.locator('#viewAnalytics .sid-metrics-row').count(),0);
+  assert.equal(await page.locator('.cal-preset-btn, #calendarRangeHint').count(),0);
+  for(let days=1;days<=7;days++){await chooseRange(page,'2026-01-10',`2026-01-${9+days}`);assert.equal(await page.locator('.chart-bar-column').count(),days);}
+  assert.ok(!(await page.locator('#dateRangeDisplayText').textContent()).includes('hari'));
+  await page.click('#btnDateRangeDropdown');await page.selectOption('#calYearSelect','2026');await page.selectOption('#calMonthSelect','0');await page.click('[data-date="2026-01-10"]');
+  assert.equal(await page.locator('[data-date="2026-01-17"]').isDisabled(),true);
+  const picker=await page.locator('#calendarPopup').boundingBox();assert.ok(picker.width<=300 && picker.height<=350);
+  await page.screenshot({path:'test-results/analytics-calendar-390.png',fullPage:true});
   await page.click('[data-date="2026-01-16"]');assert.equal(await page.locator('.chart-bar-column').count(),7);
-  await page.click('#btnDateRangeDropdown');await page.selectOption('#calMonthSelect','1');await page.click('[data-date="2026-02-02"]');await page.selectOption('#calMonthSelect','0');
-  assert.equal(await page.locator('[data-date="2026-01-26"]').isDisabled(),true);await page.click('[data-date="2026-01-27"]');assert.equal(await page.locator('.chart-bar-column').count(),7);
-  await page.click('#btnDateRangeDropdown');await page.click('.cal-preset-btn[data-preset="7"]');
+  await chooseRange(page,'2026-02-02','2026-01-27');assert.equal(await page.locator('.chart-bar-column').count(),7);
+  const dates=await page.evaluate(()=>{const end=new Date(),start=new Date();start.setDate(end.getDate()-6);const format=d=>[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');return [format(start),format(end)];});
+  await chooseRange(page,...dates);
 
   await page.goto(base + '/#shortener'); await page.click('#btnOpenCreateModal'); await page.fill('#modalDestUrl','example.com'); await page.fill('#modalSlug','new-mobile');
   await page.screenshot({path:'test-results/modal-mobile.png'}); await page.keyboard.press('Escape'); assert.equal(await page.locator('#modalLink').isVisible(),false);
