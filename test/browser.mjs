@@ -25,12 +25,14 @@ try {
   assert.equal(await page.locator('#btnSaveSettingsDomain').isDisabled(),true);
   await page.evaluate(()=>document.fonts.ready);
   assert.equal(await page.evaluate(()=>document.fonts.check('900 16px "Font Awesome 6 Free"')),true);
-  await page.fill('#quickUrlInput', 'example.com/path'); await page.fill('#quickSlugInput', 'promo-test'); await page.click('#btnQuickSubmit');
-  await page.locator('.link-card').waitFor();
-  assert.equal(await page.locator('#quickResultUrl').getAttribute('href'), base + '/promo-test');
-  await page.fill('#quickUrlInput', 'https://example.com/other'); await page.fill('#quickSlugInput', 'promo-test'); await page.click('#btnQuickSubmit');
-  await page.locator('.toast').filter({hasText:'sudah digunakan'}).waitFor(); assert.equal(await page.locator('.link-card').count(),1);
-  await page.click('#btnEditPreviewQuickResult');
+  await page.click('#btnOpenCreateModal');await page.fill('#modalDestUrl','example.com/path');await page.fill('#modalSlug','promo-test');await page.click('#btnSaveModalLink');
+  await page.locator('#linkDetailsModal').waitFor({state:'visible'});
+  assert.equal(await page.locator('#detailShortUrl').getAttribute('href'),base+'/promo-test');
+  await page.keyboard.press('Escape');assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('link-summary-card')),true);
+  assert.equal(await page.locator('.link-card button').count(),0);
+  await page.click('#btnOpenCreateModal');await page.fill('#modalDestUrl','example.com/other');await page.fill('#modalSlug','promo-test');await page.click('#btnSaveModalLink');
+  await page.locator('.toast').filter({hasText:'sudah digunakan'}).waitFor();assert.equal(await page.locator('.link-card').count(),1);await page.keyboard.press('Escape');
+  await page.locator('.link-card').focus();await page.keyboard.press('Enter');await page.click('.btn-edit-action');
   await page.fill('#modalOgTitle', 'Promo mobile & desktop');
   await page.click('.advanced-options summary');
   await page.fill('#modalPassword', ' 1234 '); await page.fill('#modalTags', 'bisnis, promo'); await page.fill('#utmSource','instagram');
@@ -39,8 +41,16 @@ try {
   await page.click('#btnSaveModalLink'); await page.locator('#modalLink').waitFor({state:'hidden'});
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('autoshort_links'))[0]);
   assert.equal(new URL(saved.destination_url).searchParams.get('utm_source'),'instagram'); assert.equal(saved.tags.length,2);
+  await page.click('#btnCloseLinkDetails');
   await page.fill('#searchInput','nonesuch'); assert.equal(await page.locator('.link-card').count(),0);
   await page.fill('#searchInput','bisnis'); assert.equal(await page.locator('.link-card').count(),1);
+  for(const width of [320,390,768,1440]) {
+    await page.setViewportSize({width,height:900});await page.locator('.link-card').click();
+    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+    assert.match(await page.locator('#linkDetailsContent').textContent(),/Kedaluwarsa/);
+    await page.screenshot({path:`test-results/link-details-${width}.png`,fullPage:true});
+    await page.click('#btnCloseLinkDetails');
+  }
   // Password gate and tracking only after successful unlock.
   const visitor = await context.newPage(); visitor.on('pageerror', e => errors.push(e.message));
   await visitor.goto(base + '/promo-test?src=qr'); await visitor.locator('#stateProtected').waitFor({state:'visible'});
@@ -49,6 +59,7 @@ try {
   await visitor.fill('#passwordInput',' 1234 '); await visitor.click('#btnSubmitPassword'); await visitor.waitForURL('https://example.com/**');
   assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('autoshort_clicks'))))[0].is_qr,true);
   await visitor.close();
+  await page.locator('.link-card').click();
   await page.click('.btn-pause-action'); await page.locator('.status-paused').waitFor();
   const paused = await context.newPage(); await paused.goto(base + '/promo-test'); await paused.locator('#statePaused').waitFor({state:'visible'}); await paused.close();
   await page.click('.btn-pause-action'); await page.locator('.status-protected').waitFor();
@@ -108,9 +119,10 @@ try {
   await page.click('#btnResetAllData');
   await page.setInputFiles('#inputImportBackup', { name:'backup.json',mimeType:'application/json',buffer:backup });
   await page.locator('.toast').filter({hasText:'Cadangan berhasil dipulihkan'}).waitFor();
-  await page.goto(base + '/#shortener'); await page.click('.btn-edit-action');
+  await page.goto(base + '/#shortener'); await page.locator('.link-card').click(); await page.click('.btn-edit-action');
   await page.fill('#modalExpires','2000-01-01T00:00'); await page.click('#btnSaveModalLink');
   await page.locator('.status-expired').waitFor();
+  await page.click('#btnCloseLinkDetails');
   const expired = await context.newPage(); await expired.goto(base + '/promo-test'); await expired.locator('#stateExpired').waitFor({state:'visible'}); await expired.close();
   assert.equal(await page.evaluate(() => JSON.parse(localStorage.getItem('autoshort_clicks')).length),1);
   // Theme persists across reload.
@@ -158,12 +170,13 @@ try {
   });
   const cloudPage=await cloudContext.newPage(); cloudPage.on('pageerror',e=>errors.push(e.message));
   await cloudPage.goto(base+'/#shortener'); await cloudPage.locator('#cloudStatusText').filter({hasText:'Cloud Terhubung'}).waitFor();
-  await cloudPage.fill('#quickUrlInput','example.com'); await cloudPage.fill('#quickSlugInput','cloud-promo'); await cloudPage.click('#btnQuickSubmit');
-  await cloudPage.locator('.link-card').waitFor(); assert.equal(await cloudPage.locator('#quickResultUrl').getAttribute('href'),'https://short.example/cloud-promo');
+  await cloudPage.click('#btnOpenCreateModal');await cloudPage.fill('#modalDestUrl','example.com');await cloudPage.fill('#modalSlug','cloud-promo');await cloudPage.click('#btnSaveModalLink');
+  await cloudPage.locator('#linkDetailsModal').waitFor({state:'visible'});assert.equal(await cloudPage.locator('#detailShortUrl').getAttribute('href'),'https://short.example/cloud-promo');
   assert.equal(await cloudPage.evaluate(()=>localStorage.getItem('autoshort_links')),null);
   failSave=true; await cloudPage.click('.btn-edit-action'); await cloudPage.fill('#modalOgTitle','Will fail'); await cloudPage.click('#btnSaveModalLink');
   await cloudPage.locator('.toast').filter({hasText:'Database tidak tersedia'}).waitFor(); assert.equal(await cloudPage.locator('#modalLink').isVisible(),true);
   await cloudPage.keyboard.press('Escape'); failSave=false;
+  await cloudPage.locator('.link-card').click();
   cloudPage.on('dialog', d=>d.accept()); await cloudPage.click('.btn-delete-action'); await cloudPage.locator('.link-card').waitFor({state:'hidden'});
   await cloudPage.goto(base+'/#analytics'); await cloudPage.click('#btnRefreshAnalytics'); assert.equal(await cloudPage.locator('#kpiTotalLinks').textContent(),'0');
   await cloudPage.goto(base+'/#settings');
@@ -207,9 +220,23 @@ try {
   await signedOut.route('**/api/**',route=>new URL(route.request().url()).pathname==='/api/config'?route.fulfill({json:{configured:true,customDomain:''}}):route.fulfill({status:401,json:{error:'Token admin diperlukan'}}));
   const signedOutPage=await signedOut.newPage();await signedOutPage.goto(base);
   await signedOutPage.locator('#storageNotice a').waitFor();
-  assert.equal(await signedOutPage.locator('#btnQuickSubmit').isDisabled(),true);
+  assert.equal(await signedOutPage.locator('#btnOpenCreateModal').isDisabled(),true);
   assert.match(await signedOutPage.locator('#emptyState h4').textContent(),/cloud/);
   await signedOutPage.locator('#storageNotice a').click();await signedOutPage.locator('#viewSettings').waitFor({state:'visible'});
   await signedOut.close();
   console.log('PASS: keyboard menu/focus handling, local icons, signed-out cloud state and default links page.');
+  const listContext=await browser.newContext({viewport:{width:390,height:900},permissions:['clipboard-read','clipboard-write']});
+  await listContext.addInitScript(()=>localStorage.setItem('autoshort_links',JSON.stringify([1,2,3].map(n=>({id:'list-'+n,slug:'list-'+n,title:'Link '+n,destination_url:'https://example.com/private-target-'+n,tags:['detail-only-tag'],is_active:true,clicks:n,created_at:new Date().toISOString()})))));
+  const listPage=await listContext.newPage();await listPage.goto(base+'/#shortener');await listPage.locator('.link-summary-card').nth(2).waitFor();
+  for(const width of [320,390,768,1440]){
+    await listPage.setViewportSize({width,height:900});
+    const boxes=await listPage.locator('.link-summary-card').evaluateAll(cards=>cards.map(c=>{const r=c.getBoundingClientRect();return {x:r.x,y:r.y,bottom:r.bottom,width:r.width};}));
+    assert.equal(boxes.length,3);assert.ok(boxes[1].y>=boxes[0].bottom&&boxes[2].y>=boxes[1].bottom);assert.equal(boxes[0].width,boxes[1].width);
+    assert.ok(!(await listPage.locator('.link-summary-card').nth(1).textContent()).includes('private-target-2'));
+    await listPage.locator('.link-summary-card').nth(1).click();assert.equal(await listPage.locator('#linkDetailsTitle').textContent(),'Link 2');assert.match(await listPage.locator('#linkDetailsContent').textContent(),/private-target-2/);
+    await listPage.click('[data-action="copy"]');assert.equal(await listPage.evaluate(()=>navigator.clipboard.readText()),base+'/list-2');
+    await listPage.locator('#linkDetailsModal').click({position:{x:5,y:5}});assert.equal(await listPage.locator('#linkDetailsModal').isVisible(),false);
+  }
+  await listContext.close();console.log('PASS: three full-width stacked cards, detail isolation, copy URL and backdrop dismissal on all four widths.');
+
 } finally { await browser?.close(); server.kill(); }

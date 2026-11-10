@@ -364,49 +364,9 @@
       <main tabindex="-1" class="sid-content-area" id="viewShortener" style="display: none;">
         <div class="page-heading"><span class="page-eyebrow">RUANG KERJA</span><h2>Tautan Anda</h2><p>Satu tempat untuk membuat, membagikan, dan mengelola tautan.</p></div>
         
-        <!-- Shortlink Quick Creator Card -->
-        <section class="quick-shorten-card">
-          <div class="quick-shorten-header">
-            <div><h2>Buat tautan baru</h2><p>Tempel URL dan pilih nama tautan.</p></div>
-            <button type="button" class="btn btn-quiet btn-sm" id="btnOpenCreateModal"><i class="fa-solid fa-list-check" aria-hidden="true"></i> Opsi lengkap</button>
-          </div>
-
-          <form id="quickShortenForm" class="quick-shorten-form">
-            <div class="quick-input-group">
-              <i class="fa-solid fa-link input-prefix-icon"></i>
-              <input type="text" id="quickUrlInput" inputmode="url" aria-label="URL tujuan" placeholder="https://contoh.com/tautan-anda" required />
-            </div>
-
-            <div class="quick-custom-slug-group">
-              <span class="domain-prefix" id="domainPrefixDisplay">rigeel.id/</span>
-              <input type="text" id="quickSlugInput" minlength="2" maxlength="64" aria-label="Slug tautan" placeholder="nama-tautan" pattern="[a-zA-Z0-9_-]+" title="Huruf, angka, strip" />
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-submit-shorten" id="btnQuickSubmit">
-              <i class="fa-solid fa-wand-magic-sparkles"></i>
-              <span>Buat tautan</span>
-            </button>
-          </form>
-
-          <!-- Quick Result Banner -->
-          <div id="quickResultBanner" class="quick-result-card" style="display: none;">
-            <div class="quick-result-info">
-              <div class="result-label">Tautan siap dibagikan</div>
-              <a href="#" target="_blank" id="quickResultUrl" class="result-url">https://rigeel.id/promo</a>
-              <div class="result-target" id="quickResultTarget">Menuju ke: https://target.com</div>
-            </div>
-            <div class="quick-result-actions">
-              <button class="btn btn-sm btn-primary" id="btnCopyQuickResult">
-                <i class="fa-regular fa-copy"></i> Salin Link
-              </button>
-              <button class="btn btn-sm btn-outline" id="btnEditPreviewQuickResult">
-                <i class="fa-solid fa-image"></i> Edit tampilan
-              </button>
-              <button class="btn btn-sm btn-outline" id="btnStatsQuickResult">
-                <i class="fa-solid fa-chart-line"></i> Lihat statistik
-              </button>
-            </div>
-          </div>
+        <section class="link-create-bar" aria-label="Buat shortlink">
+          <div><h3>Buat shortlink baru</h3><p>Tambahkan URL dan atur tautan melalui popup.</p></div>
+          <button type="button" class="btn btn-primary" id="btnOpenCreateModal"><i class="fa-solid fa-plus" aria-hidden="true"></i> Buat link</button>
         </section>
 
         <!-- Daftar Shortlink -->
@@ -417,8 +377,8 @@
               <span class="count-badge" id="linksCountBadge">0 Tautan</span>
             </div>
             <div class="toolbar-right">
-              <button type="button" class="btn btn-outline btn-sm" id="btnExportLinks">Ekspor CSV</button>
-              <button type="button" class="btn btn-outline btn-sm" id="btnToggleLinkView" aria-pressed="false">Tampilan ringkas</button>
+
+
 
               <div class="search-box-wrap">
                 <i class="fa-solid fa-magnifying-glass"></i>
@@ -600,6 +560,7 @@
               <h3><i class="fa-solid fa-hard-drive" style="color:#f59e0b;"></i> Cadangan Data</h3>
               <p id="backupScope">Unduh cadangan data tautan dan klik dalam format JSON.</p>
               <div class="settings-action-btns" style="margin-top:14px; display:flex; gap:10px;">
+                <button type="button" class="btn btn-outline btn-sm" id="btnExportLinks">Ekspor link CSV</button>
                 <button class="btn btn-outline btn-sm" id="btnExportJsonBackup">
                   <i class="fa-solid fa-file-export"></i> Backup JSON
                 </button>
@@ -765,6 +726,13 @@
           </button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="linkDetailsModal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="linkDetailsTitle">
+    <div class="modal-dialog link-detail-dialog">
+      <div class="modal-header"><h3 id="linkDetailsTitle">Detail link</h3><button type="button" class="modal-close" id="btnCloseLinkDetails" aria-label="Tutup detail link"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+      <div id="linkDetailsContent" class="modal-body"></div>
     </div>
   </div>
 

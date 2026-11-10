@@ -18,7 +18,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   let syncPromise = null;
   let saving = false;
   let searchTerm = '';
-  let lastCreatedId = null;
+  let selectedLinkId = null;
   let returnFocus = null;
   const adminToken = () => sessionStorage.getItem('autoshort_admin_token') || '';
   function shortUrl(slug, qr = false) {
@@ -50,11 +50,10 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       clicksHistory.forEach(c => { if (c.link_id === id) c.slug = saved.slug; });
     }
     saveLocalLinks(); saveLocalClicks(); renderAll();
-    if (lastCreatedId === id) { document.getElementById('quickResultUrl').href = shortUrl(saved.slug); document.getElementById('quickResultUrl').textContent = shortUrl(saved.slug); document.getElementById('quickResultTarget').textContent = `Menuju ke: ${saved.destination_url}`; }
     return saved;
   }
   function renderAll() {
-    renderAnalytics(); renderShortenerLinks(); updateQuickResultDomain();
+    renderAnalytics(); renderShortenerLinks(); renderLinkDetails();
     if (currentView === 'qr-studio') updateQrStudio();
     if (currentView === 'activity') renderActivityTable();
   }
@@ -1044,140 +1043,95 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     window.open(shortUrl(link.slug, isQr), '_blank', 'noopener');
   }
 
-  // --- SHORTENER VIEW MANAGEMENT ---
+  // --- LINK LIST & ON-DEMAND DETAILS ---
   function renderShortenerLinks() {
     const container = document.getElementById('linksCardsContainer');
     const badge = document.getElementById('linksCountBadge');
-    const emptyState = document.getElementById('emptyState');
-    if (!container) return;
-
-    container.innerHTML = '';
-    if (badge) badge.textContent = `${links.length} Tautan`;
-
-    if (emptyState) {
-      const needsAdmin = cloudMode && !adminConnected;
-      emptyState.querySelector('h4').textContent = needsAdmin ? 'Tautan Anda tersimpan di cloud' : 'Belum ada tautan';
-      const description = emptyState.querySelector('p');
-      description.textContent = needsAdmin ? 'Masuk sebagai admin untuk melihat dan mengelola tautan. ' : 'Mulai dengan menempelkan URL tujuan pada formulir di atas.';
-      if (needsAdmin) { const link = document.createElement('a'); link.href = '#settings'; link.textContent = 'Masuk admin'; description.append(link); }
-    }
-    if (links.length === 0) {
-      if (emptyState) emptyState.style.display = 'block';
-      return;
-    }
-    if (emptyState) emptyState.style.display = 'none';
-
-    const visible = links.filter(l => [l.title, l.og_title, l.slug, l.destination_url, ...(l.tags || [])].join(' ').toLowerCase().includes(searchTerm));
-    if (!visible.length) container.innerHTML = '<p class="search-empty">Tidak ada tautan yang cocok dengan pencarian.</p>';
-    visible.forEach(link => {
-      const card = document.createElement('div');
-      card.className = 'link-card';
-
-      const linkUrl = shortUrl(link.slug);
-      const previewImg = link.og_image || '';
-      const displayTitle = link.og_title || link.title || link.slug;
-
+    const empty = document.getElementById('emptyState');
+    container.replaceChildren();
+    badge.textContent = `${links.length} link`;
+    const needsAdmin = cloudMode && !adminConnected;
+    empty.querySelector('h4').textContent = needsAdmin ? 'Tautan Anda tersimpan di cloud' : 'Belum ada link';
+    empty.querySelector('p').textContent = needsAdmin ? 'Masuk sebagai admin untuk melihat dan mengelola tautan. ' : 'Klik Buat link untuk membuat shortlink pertama Anda.';
+    if (needsAdmin) { const a=document.createElement('a');a.href='#settings';a.textContent='Masuk admin';empty.querySelector('p').append(a); }
+    empty.style.display = links.length ? 'none' : 'block';
+    const visible = links.filter(l => [l.title,l.og_title,l.slug,l.destination_url,...(l.tags || [])].join(' ').toLowerCase().includes(searchTerm));
+    if (links.length && !visible.length) container.innerHTML = '<p class="search-empty">Tidak ada link yang cocok dengan pencarian.</p>';
+    for (const link of visible) {
+      const card = document.createElement('button');
+      card.type='button';card.className='link-card link-summary-card';card.dataset.id=link.id;
+      card.setAttribute('aria-haspopup','dialog');card.setAttribute('aria-controls','linkDetailsModal');
+      const state=linkState(link);
       card.innerHTML = `
-        <div class="link-card-main">
-          <div class="link-preview-thumb">
-            ${previewImg ? `<img src="${escapeHtml(previewImg)}" alt="Thumb"/>` : `<i class="fa-solid fa-image" style="color:#94a3b8;"></i>`}
-          </div>
-
-          <div class="link-details">
-            <span class="link-title">${escapeHtml(displayTitle)}</span>
-            <div class="link-status-row"><span class="link-status status-${linkState(link)}">${({active:'Aktif',paused:'Dijeda',expired:'Kedaluwarsa',protected:'Dilindungi'})[linkState(link)]}</span>${(link.tags || []).map(t => `<span class="link-tag">${escapeHtml(t)}</span>`).join('')}</div>
-
-            <div class="link-url-row">
-              <a href="${escapeHtml(linkUrl)}" target="_blank" class="short-url-link">
-                ${escapeHtml(cloudMode ? customDomain : location.host)}/${escapeHtml(link.slug)}
-              </a>
-              <button class="btn-inline-copy" data-url="${escapeHtml(linkUrl)}">
-                <i class="fa-regular fa-copy"></i> Salin Link
-              </button>
-            </div>
-
-            <div class="dest-url-truncate" title="${escapeHtml(link.destination_url)}">
-              <i class="fa-solid fa-arrow-turn-up" style="transform: rotate(90deg); margin-right: 4px; font-size: 0.75rem;"></i>
-              ${escapeHtml(link.destination_url)}
-            </div>
-          </div>
-        </div>
-
-        <div class="link-card-actions">
-          <div class="clicks-badge">
-            <span class="clicks-number">${(Number(link.clicks) || 0).toLocaleString()}</span>
-            <span class="clicks-label">total klik</span>
-          </div>
-
-          <div class="action-buttons-group">
-            <button class="btn-icon-action btn-pause-action" data-id="${escapeHtml(link.id)}" title="${link.is_active === false ? 'Aktifkan' : 'Jeda'} tautan"><i class="fa-solid ${link.is_active === false ? 'fa-play' : 'fa-pause'}"></i></button>
-            <button class="btn-icon-action btn-qr-action" data-slug="${escapeHtml(link.slug)}" title="Buka di QR Studio">
-              <i class="fa-solid fa-qrcode"></i>
-            </button>
-            <button class="btn-icon-action btn-edit-action" data-id="${escapeHtml(link.id)}" title="Edit tautan">
-              <i class="fa-solid fa-image"></i>
-            </button>
-            <button class="btn-icon-action btn-view-stats-action" data-slug="${escapeHtml(link.slug)}" title="Buka Analisis Tautan Ini">
-              <i class="fa-solid fa-chart-column"></i>
-            </button>
-            <button class="btn-icon-action delete btn-delete-action" data-id="${escapeHtml(link.id)}" data-slug="${escapeHtml(link.slug)}" title="Hapus Link">
-              <i class="fa-regular fa-trash-can"></i>
-            </button>
-          </div>
-        </div>
-      `;
-
-      container.appendChild(card);
-    });
-
-    container.querySelectorAll('.btn-inline-copy').forEach(btn => {
-      btn.onclick = (e) => {
-        e.stopPropagation();
-        copyToClipboard(btn.getAttribute('data-url'), btn);
-      };
-    });
-
-    container.querySelectorAll('.btn-qr-action').forEach(btn => {
-      btn.onclick = () => {
-        qrSelectedSlug = btn.getAttribute('data-slug');
-        window.location.hash = '#qr-studio';
-      };
-    });
-
-    container.querySelectorAll('.btn-edit-action').forEach(btn => {
-      btn.onclick = () => openEditLinkModal(btn.getAttribute('data-id'));
-    });
-
-    container.querySelectorAll('.btn-view-stats-action').forEach(btn => {
-      btn.onclick = () => {
-        activeLinkFilter = btn.getAttribute('data-slug');
-        const sel = document.getElementById('selectLinkFilter');
-        if (sel) sel.value = activeLinkFilter;
-        window.location.hash = '#analytics';
-      };
-    });
-
-    container.querySelectorAll('.btn-pause-action').forEach(btn => {
-      btn.onclick = () => saveAction(btn, async () => { const link = links.find(l => l.id === btn.dataset.id); await persistLink({ ...link, is_active: link.is_active === false }, link.id); });
-    });
-
-    container.querySelectorAll('.btn-delete-action').forEach(btn => {
-      btn.onclick = () => saveAction(btn, async () => {
-        const id = btn.getAttribute('data-id');
-        const slug = btn.getAttribute('data-slug');
-        if (confirm(`Hapus shortlink "/${slug}"?`)) {
-          if (cloudMode) await api(`/api/links?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-          links = links.filter(l => l.id !== id);
-          clicksHistory = clicksHistory.filter(c => c.link_id !== id && c.slug !== slug);
-          saveLocalLinks();
-          saveLocalClicks();
-          if (activeLinkFilter === slug) activeLinkFilter = 'all';
-          if (lastCreatedId === id) document.getElementById('quickResultBanner').style.display = 'none';
-          renderAll();
-          showToast('Tautan berhasil dihapus', 'info');
-        }
+        <span class="link-summary-main"><span class="link-title">${escapeHtml(link.og_title || link.title || link.slug)}</span><span class="short-url-link">${escapeHtml((cloudMode ? customDomain : location.host)+'/'+link.slug)}</span></span>
+        <span class="link-summary-meta"><span class="link-status status-${state}">${({active:'Aktif',paused:'Dijeda',expired:'Kedaluwarsa',protected:'Dilindungi'})[state]}</span><span class="link-summary-clicks">${(Number(link.clicks)||0).toLocaleString('id-ID')} klik</span></span>
+        <i class="fa-solid fa-chevron-right link-summary-arrow" aria-hidden="true"></i>`;
+      card.onclick=()=>openLinkDetails(link.id);
+      container.append(card);
+    }
+  }
+  function closeLinkDetails(restoreFocus = true) {
+    const id=selectedLinkId;selectedLinkId=null;
+    document.getElementById('linkDetailsModal').style.display='none';
+    if (document.getElementById('modalLink').style.display==='none') document.body.classList.remove('modal-open');
+    if (restoreFocus && id) {
+      const card=[...document.querySelectorAll('.link-summary-card')].find(card=>card.dataset.id===id);
+      (card || document.getElementById('btnOpenCreateModal')).focus();
+    }
+  }
+  function openLinkDetails(id) {
+    if (!links.some(link=>link.id===id)) return;
+    document.getElementById('toastContainer').replaceChildren();
+    selectedLinkId=id;renderLinkDetails();
+    document.getElementById('linkDetailsModal').style.display='flex';document.body.classList.add('modal-open');
+    document.getElementById('btnCloseLinkDetails').focus();
+  }
+  function renderLinkDetails() {
+    if (!selectedLinkId) return;
+    const link=links.find(link=>link.id===selectedLinkId);
+    if (!link || (cloudMode && !adminConnected)) { closeLinkDetails();return; }
+    const content=document.getElementById('linkDetailsContent');
+    const focusedAction=content.contains(document.activeElement)?document.activeElement.dataset.action:null;
+    const state=linkState(link);
+    const formatDate=value=>{const date=new Date(value);return value && !Number.isNaN(date.getTime()) ? date.toLocaleString('id-ID',{dateStyle:'medium',timeStyle:'short'}) : '—';};
+    document.getElementById('linkDetailsTitle').textContent=link.og_title || link.title || link.slug;
+    content.innerHTML=`
+      <div class="link-detail-url"><a id="detailShortUrl" href="${escapeHtml(shortUrl(link.slug))}" target="_blank" rel="noopener noreferrer">${escapeHtml(shortUrl(link.slug))}</a><button type="button" class="btn btn-primary btn-sm" data-action="copy"><i class="fa-regular fa-copy" aria-hidden="true"></i> Salin link</button></div>
+      <dl class="link-detail-facts">
+        <div><dt>URL tujuan</dt><dd>${escapeHtml(link.destination_url)}</dd></div>
+        <div><dt>Status</dt><dd>${({active:'Aktif',paused:'Dijeda',expired:'Kedaluwarsa',protected:'Dilindungi'})[state]}</dd></div>
+        <div><dt>Total klik</dt><dd>${(Number(link.clicks)||0).toLocaleString('id-ID')}</dd></div>
+        <div><dt>Dibuat</dt><dd>${formatDate(link.created_at)}</dd></div>
+        <div><dt>Kedaluwarsa</dt><dd>${link.expires_at?formatDate(link.expires_at):'Tidak diatur'}</dd></div>
+        <div><dt>Password</dt><dd>${link.password || link.has_password?'Dilindungi':'Tidak diatur'}</dd></div>
+        <div><dt>Tag</dt><dd>${(link.tags||[]).length?link.tags.map(escapeHtml).join(', '):'Tidak ada'}</dd></div>
+        ${link.og_description?`<div><dt>Deskripsi</dt><dd>${escapeHtml(link.og_description)}</dd></div>`:''}
+      </dl>
+      ${link.og_image?`<img class="link-detail-image" src="${escapeHtml(link.og_image)}" alt="Gambar pratinjau link" />`:''}
+      <div class="link-detail-actions">
+        <button type="button" class="btn btn-outline btn-edit-action" data-action="edit">Edit link</button>
+        <button type="button" class="btn btn-outline btn-qr-action" data-action="qr">QR Code</button>
+        <button type="button" class="btn btn-outline btn-view-stats-action" data-action="stats">Lihat statistik</button>
+        <button type="button" class="btn btn-outline btn-pause-action" data-action="pause">${link.is_active===false?'Aktifkan link':'Jeda link'}</button>
+        <button type="button" class="btn btn-outline delete btn-delete-action" data-action="delete">Hapus link</button>
+      </div>`;
+    for (const button of content.querySelectorAll('[data-action]')) button.onclick=()=>{
+      const action=button.dataset.action;
+      if (action==='copy') return copyToClipboard(shortUrl(link.slug),button);
+      if (action==='edit') { closeLinkDetails();openEditLinkModal(link.id);return; }
+      if (action==='qr') { closeLinkDetails();qrSelectedSlug=link.slug;location.hash='#qr-studio';updateQrStudio();return; }
+      if (action==='stats') { closeLinkDetails();activeLinkFilter=link.slug;document.getElementById('selectLinkFilter').value=link.slug;location.hash='#analytics';renderAnalytics();return; }
+      if (action==='pause') return saveAction(button,()=>persistLink({...link,is_active:link.is_active===false},link.id));
+      if (action==='delete') return saveAction(button,async()=>{
+        if (!confirm(`Hapus shortlink "/${link.slug}"?`)) return;
+        if (cloudMode) await api(`/api/links?id=${encodeURIComponent(link.id)}`,{method:'DELETE'});
+        links=links.filter(item=>item.id!==link.id);clicksHistory=clicksHistory.filter(c=>c.link_id!==link.id&&c.slug!==link.slug);
+        if (activeLinkFilter===link.slug) activeLinkFilter='all';
+        closeLinkDetails(false);saveLocalLinks();saveLocalClicks();renderAll();document.getElementById('btnOpenCreateModal').focus();
+        showToast('Tautan berhasil dihapus','info');
       });
-    });
+    };
+    if (focusedAction) content.querySelector(`[data-action="${focusedAction}"]`)?.focus();
   }
 
   // --- EDIT PREVIEW & LINK MODAL ---
@@ -1261,58 +1215,6 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
 
   // --- EVENT LISTENERS INITIALIZATION ---
   function initEventListeners() {
-    // Quick Shorten
-    const quickForm = document.getElementById('quickShortenForm');
-    if (quickForm) {
-      quickForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        saveAction(document.getElementById('btnQuickSubmit'), async () => {
-        const inputUrl = document.getElementById('quickUrlInput');
-        const inputSlug = document.getElementById('quickSlugInput');
-        if (!inputUrl || !inputUrl.value.trim()) return;
-
-        const dest = normalizeUrl(inputUrl.value);
-
-        let slug = inputSlug ? inputSlug.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '-') : '';
-        if (!slug) slug = generateRandomSlug(6);
-
-        if (links.some(l => l.slug.toLowerCase() === slug)) {
-          showToast(`Slug "/${slug}" sudah digunakan. Gunakan slug lain.`, 'warning');
-          return;
-        }
-
-        const newLink = {
-          id: 'link_' + Date.now(),
-          slug: slug,
-          destination_url: dest,
-          title: slug,
-          og_title: slug.toUpperCase(),
-          og_description: 'Lihat info lengkap di link ini.',
-          og_image: '',
-          clicks: 0,
-          created_at: new Date().toISOString()
-        };
-
-        const saved = await persistLink(newLink);
-        lastCreatedId = saved.id;
-
-        const banner = document.getElementById('quickResultBanner');
-        const resUrl = document.getElementById('quickResultUrl');
-        const resDest = document.getElementById('quickResultTarget');
-        if (banner) banner.style.display = 'flex';
-        if (resUrl) {
-          resUrl.textContent = shortUrl(slug);
-          resUrl.href = shortUrl(slug);
-        }
-        if (resDest) resDest.textContent = `Menuju ke: ${dest}`;
-
-        showToast('Shortlink berhasil dibuat!', 'success');
-        inputUrl.value = '';
-        if (inputSlug) inputSlug.value = '';
-        });
-      });
-    }
-
     // Modal Link save
     const formModalLink = document.getElementById('formLinkModal');
     if (formModalLink) {
@@ -1332,7 +1234,6 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
             is_active: document.getElementById('modalActive').checked
           };
           const existing = links.find(l => l.id === id);
-    document.querySelector('.advanced-options').open = Boolean(existing && (existing.password || existing.has_password || existing.expires_at || existing.tags?.length));
           if (!record.password && !document.getElementById('removePassword').checked && id) {
             if (cloudMode) delete record.password;
             else record.password = existing?.password || null;
@@ -1344,9 +1245,9 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
             if (value) url.searchParams.set(key, value);
           });
           record.destination_url = url.href;
-          await persistLink(record, id || null);
+          const saved = await persistLink(record, id || null);
           closeModal();
-          showToast('Shortlink berhasil disimpan!', 'success');
+          openLinkDetails(saved.id);
         });
       });
     }
@@ -1477,7 +1378,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       try {
         const result = await api('/api/domains', { method: 'POST', body: JSON.stringify({ domain: document.getElementById('inputSettingsDomain').value }) });
         customDomain = result.customDomain;
-        updateDomainDisplays(); renderAll(); updateQuickResultDomain();
+        updateDomainDisplays(); renderAll();
         domainStatus.textContent = `Aktif: ${customDomain}. Tersimpan di cloud untuk semua browser.`;
         if (vercelConnected) await loadDomainManager().catch(() => showToast('Domain tersimpan; daftar domain belum dapat dimuat ulang.', 'warning'));
         showToast('Domain terverifikasi dan tersimpan di cloud.', 'success');
@@ -1487,7 +1388,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     btnResetDomain.onclick = () => saveAction(btnResetDomain, async () => {
       await api('/api/domains', { method: 'DELETE' });
       customDomain = location.host;
-      updateDomainDisplays(); renderAll(); updateQuickResultDomain();
+      updateDomainDisplays(); renderAll();
       if (vercelConnected) await loadDomainManager().catch(() => showToast('Domain direset; daftar domain belum dapat dimuat ulang.', 'warning'));
       domainStatus.textContent = 'Menggunakan alamat situs yang sedang dibuka. Tautan dan domain Vercel tidak dihapus.';
       showToast('Domain utama dikembalikan ke alamat situs.', 'success');
@@ -1558,7 +1459,6 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
           saveLocalLinks();
           saveLocalClicks();
           renderAll();
-          document.getElementById('quickResultBanner').style.display = 'none';
           showToast('Seluruh data berhasil dibersihkan (kembali ke 0).', 'info');
         }
       };
@@ -1603,13 +1503,16 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     syncMenuAccessibility();
     document.querySelectorAll('.nav-link').forEach(a => a.addEventListener('click', closeMenu));
     const modal = document.getElementById('modalLink');
+    const detailsModal = document.getElementById('linkDetailsModal');
+    document.getElementById('btnCloseLinkDetails').onclick=()=>closeLinkDetails();
+    detailsModal.addEventListener('click',event=>{if(event.target===detailsModal)closeLinkDetails();});
     modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') { closeModal(); closeMenu(true); document.getElementById('calendarPopup').style.display = 'none'; }
-      if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName) && modal.style.display === 'none') {
+      if (e.key === 'Escape') { if (detailsModal.style.display!=='none') closeLinkDetails(); else closeModal(); closeMenu(true); document.getElementById('calendarPopup').style.display = 'none'; }
+      if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName) && modal.style.display === 'none' && detailsModal.style.display === 'none') {
         e.preventDefault(); location.hash = '#shortener'; document.getElementById('searchInput').focus();
       }
-      const focusScope = modal.style.display !== 'none' ? modal : document.getElementById('sidSidebar').classList.contains('open') ? document.getElementById('sidSidebar') : null;
+      const focusScope = modal.style.display !== 'none' ? modal : detailsModal.style.display !== 'none' ? detailsModal : document.getElementById('sidSidebar').classList.contains('open') ? document.getElementById('sidSidebar') : null;
       if (e.key === 'Tab' && focusScope) {
         const elements = [...focusScope.querySelectorAll('button,input,textarea,select,summary,a[href]')].filter(el => !el.disabled && el.offsetParent !== null);
         const first = elements[0], last = elements.at(-1);
@@ -1618,17 +1521,6 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       }
     });
     document.getElementById('searchInput').oninput = e => { searchTerm = e.target.value.trim().toLowerCase(); renderShortenerLinks(); };
-    document.getElementById('btnToggleLinkView').onclick = e => {
-      const pressed = document.getElementById('linksCardsContainer').classList.toggle('compact');
-      e.currentTarget.setAttribute('aria-pressed', String(pressed));
-      e.currentTarget.textContent = pressed ? 'Tampilan kartu' : 'Tampilan ringkas';
-    };
-    document.getElementById('btnCopyQuickResult').onclick = e => copyToClipboard(document.getElementById('quickResultUrl').href, e.currentTarget);
-    document.getElementById('btnEditPreviewQuickResult').onclick = () => openEditLinkModal(lastCreatedId);
-    document.getElementById('btnStatsQuickResult').onclick = () => {
-      const link = links.find(l => l.id === lastCreatedId);
-      if (link) { activeLinkFilter = link.slug; location.hash = '#analytics'; renderAnalytics(); }
-    };
     const file = document.getElementById('modalFileInput');
     const drop = document.getElementById('uploadDropzone');
     drop.tabIndex = 0; drop.setAttribute('role', 'button'); drop.setAttribute('aria-label', 'Unggah gambar preview');
@@ -1720,7 +1612,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     if (cloudMode && !adminConnected) {
       const link = document.createElement('a'); link.href = '#settings'; link.textContent = 'Masuk admin'; notice.append(link);
     }
-    for (const id of ['btnQuickSubmit', 'btnOpenCreateModal', 'btnSidebarCreateLink', 'btnSaveModalLink']) document.getElementById(id).disabled = cloudMode && !adminConnected;
+    for (const id of ['btnOpenCreateModal', 'btnSidebarCreateLink', 'btnSaveModalLink']) document.getElementById(id).disabled = cloudMode && !adminConnected;
     document.getElementById('userRoleLabel').textContent = cloudMode ? (adminConnected ? 'Admin terhubung' : 'Mode cloud') : 'Mode lokal';
   }
 
@@ -1803,12 +1695,6 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     check.onclick=()=>saveAction(check,async()=>{const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'check',domain:domain.name})});renderDomainDetails(result.domain);});root.append(check);
   }
 
-  function updateQuickResultDomain() {
-    const link = links.find(l => l.id === lastCreatedId);
-    if (!link) return;
-    const result = document.getElementById('quickResultUrl');
-    result.href = shortUrl(link.slug); result.textContent = shortUrl(link.slug);
-  }
   function updateSettingsState() {
     for (const id of ['btnSaveSettingsDomain', 'btnResetSettingsDomain', 'inputSettingsDomain', 'btnSaveAdminToken', 'btnLogoutAdmin']) document.getElementById(id).disabled = !cloudMode;
     document.getElementById('domainStatus').textContent = cloudMode
@@ -1823,11 +1709,9 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   }
 
   function updateDomainDisplays() {
-    const prefix = document.getElementById('domainPrefixDisplay');
     const addon = document.getElementById('modalDomainAddon');
     const topDomain = document.getElementById('topDomainText');
     const displayDomain = cloudMode ? customDomain : location.host;
-    if (prefix) prefix.textContent = `${displayDomain}/`;
     if (addon) addon.textContent = `${displayDomain}/`;
     if (topDomain) topDomain.textContent = displayDomain;
     const activeDomain = document.getElementById('activeDomainText');
