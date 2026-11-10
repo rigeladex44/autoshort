@@ -169,47 +169,6 @@
       </main>
 
       <main tabindex="-1" class="sid-content-area" id="viewAnalytics" style="display:none;">
-        <div class="page-heading"><span class="page-eyebrow">RINGKASAN</span><h2>Performa tautan</h2><p>Lihat kunjungan, sumber trafik, dan aktivitas dari tautan Anda.</p></div>
-        
-        <!-- 4 KPI SUMMARY METRICS ROW -->
-        <div class="sid-metrics-row">
-          <!-- 1. Total Links -->
-          <div class="sid-kpi-col">
-            <div class="kpi-number" id="kpiTotalLinks">0</div>
-            <div class="kpi-label">
-              <span class="dot-indicator dot-blue"></span>
-              <span>Total Tautan</span>
-            </div>
-          </div>
-
-          <!-- 2. Visitors -->
-          <div class="sid-kpi-col">
-            <div class="kpi-number" id="kpiTotalVisitors">0</div>
-            <div class="kpi-label">
-              <span class="dot-indicator dot-red"></span>
-              <span>Total Kunjungan</span>
-            </div>
-          </div>
-
-          <!-- 3. Unique Visitor -->
-          <div class="sid-kpi-col">
-            <div class="kpi-number" id="kpiUniqueVisitors">0</div>
-            <div class="kpi-label">
-              <span class="dot-indicator dot-purple"></span>
-              <span>Pengunjung Unik</span>
-            </div>
-          </div>
-
-          <!-- 4. QR Code Visitor -->
-          <div class="sid-kpi-col">
-            <div class="kpi-number" id="kpiQrVisitors">0</div>
-            <div class="kpi-label">
-              <span class="dot-indicator dot-cyan"></span>
-              <span>Pengunjung QR Code</span>
-            </div>
-          </div>
-        </div>
-
         <!-- Controls & Filter Toolbar -->
         <div class="analytics-controls-bar">
           <div class="controls-left">
@@ -268,12 +227,15 @@
                   <!-- Dynamically rendered -->
                 </div>
 
-                <div class="cal-presets-strip">
-                  <button type="button" class="cal-preset-btn" data-preset="1">Hari Ini</button>
-                  <button type="button" class="cal-preset-btn active" data-preset="7">7 Hari Terakhir</button>
-                  <button type="button" class="cal-preset-btn" data-preset="14">14 Hari</button>
-                  <button type="button" class="cal-preset-btn" data-preset="30">30 Hari</button>
-                  <button type="button" class="cal-preset-btn" data-preset="month">Bulan Ini</button>
+                <p id="calendarRangeHint" class="calendar-range-hint" role="status">Pilih tanggal awal dan akhir, maksimal 7 hari.</p>
+                <div class="cal-presets-strip" aria-label="Durasi analisis">
+                  <button type="button" class="cal-preset-btn" data-preset="1">1 hari</button>
+                  <button type="button" class="cal-preset-btn" data-preset="2">2 hari</button>
+                  <button type="button" class="cal-preset-btn" data-preset="3">3 hari</button>
+                  <button type="button" class="cal-preset-btn" data-preset="4">4 hari</button>
+                  <button type="button" class="cal-preset-btn" data-preset="5">5 hari</button>
+                  <button type="button" class="cal-preset-btn" data-preset="6">6 hari</button>
+                  <button type="button" class="cal-preset-btn active" data-preset="7">7 hari</button>
                 </div>
               </div>
             </div>

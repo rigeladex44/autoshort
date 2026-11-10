@@ -361,6 +361,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     yearSelect.value = calViewYear; monthSelect.value = calViewMonth;
 
     if (btnDropdown && popup) {
+      popup.addEventListener('click', event => event.stopPropagation());
       btnDropdown.addEventListener('click', (e) => {
         e.stopPropagation();
         const isOpen = popup.style.display === 'block';
@@ -444,23 +445,12 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     tempRangeStart = null;
     let start = new Date(end);
 
-    if (preset === '1') {
-      start = new Date(end);
-      start.setHours(0, 0, 0, 0);
-    } else if (preset === '7') {
-      start.setDate(end.getDate() - 6);
-      start.setHours(0, 0, 0, 0);
-    } else if (preset === '14') {
-      start.setDate(end.getDate() - 13);
-      start.setHours(0, 0, 0, 0);
-    } else if (preset === '30') {
-      start.setDate(end.getDate() - 29);
-      start.setHours(0, 0, 0, 0);
-    } else if (preset === 'month') {
-      start = new Date(end.getFullYear(), end.getMonth(), 1);
-    }
-
+    const days = Number(preset);
+    if (!Number.isInteger(days) || days < 1 || days > 7) return;
+    start.setDate(end.getDate() - (days - 1));
+    start.setHours(0, 0, 0, 0);
     selectedStartDate = start;
+    selectedEndDate = end;
     updateDateRangeButtonLabel();
     renderAnalytics();
   }
@@ -474,13 +464,24 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       const year = d.getFullYear();
       return `${day} ${month} ${year}`;
     };
-    el.textContent = `${format(selectedStartDate)} — ${format(selectedEndDate)}`;
+    const days = calendarDayDistance(selectedStartDate, selectedEndDate) + 1;
+    let range = format(selectedEndDate);
+    if (days > 1) {
+      const sameYear = selectedStartDate.getFullYear() === selectedEndDate.getFullYear();
+      const startLabel = sameYear && selectedStartDate.getMonth() === selectedEndDate.getMonth() ? selectedStartDate.getDate() : sameYear ? `${selectedStartDate.getDate()} ${selectedStartDate.toLocaleDateString('id-ID', {month:'short'})}` : format(selectedStartDate);
+      range = `${startLabel} — ${format(selectedEndDate)}`;
+    }
+    el.textContent = `${range} · ${days} hari`;
   }
 
+  function calendarDayDistance(a, b) {
+    return Math.abs(Date.UTC(a.getFullYear(), a.getMonth(), a.getDate()) - Date.UTC(b.getFullYear(), b.getMonth(), b.getDate())) / 86400000;
+  }
   function renderCalendarGrid() {
     const grid = document.getElementById('calDaysGrid');
     if (!grid) return;
     grid.innerHTML = '';
+    document.getElementById('calendarRangeHint').textContent = tempRangeStart ? 'Pilih tanggal akhir dalam rentang maksimal 7 hari. Klik tanggal yang sama untuk 1 hari.' : 'Pilih tanggal awal dan akhir, maksimal 7 hari.';
 
     const firstDay = new Date(calViewYear, calViewMonth, 1).getDay();
     const daysInMonth = new Date(calViewYear, calViewMonth + 1, 0).getDate();
@@ -504,6 +505,9 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       cell.type = 'button';
       cell.className = 'cal-day-cell';
       cell.textContent = d;
+      cell.dataset.date = iso;
+      cell.setAttribute('aria-label', dateObj.toLocaleDateString('id-ID', {dateStyle:'full'}));
+      cell.disabled = Boolean(tempRangeStart && calendarDayDistance(tempRangeStart, dateObj) > 6);
 
       if (iso === startISO && iso === endISO) {
         cell.classList.add('single-selected');
@@ -533,6 +537,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   }
 
   function handleDateClick(dateObj) {
+    if (tempRangeStart && calendarDayDistance(tempRangeStart, dateObj) > 6) { showToast('Rentang analisis maksimal 7 hari.', 'warning'); return; }
     if (!tempRangeStart) {
       tempRangeStart = new Date(dateObj);
       tempRangeStart.setHours(0, 0, 0, 0);
@@ -549,6 +554,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       end.setHours(23, 59, 59, 999);
       selectedStartDate = start;
       selectedEndDate = end;
+      document.querySelectorAll('.cal-preset-btn').forEach(button=>button.classList.remove('active'));
       tempRangeStart = null;
 
       updateDateRangeButtonLabel();
@@ -589,33 +595,6 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       }
       return true;
     });
-
-    const totalLinksCount = links.length;
-    const totalVisitors = filteredClicks.length;
-    const uniqueVisitorSet = new Set();
-    let qrVisitorCount = 0;
-
-    filteredClicks.forEach(c => {
-      const vId = c.visitor_id || (c.user_agent ? c.user_agent : ('v_' + c.id));
-      uniqueVisitorSet.add(vId);
-
-      if (c.is_qr || (c.referer && c.referer.toLowerCase().includes('qr'))) {
-        qrVisitorCount++;
-      }
-    });
-
-    const uniqueVisitors = uniqueVisitorSet.size;
-
-    // Update KPI Card Numbers
-    const elTotalLinks = document.getElementById('kpiTotalLinks');
-    const elTotalVisitors = document.getElementById('kpiTotalVisitors');
-    const elUniqueVisitors = document.getElementById('kpiUniqueVisitors');
-    const elQrVisitors = document.getElementById('kpiQrVisitors');
-
-    if (elTotalLinks) elTotalLinks.textContent = totalLinksCount.toLocaleString();
-    if (elTotalVisitors) elTotalVisitors.textContent = totalVisitors.toLocaleString();
-    if (elUniqueVisitors) elUniqueVisitors.textContent = uniqueVisitors.toLocaleString();
-    if (elQrVisitors) elQrVisitors.textContent = qrVisitorCount.toLocaleString();
 
     // Build Daily Stacked Data for Chart
     const daysList = generateDateRangeList(selectedStartDate, selectedEndDate);

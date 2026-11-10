@@ -108,6 +108,18 @@ try {
   assert.equal(await page.locator('.chart-bar-column').count(),1);
   await page.click('#btnDateRangeDropdown'); await page.click('.cal-preset-btn[data-preset="7"]');
   assert.equal(await page.locator('.chart-bar-column').count(),7);
+  assert.equal(await page.locator('#viewAnalytics .sid-metrics-row').count(),0);
+  for(let days=1;days<=7;days++){
+    await page.click('#btnDateRangeDropdown');assert.equal(await page.locator('.cal-preset-btn').count(),7);
+    await page.click(`.cal-preset-btn[data-preset="${days}"]`);assert.equal(await page.locator('.chart-bar-column').count(),days);
+  }
+  await page.click('#btnDateRangeDropdown');await page.selectOption('#calYearSelect','2026');await page.selectOption('#calMonthSelect','0');
+  await page.click('[data-date="2026-01-10"]');assert.equal(await page.locator('[data-date="2026-01-17"]').isDisabled(),true);assert.equal(await page.locator('[data-date="2026-01-16"]').isDisabled(),false);
+  await page.click('[data-date="2026-01-16"]');assert.equal(await page.locator('.chart-bar-column').count(),7);
+  await page.click('#btnDateRangeDropdown');await page.selectOption('#calMonthSelect','1');await page.click('[data-date="2026-02-02"]');await page.selectOption('#calMonthSelect','0');
+  assert.equal(await page.locator('[data-date="2026-01-26"]').isDisabled(),true);await page.click('[data-date="2026-01-27"]');assert.equal(await page.locator('.chart-bar-column').count(),7);
+  await page.click('#btnDateRangeDropdown');await page.click('.cal-preset-btn[data-preset="7"]');
+
   await page.goto(base + '/#shortener'); await page.click('#btnOpenCreateModal'); await page.fill('#modalDestUrl','example.com'); await page.fill('#modalSlug','new-mobile');
   await page.screenshot({path:'test-results/modal-mobile.png'}); await page.keyboard.press('Escape'); assert.equal(await page.locator('#modalLink').isVisible(),false);
   await page.goto(base+'/#home');await page.waitForFunction(()=>document.body.dataset.view==='home');
@@ -183,7 +195,7 @@ try {
   await cloudPage.keyboard.press('Escape'); failSave=false;
   await cloudPage.locator('.link-card').click();
   cloudPage.on('dialog', d=>d.accept()); await cloudPage.click('.btn-delete-action'); await cloudPage.locator('.link-card').waitFor({state:'hidden'});
-  await cloudPage.goto(base+'/#analytics'); await cloudPage.click('#btnRefreshAnalytics'); assert.equal(await cloudPage.locator('#kpiTotalLinks').textContent(),'0');
+  await cloudPage.goto(base+'/#analytics'); await cloudPage.click('#btnRefreshAnalytics'); assert.equal(await cloudPage.locator('#tableLinksAnalyticsBody tr').count(),1);assert.match(await cloudPage.locator('#tableLinksAnalyticsBody').textContent(),/Belum ada/);
   await cloudPage.goto(base+'/#settings');
   assert.equal(await cloudPage.locator('#btnImportBackup').isDisabled(),true);
   assert.equal(await cloudPage.locator('#btnResetAllData').isDisabled(),true);
