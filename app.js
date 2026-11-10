@@ -13,6 +13,12 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   // --- CONFIGURATION & STATE ---
   let cloudMode = false;
   let adminConnected = false;
+  let currentUser = null;
+  let authMode = 'login';
+  let googleEnabled = false;
+  let platformDomain = location.host;
+  let pollTimer = null;
+  let domainsLoadedFor = null;
   let vercelConnected = false;
   let vercelManagedByServer = false;
   let backendReady = Promise.resolve();
@@ -21,15 +27,14 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   let searchTerm = '';
   let selectedLinkId = null;
   let returnFocus = null;
-  const adminToken = () => sessionStorage.getItem('autoshort_admin_token') || '';
   function shortUrl(slug, qr = false) {
     const base = cloudMode ? (customDomain === location.host ? location.origin : `https://${customDomain}`) : location.origin;
     return `${base}/${encodeURIComponent(slug)}${qr ? '?src=qr' : ''}`;
   }
   async function api(path, options = {}) {
-    const response = await fetch(path, { ...options, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken()}`, ...options.headers } });
+    const response = await fetch(path, { ...options, credentials: 'same-origin', headers: { 'Content-Type': 'application/json', ...options.headers } });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || 'Permintaan server gagal.');
+    if (!response.ok) throw Object.assign(new Error(data.error || 'Permintaan server gagal.'), {status:response.status});
     return data;
   }
   function status(text, ok = false) {
@@ -114,9 +119,11 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   let clicksHistory = [];
 
   // --- INITIALIZATION ---
-  document.addEventListener('DOMContentLoaded', () => {
+  document.addEventListener('DOMContentLoaded', async () => {
     document.getElementById('btnSkipToContent').onclick = () => [...document.querySelectorAll('main')].find(main => main.style.display !== 'none')?.focus();
-    loadStoredData();
+    sessionStorage.removeItem('autoshort_admin_token');
+    localStorage.removeItem('autoshort_cloud_links');localStorage.removeItem('autoshort_cloud_clicks');
+    await consumeAuthCallback();
     initTheme();
     initCalendar();
     initEventListeners();
@@ -193,16 +200,19 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   }
 
   function saveLocalLinks() {
+    if (cloudMode) return;
     try { localStorage.setItem(cloudMode ? 'autoshort_cloud_links' : 'autoshort_links', JSON.stringify(links)); } catch { showToast('Opslag browser penuh atau tidak tersedia. Unduh cadangan data.', 'warning'); }
   }
 
   function saveLocalClicks() {
+    if (cloudMode) return;
     try { localStorage.setItem(cloudMode ? 'autoshort_cloud_clicks' : 'autoshort_clicks', JSON.stringify(clicksHistory)); } catch { showToast('Riwayat tidak dapat disimpan di browser.', 'warning'); }
   }
 
   // --- REAL-TIME LISTENERS (CROSS-TAB & WEBSOCKET) ---
   // 1. Cross-tab real-time listener (fires instantly when someone visits link in another tab)
   window.addEventListener('storage', (e) => {
+    if (cloudMode && e.key === 'autoshort_auth_event') { clearAccountData(); location.reload(); return; }
     if (cloudMode) return;
     if (e.key === 'autoshort_clicks' || e.key === 'autoshort_links') {
       const prevCount = clicksHistory.length;
@@ -220,47 +230,45 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
 
   async function fetchBackendConfig() {
     try {
-      const config = await api('/api/config');
-      cloudMode = config.configured;
-      if (cloudMode) { links = []; clicksHistory = []; renderAll(); }
-      customDomain = config.customDomain || location.host;
-      updateSettingsState();
-      updateAdminUI();
-      updateDomainDisplays();
-      if (cloudMode) await syncWithBackend().catch(error => showToast(error.message, 'warning'));
-      else status('Mode Lokal');
-    } catch (error) {
-      status('Server tidak terhubung');
-      document.getElementById('storageNotice').hidden = false;
-      document.getElementById('storageNotice').textContent = 'Konfigurasi server tidak dapat dimuat. Periksa koneksi lalu muat ulang sebelum membuat tautan.';
-      throw error;
-    }
-    setInterval(() => { if (cloudMode && !document.hidden && !saving) syncWithBackend().catch(() => {}); }, 15000);
+      const config=await api('/api/config');cloudMode=config.configured;
+      googleEnabled=config.googleEnabled===true;platformDomain=config.platformDomain||location.host;
+      if(cloudMode){links=[];clicksHistory=[];currentUser=config.user||null;adminConnected=Boolean(currentUser);}
+      else{currentUser=null;adminConnected=false;loadStoredData();}
+      customDomain=config.customDomain||platformDomain;
+      updateSettingsState();updateAdminUI();updateDomainDisplays();renderAll();renderAuthForm();
+      if(cloudMode&&currentUser)await syncWithBackend().catch(error=>showToast(error.message,'warning'));
+      else status(cloudMode?'Belum masuk':'Mode Lokal');
+    }catch(error){status('Server tidak terhubung');const notice=document.getElementById('storageNotice');notice.hidden=false;notice.textContent='Server tidak dapat dimuat. Periksa koneksi dan muat ulang.';throw error;}
+    if(!pollTimer)pollTimer=setInterval(()=>{if(cloudMode&&currentUser&&!document.hidden&&!saving)syncWithBackend().catch(()=>{});},15000);
   }
   async function syncWithBackend() {
-    if (!cloudMode) return;
+    if (!cloudMode || !currentUser) return;
     if (syncPromise) return syncPromise;
-    syncPromise = (async () => {
+    const pending = (async () => {
       try {
+        const accountId=currentUser.id;
         const [linkData, clickData, domainData] = await Promise.all([api('/api/links'), api('/api/analytics'), api('/api/config')]);
-        if (customDomain !== (domainData.customDomain || location.host)) {
-          customDomain = domainData.customDomain || location.host;
+        if(currentUser?.id!==accountId)return;
+        if(domainData.user?.id!==accountId){clearAccountData();location.reload();return;}
+        if (customDomain !== (domainData.customDomain || platformDomain)) {
+          customDomain = domainData.customDomain || platformDomain;
           updateDomainDisplays();
         }
         links = linkData.links || [];
         clicksHistory = clickData.recentClicks || [];
-        const firstAdminSync = !adminConnected;
+        const firstAdminSync = domainsLoadedFor !== accountId;
         adminConnected = true;
         updateAdminUI();
         saveLocalLinks(); saveLocalClicks(); renderAll();
         updateDomainControls();
-        if (firstAdminSync) await loadDomainManager().catch(error => { document.getElementById('vercelIntegrationStatus').textContent = error.message; });
+        if (firstAdminSync) await loadDomainManager().then(()=>{domainsLoadedFor=accountId;}).catch(error => { document.getElementById('vercelIntegrationStatus').textContent = error.message; });
         document.getElementById('btnExportJsonBackup').disabled = false;
-        document.getElementById('adminSessionStatus').textContent = 'Sesi admin aktif di tab ini.';
+        document.getElementById('accountSessionStatus').textContent = 'Anda masuk. Tautan, statistik, dan pengaturan tersimpan di akun Anda.';
         status('Cloud Terhubung', true);
-      } catch (error) { status('Cloud: perlu perhatian'); throw error; }
+      } catch (error) { if(error.status===401){clearAccountData();updateAdminUI();renderAll();}status('Cloud: perlu perhatian'); throw error; }
     })();
-    try { await syncPromise; } finally { syncPromise = null; }
+    syncPromise=pending;
+    try { await pending; } finally { if(syncPromise===pending)syncPromise=null; }
   }
   async function refreshAnalyticsData() {
     try { await backendReady; await syncWithBackend(); renderAll(); showToast('Data berhasil disegarkan.', 'success'); }
@@ -279,13 +287,15 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   }
 
   function switchView(viewName) {
+    if (['login','signup','recover','reset'].includes(viewName)){authMode=viewName;viewName='auth';}
     if (['beranda', 'dashboard'].includes(viewName)) viewName = 'home';
-    if (!['home', 'analytics', 'shortener', 'qr-studio', 'activity', 'domains', 'settings'].includes(viewName)) viewName = 'home';
+    if (!['auth','home', 'analytics', 'shortener', 'qr-studio', 'activity', 'domains', 'settings'].includes(viewName)) viewName = 'home';
     document.body.dataset.view = viewName;
     closeMenu();
     window.scrollTo(0, 0);
     currentView = viewName;
     const views = {
+      auth:document.getElementById('viewAuth'),
       home: document.getElementById('viewHome'),
       analytics: document.getElementById('viewAnalytics'),
       shortener: document.getElementById('viewShortener'),
@@ -313,7 +323,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     });
     for (const [name, view] of Object.entries(views)) view?.setAttribute('aria-hidden', String(name !== viewName));
 
-    if (viewName === 'home') {
+    if(viewName==='auth'){views.auth.style.display='block';topTitle.textContent='Akun';topIcon.className='fa-solid fa-user title-icon';renderAuthForm();}
+    else if (viewName === 'home') {
       views.home.style.display = 'block';
       topTitle.textContent = 'Beranda';
       topIcon.className = 'fa-solid fa-house title-icon';
@@ -900,8 +911,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     recentLinks.replaceChildren();activity.replaceChildren();
     if (!ready) {
       for(const container of [recentLinks,activity]) {
-        const message=document.createElement(container===activity?'li':'p');message.className='home-empty';message.append('Masuk sebagai admin untuk melihat data cloud. ');
-        const login=document.createElement('a');login.href='#settings';login.textContent='Masuk admin';message.append(login);container.append(message);
+        const message=document.createElement(container===activity?'li':'p');message.className='home-empty';message.append('Masuk ke akun Anda untuk melihat data cloud. ');
+        const login=document.createElement('a');login.href='#login';login.textContent='Masuk akun';message.append(login);container.append(message);
       }
       return;
     }
@@ -931,8 +942,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     badge.textContent = `${links.length} link`;
     const needsAdmin = cloudMode && !adminConnected;
     empty.querySelector('h4').textContent = needsAdmin ? 'Tautan Anda tersimpan di cloud' : 'Belum ada link';
-    empty.querySelector('p').textContent = needsAdmin ? 'Masuk sebagai admin untuk melihat dan mengelola tautan. ' : 'Klik Buat link untuk membuat shortlink pertama Anda.';
-    if (needsAdmin) { const a=document.createElement('a');a.href='#settings';a.textContent='Masuk admin';empty.querySelector('p').append(a); }
+    empty.querySelector('p').textContent = needsAdmin ? 'Masuk ke akun Anda untuk melihat dan mengelola tautan. ' : 'Klik Buat link untuk membuat shortlink pertama Anda.';
+    if (needsAdmin) { const a=document.createElement('a');a.href='#login';a.textContent='Masuk akun';empty.querySelector('p').append(a); }
     empty.style.display = links.length ? 'none' : 'block';
     const visible = links.filter(l => [l.title,l.og_title,l.slug,l.destination_url,...(l.tags || [])].join(' ').toLowerCase().includes(searchTerm));
     if (links.length && !visible.length) container.innerHTML = '<p class="search-empty">Tidak ada link yang cocok dengan pencarian.</p>';
@@ -1266,47 +1277,28 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     const btnResetDomain = document.getElementById('btnResetSettingsDomain');
     btnResetDomain.onclick = () => saveAction(btnResetDomain, async () => {
       await api('/api/domains', { method: 'DELETE' });
-      customDomain = location.host;
+      customDomain = platformDomain;
       updateDomainDisplays(); renderAll();
       if (vercelConnected) await loadDomainManager().catch(() => showToast('Domain direset; daftar domain belum dapat dimuat ulang.', 'warning'));
       domainStatus.textContent = 'Menggunakan alamat situs yang sedang dibuka. Tautan dan domain Vercel tidak dihapus.';
       showToast('Domain utama dikembalikan ke alamat situs.', 'success');
     });
-    const btnAdmin = document.getElementById('btnSaveAdminToken');
-    btnAdmin.onclick = () => saveAction(btnAdmin, async () => {
-      const token = document.getElementById('inputAdminToken').value.trim();
-      if (!token) throw new Error('Masukkan token admin.');
-      const previous = adminToken();
-      sessionStorage.setItem('autoshort_admin_token', token);
-      try {
-        await syncWithBackend();
-        document.getElementById('inputAdminToken').value = '';
-        await loadDomainManager().catch(error => { document.getElementById('vercelIntegrationStatus').textContent = error.message; });
-        document.getElementById('adminSessionStatus').textContent = 'Sesi admin aktif di tab ini.';
-        showToast('Token valid. Data cloud berhasil disinkronkan.', 'success');
-      } catch (error) {
-        if (previous) sessionStorage.setItem('autoshort_admin_token', previous);
-        else sessionStorage.removeItem('autoshort_admin_token');
-        document.getElementById('adminSessionStatus').textContent = error.message;
-        throw error;
-      }
+    document.getElementById('btnLogoutAdmin').onclick=()=>saveAction(document.getElementById('btnLogoutAdmin'),async()=>{
+      await api('/api/auth?action=logout',{method:'POST',body:'{}'});clearAccountData();notifyAuthChange();updateAdminUI();updateDomainControls();renderAll();location.hash='#login';
     });
-    document.getElementById('btnLogoutAdmin').onclick = () => {
-      sessionStorage.removeItem('autoshort_admin_token');
-      adminConnected = false;
-      vercelConnected = false;
-      document.getElementById('domainList').replaceChildren();
-      document.getElementById('domainDetails').hidden = true;
-      document.getElementById('inputVercelToken').value = '';
-      document.getElementById('vercelIntegrationStatus').textContent = 'Masuk sebagai admin untuk mengelola domain.';
-      updateDomainControls();
-      localStorage.removeItem('autoshort_cloud_links');
-      localStorage.removeItem('autoshort_cloud_clicks');
-      document.getElementById('btnExportJsonBackup').disabled = cloudMode;
-      document.getElementById('inputAdminToken').value = '';
-      document.getElementById('adminSessionStatus').textContent = 'Sesi admin telah diakhiri.';
-      updateAdminUI();
-      if (cloudMode) { links = []; clicksHistory = []; renderAll(); status('Cloud: perlu token admin'); }
+    document.getElementById('btnGoogleLogin').onclick=()=>location.assign('/api/auth?action=google');
+    document.getElementById('authForm').onsubmit=async event=>{
+      event.preventDefault();const button=document.getElementById('btnAuthSubmit');button.disabled=true;
+      const password=document.getElementById('authPasswordInput'),confirmation=document.getElementById('authConfirmInput'),message=document.getElementById('authMessage');
+      try{
+        if(['signup','reset'].includes(authMode)&&password.value!==confirmation.value)throw new Error('Konfirmasi password belum sama.');
+        const action=authMode==='reset'?'password':authMode;
+        const result=await api('/api/auth?action='+action,{method:'POST',body:JSON.stringify({email:document.getElementById('authEmailInput').value,password:password.value})});
+        if(result.user){clearAccountData();currentUser=result.user;adminConnected=true;notifyAuthChange();await fetchBackendConfig();location.hash='#home';}
+        else if(authMode==='reset'){message.textContent='Password berhasil diperbarui.';showToast('Password berhasil diperbarui.','success');location.hash='#settings';}
+        else message.textContent=result.message||'Periksa email Anda untuk melanjutkan.';
+      }catch(error){message.textContent=error.message;}
+      finally{password.value='';confirmation.value='';button.disabled=false;}
     };
 
     // Settings: Backup JSON
@@ -1483,24 +1475,53 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   }
 
   function updateAdminUI() {
-    const notice = document.getElementById('storageNotice');
-    notice.hidden = cloudMode && adminConnected;
-    notice.replaceChildren();
-    const message = document.createElement('span');
-    message.textContent = cloudMode ? 'Data cloud Anda siap. Masuk untuk mengelola tautan.' : 'Mode lokal · Tautan disimpan di browser ini.';
-    notice.append(message);
-    if (cloudMode && !adminConnected) {
-      const link = document.createElement('a'); link.href = '#settings'; link.textContent = 'Masuk admin'; notice.append(link);
-    }
-    for (const id of ['btnHomeCreate', 'btnOpenCreateModal', 'btnSidebarCreateLink', 'btnSaveModalLink']) document.getElementById(id).disabled = cloudMode && !adminConnected;
-    document.getElementById('userRoleLabel').textContent = cloudMode ? (adminConnected ? 'Admin terhubung' : 'Mode cloud') : 'Mode lokal';
+    const notice=document.getElementById('storageNotice');notice.hidden=cloudMode&&adminConnected;notice.replaceChildren();
+    const message=document.createElement('span');message.textContent=cloudMode?'Masuk untuk mengakses tautan dan statistik pribadi Anda.':'Mode lokal · Tautan disimpan di browser ini.';notice.append(message);
+    if(cloudMode&&!adminConnected){const link=document.createElement('a');link.href='#login';link.textContent='Masuk / Daftar';notice.append(link);}
+    for(const id of ['btnHomeCreate','btnOpenCreateModal','btnSidebarCreateLink','btnSaveModalLink'])document.getElementById(id).disabled=cloudMode&&!adminConnected;
+    document.getElementById('userNameLabel').textContent=currentUser?.email||'Ruang kerja Anda';
+    document.getElementById('userRoleLabel').textContent=cloudMode?(adminConnected?'Akun pribadi':'Belum masuk'):'Mode lokal';
+    document.getElementById('accountSignedOut').hidden=adminConnected;
+    document.getElementById('accountSignedIn').hidden=!adminConnected;
+    document.getElementById('accountEmail').textContent=currentUser?.email||'';
+    document.getElementById('accountSessionStatus').textContent=cloudMode?(adminConnected?'Anda masuk. Data tersimpan secara pribadi di akun Anda.':'Masuk atau daftar untuk menyimpan data pribadi.'): 'Akun tersedia dalam mode cloud. Data lokal tetap berada di browser ini.';
+    document.getElementById('vercelConnectionPanel').hidden=!currentUser?.isOperator;
+    document.getElementById('btnExportJsonBackup').disabled=cloudMode&&!adminConnected;
+  }
+  function clearAccountData() {
+    syncPromise=null;domainsLoadedFor=null;currentUser=null;adminConnected=false;links=[];clicksHistory=[];selectedLinkId=null;searchTerm='';activeLinkFilter='all';vercelConnected=false;vercelManagedByServer=false;customDomain=platformDomain;
+    document.getElementById('searchInput').value='';document.getElementById('domainList').replaceChildren();document.getElementById('domainDetails').hidden=true;document.getElementById('inputVercelToken').value='';
+    document.getElementById('linkDetailsModal').style.display='none';document.getElementById('modalLink').style.display='none';document.body.classList.remove('modal-open');
+    updateDomainDisplays();updateAdminUI();updateDomainControls();renderAll();
+  }
+  function notifyAuthChange(){try{localStorage.setItem('autoshort_auth_event',String(Date.now())+'-'+Math.random());}catch{}}
+  async function consumeAuthCallback() {
+    const params=new URLSearchParams(location.hash.slice(1));
+    if(!params.has('refresh_token'))return;
+    const refresh=params.get('refresh_token'),recovery=params.get('type')==='recovery';
+    history.replaceState(null,'',location.pathname+(recovery?'#reset':'#home'));
+    try{await api('/api/auth?action=session',{method:'POST',body:JSON.stringify({refresh_token:refresh})});notifyAuthChange();}
+    catch{history.replaceState(null,'',location.pathname+'?auth_error=session#login');}
+  }
+  function renderAuthForm() {
+    const modes={login:['Masuk','Masuk untuk mengelola tautan dan statistik pribadi Anda.','Masuk'],signup:['Buat akun','Daftar untuk menyimpan tautan dan statistik di akun Anda sendiri.','Daftar akun'],recover:['Lupa password','Kami akan mengirim tautan pemulihan ke email akun Anda.','Kirim tautan reset'],reset:['Ubah password','Gunakan password baru minimal 8 karakter.','Simpan password']};
+    const [title,description,submit]=modes[authMode];
+    document.getElementById('authTitle').textContent=title;document.getElementById('authDescription').textContent=description;document.getElementById('btnAuthSubmit').textContent=submit;
+    document.getElementById('authEmailGroup').hidden=authMode==='reset';document.getElementById('authEmailInput').disabled=authMode==='reset';
+    document.getElementById('authPasswordGroup').hidden=authMode==='recover';document.getElementById('authPasswordInput').disabled=authMode==='recover';document.getElementById('authPasswordInput').autocomplete=authMode==='login'?'current-password':'new-password';
+    document.getElementById('authConfirmGroup').hidden=!['signup','reset'].includes(authMode);document.getElementById('authConfirmInput').required=['signup','reset'].includes(authMode);document.getElementById('authConfirmInput').disabled=!['signup','reset'].includes(authMode);
+    document.getElementById('authTabs').hidden=!['login','signup'].includes(authMode);
+    document.querySelectorAll('[data-auth-mode]').forEach(link=>link.classList.toggle('active',link.dataset.authMode===authMode));
+    const google=cloudMode&&googleEnabled&&['login','signup'].includes(authMode);document.getElementById('btnGoogleLogin').hidden=!google;document.getElementById('authDivider').hidden=!google;
+    document.getElementById('authMessage').textContent=location.search.includes('auth_error=')?'Login belum selesai. Silakan coba lagi.':'';
+    document.getElementById('btnAuthSubmit').disabled=!cloudMode;
   }
 
   function updateDomainControls() {
     const enabled = cloudMode && adminConnected;
     for (const id of ['btnSaveSettingsDomain', 'btnResetSettingsDomain']) document.getElementById(id).disabled = !enabled;
-    document.getElementById('btnConnectVercel').disabled = !enabled || vercelManagedByServer;
-    document.getElementById('inputVercelToken').disabled = !enabled || vercelManagedByServer;
+    document.getElementById('btnConnectVercel').disabled = !enabled || vercelManagedByServer || !currentUser?.isOperator;
+    document.getElementById('inputVercelToken').disabled = !enabled || vercelManagedByServer || !currentUser?.isOperator;
     for (const id of ['btnAddDomain', 'btnRefreshDomains']) document.getElementById(id).disabled = !enabled || !vercelConnected;
     document.getElementById('btnDisconnectVercel').disabled = !enabled || !vercelConnected || vercelManagedByServer;
   }
@@ -1513,17 +1534,19 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     vercelManagedByServer = result.managedByServer === true;
     updateDomainControls();
     document.getElementById('vercelConnectionPanel').open = !vercelConnected;
+    document.getElementById('vercelConnectionPanel').hidden=!currentUser?.isOperator;
     document.getElementById('vercelIntegrationStatus').textContent = vercelConnected
       ? 'Vercel terhubung. Penambahan, pemeriksaan, dan pelepasan domain dilakukan dari dashboard ini.'
-      : 'Hubungkan secret token Vercel satu kali untuk menambahkan dan mengelola domain dari dashboard.';
+      : currentUser?.isOperator?'Hubungkan secret token Vercel satu kali untuk mengaktifkan domain pengguna.':'Pengelola belum mengaktifkan custom domain. Anda tetap bisa memakai alamat bersama.';
     const container = document.getElementById('domainList');
     container.replaceChildren();
     for (const domain of result.domains || []) {
       const item = document.createElement('div'); item.className = 'domain-item';
       const name = document.createElement('strong'); name.textContent = domain.name; item.append(name);
       const state = document.createElement('p');
-      state.textContent = domain.name === result.customDomain ? 'Domain utama' : domain.redirect ? `Mengalihkan ke ${domain.redirect}` : domain.verified ? 'Kepemilikan terverifikasi · Periksa DNS & HTTPS untuk kesiapan' : 'Menunggu verifikasi kepemilikan'; item.append(state);
+      state.textContent = domain.shared?'Domain bersama · tersedia untuk semua pengguna':domain.name === result.customDomain ? 'Domain utama' : domain.redirect ? `Mengalihkan ke ${domain.redirect}` : domain.verified ? 'Kepemilikan terverifikasi · Periksa DNS & HTTPS untuk kesiapan' : 'Menunggu verifikasi kepemilikan'; item.append(state);
       const actions = document.createElement('div'); actions.className = 'domain-actions'; item.append(actions);
+      if(domain.shared){container.append(item);continue;}
       const inspect = document.createElement('button'); inspect.className = 'btn btn-outline btn-sm'; inspect.textContent = 'Periksa DNS & HTTPS';
       inspect.onclick = () => saveAction(inspect, async () => {
         document.getElementById('inputSettingsDomain').value = domain.name;
@@ -1576,7 +1599,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   }
 
   function updateSettingsState() {
-    for (const id of ['btnSaveSettingsDomain', 'btnResetSettingsDomain', 'inputSettingsDomain', 'btnSaveAdminToken', 'btnLogoutAdmin']) document.getElementById(id).disabled = !cloudMode;
+    for (const id of ['btnSaveSettingsDomain', 'btnResetSettingsDomain', 'inputSettingsDomain', 'btnLogoutAdmin']) document.getElementById(id).disabled = !cloudMode;
     document.getElementById('domainStatus').textContent = cloudMode
       ? 'Tambahkan domain, pasang record DNS yang ditampilkan, lalu periksa dan pilih domain utama di dashboard ini.'
       : 'Mode lokal: custom domain tidak tersedia. Tautan memakai alamat browser ini.';

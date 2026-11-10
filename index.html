@@ -153,6 +153,22 @@
       <!-- VIEW 1: DATA ANALISIS (ANALYTICS) -->
       <!-- ======================================================== -->
       <p id="storageNotice" class="storage-notice" role="status">Memeriksa penyimpanan…</p>
+      <main tabindex="-1" class="sid-content-area" id="viewAuth" style="display:none;">
+        <section class="auth-card">
+          <div class="page-heading"><span class="page-eyebrow">AKUN AUTOSHORT</span><h2 id="authTitle">Masuk</h2><p id="authDescription">Kelola tautan dan statistik milik Anda sendiri.</p></div>
+          <div class="auth-tabs" id="authTabs"><a href="#login" data-auth-mode="login">Masuk</a><a href="#signup" data-auth-mode="signup">Daftar</a></div>
+          <button type="button" id="btnGoogleLogin" class="btn btn-outline" hidden><i class="fa-brands fa-google" aria-hidden="true"></i> Lanjutkan dengan Google</button>
+          <p id="authDivider" class="auth-divider" hidden>atau gunakan email</p>
+          <form id="authForm">
+            <div class="form-group" id="authEmailGroup"><label for="authEmailInput">Email</label><input id="authEmailInput" class="input-control" type="email" autocomplete="email" maxlength="254" required /></div>
+            <div class="form-group" id="authPasswordGroup"><label for="authPasswordInput">Password</label><input id="authPasswordInput" class="input-control" type="password" autocomplete="current-password" minlength="8" maxlength="128" required /></div>
+            <div class="form-group" id="authConfirmGroup" hidden><label for="authConfirmInput">Ulangi password</label><input id="authConfirmInput" class="input-control" type="password" autocomplete="new-password" minlength="8" maxlength="128" /></div>
+            <p id="authMessage" role="status" aria-live="polite"></p>
+            <button type="submit" id="btnAuthSubmit" class="btn btn-primary">Masuk</button>
+          </form>
+          <div class="auth-footer"><a href="#recover">Lupa password?</a><a href="#home">Kembali ke Beranda</a></div>
+        </section>
+      </main>
       <main tabindex="-1" class="sid-content-area" id="viewHome">
         <div class="home-heading"><div class="page-heading"><span class="page-eyebrow">RINGKASAN</span><h2>Beranda</h2><p>Ringkasan tautan dan kunjungan Anda, dalam satu tempat.</p></div><button type="button" class="btn btn-primary" id="btnHomeCreate"><i class="fa-solid fa-plus" aria-hidden="true"></i> Buat link</button></div>
         <div class="home-metrics" aria-label="Ringkasan keseluruhan">
@@ -477,7 +493,7 @@
             <div class="settings-box domain-settings">
               <h3>Hubungkan domain Anda</h3>
               <p>Gunakan alamat sendiri untuk semua tautan. Tambahkan domain, ikuti petunjuk DNS, lalu aktifkan setelah pemeriksaan berhasil.</p>
-              <details id="vercelConnectionPanel" open>
+              <details id="vercelConnectionPanel" hidden>
                 <summary>Koneksi Vercel <span class="connection-caption">· satu kali pengaturan</span></summary>
                 <p>Hubungkan token Vercel yang memiliki akses ke proyek AutoShort. Token disimpan terenkripsi dan tidak ditampilkan kembali.</p>
                 <label for="inputVercelToken">Secret token Vercel</label>
@@ -511,17 +527,11 @@
           <div class="page-heading"><span class="page-eyebrow">PREFERENSI</span><h2>Pengaturan</h2><p>Kelola sesi admin dan simpan cadangan data Anda.</p></div>
 
           <div class="settings-grid">
-            <!-- Supabase Cloud Sync Box -->
             <div class="settings-box">
-              <h3><i class="fa-solid fa-database" aria-hidden="true"></i> Akses admin</h3>
-              <p>Masukkan token admin untuk mengelola tautan cloud. Sesi hanya berlaku di tab browser ini.</p>
-              <div class="form-group" style="margin-top:12px;">
-                <label for="inputAdminToken">Token admin</label>
-                <input type="password" id="inputAdminToken" class="input-control" autocomplete="off" placeholder="Masukkan token admin" />
-              </div>
-              <button class="btn btn-primary btn-sm" id="btnSaveAdminToken" disabled>Masuk admin</button>
-              <button class="btn btn-outline btn-sm" id="btnLogoutAdmin" disabled>Keluar</button>
-              <p id="adminSessionStatus" role="status" aria-live="polite" style="margin-top:12px;">Token hanya berlaku selama sesi tab ini.</p>
+              <h3><i class="fa-solid fa-user" aria-hidden="true"></i> Akun Anda</h3>
+              <p id="accountSessionStatus">Masuk untuk menyimpan dan mengelola data pribadi Anda.</p>
+              <div id="accountSignedOut" class="domain-actions"><a href="#login" class="btn btn-primary">Masuk</a><a href="#signup" class="btn btn-outline">Daftar akun</a></div>
+              <div id="accountSignedIn" hidden><p id="accountEmail"></p><div class="domain-actions"><a href="#reset" class="btn btn-outline">Ubah password</a><button type="button" id="btnLogoutAdmin" class="btn btn-outline">Keluar</button></div></div>
             </div>
 
             <!-- Data Backup & Reset Box -->

@@ -1,4 +1,4 @@
-import { configured, db, fail } from '../lib/db.js';
+import { configured, db, fail, domainOwner } from '../lib/db.js';
 // Vercel Serverless Function: Image Serving Endpoint for Uploaded Thumbnails
 // Serves image binaries directly so WhatsApp, Telegram & Facebook scrapers can fetch them
 
@@ -13,8 +13,9 @@ export default async function handler(req, res) {
   let link = null;
   if (configured()) {
     try {
+      const owner=await domainOwner(req.headers.host);if(owner===false)return res.status(404).send('Image not found');
       const query = id ? `id=eq.${encodeURIComponent(id)}` : `slug=eq.${encodeURIComponent(cleanSlug)}`;
-      link = (await db(`links?${query}&select=og_image&limit=1`))?.[0];
+      link = (await db(`links?${query}${owner?'&user_id=eq.'+encodeURIComponent(owner):''}&select=og_image&limit=1`))?.[0];
     } catch (error) { return fail(res, error); }
   }
 

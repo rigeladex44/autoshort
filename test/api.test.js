@@ -1,3 +1,4 @@
+import auth from '../api/auth.js';
 import { buildAnalyticsBuckets } from '../lib/analytics.js';
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
@@ -17,8 +18,8 @@ function req(method = 'GET', body, query = {}) { return { method, body, query, h
 function response() { return { code: 200, headers: {}, setHeader(k,v) { this.headers[k.toLowerCase()] = v; }, status(n) { this.code = n; return this; }, json(v) { this.body = v; return this; }, send(v) { this.body = v; return this; }, writeHead(n,h) { this.code=n; for (const [k,v] of Object.entries(h)) this.setHeader(k,v); }, end(v) { this.body=v; } }; }
 const record = { id: 'one', slug: 'hello', destination_url: 'https://example.com/', is_active: true, clicks: 0 };
 let calls;
-beforeEach(() => { process.env.SUPABASE_URL = 'https://db.example'; process.env.SUPABASE_SERVICE_ROLE_KEY = 'server-only'; process.env.ADMIN_TOKEN = 'test-token'; process.env.AUTOSHORT_VERCEL_PROJECT_ID='prj_Test'; process.env.AUTOSHORT_VERCEL_TEAM_ID='team_Test'; calls=[]; });
-afterEach(() => { globalThis.fetch = realFetch; delete process.env.SUPABASE_URL; delete process.env.SUPABASE_SERVICE_ROLE_KEY; delete process.env.ADMIN_TOKEN; delete process.env.AUTOSHORT_VERCEL_PROJECT_ID; delete process.env.AUTOSHORT_VERCEL_TEAM_ID; delete process.env.VERCEL_DOMAINS_TOKEN; });
+beforeEach(() => { process.env.SUPABASE_URL = 'https://db.example'; process.env.SUPABASE_SERVICE_ROLE_KEY = 'server-only'; process.env.ADMIN_TOKEN = 'test-token'; process.env.PLATFORM_HOSTS='short.example'; process.env.AUTOSHORT_VERCEL_PROJECT_ID='prj_Test'; process.env.AUTOSHORT_VERCEL_TEAM_ID='team_Test'; calls=[]; });
+afterEach(() => { globalThis.fetch = realFetch; delete process.env.SUPABASE_URL; delete process.env.SUPABASE_SERVICE_ROLE_KEY; delete process.env.ADMIN_TOKEN; delete process.env.AUTOSHORT_VERCEL_PROJECT_ID; delete process.env.AUTOSHORT_VERCEL_TEAM_ID; delete process.env.VERCEL_DOMAINS_TOKEN; delete process.env.PLATFORM_HOSTS; });
 function mock(fn) { globalThis.fetch = async (url, options) => { calls.push({url:String(url), options}); return fn(String(url), options); }; }
 function json(value, status = 200) { return new Response(JSON.stringify(value), { status }); }
 test('URL validation rejects executable schemes; slugs reject reserved routes', () => {
@@ -30,7 +31,7 @@ test('URL validation rejects executable schemes; slugs reject reserved routes', 
 test('config never discloses database credentials', async () => { mock(() => json([{value:'go.example.com'}])); const res=response(); await config(req(),res); assert.equal(res.body.configured,true); assert.ok(!JSON.stringify(res.body).includes('server-only')); });
 test('management rejects unauthorized access and missing server admin token', async () => {
   const request=req(); request.headers.authorization='Bearer wrong'; const res=response(); await links(request,res); assert.equal(res.code,401); assert.equal(calls.length,0);
-  delete process.env.ADMIN_TOKEN; const missing=response(); await links(req(),missing); assert.equal(missing.code,503);
+  delete process.env.ADMIN_TOKEN; const missing=response(); await links(req(),missing); assert.equal(missing.code,401);
 });
 test('create preserves password expiry tags and preview; duplicate slug is reported', async () => {
   mock((url, options) => json([{ ...JSON.parse(options.body) }]));
@@ -58,7 +59,7 @@ test('password unlock requires exact password and awaits one atomic click RPC', 
 test('normal redirect logs once; preview bots and HEAD never log', async () => {
   mock(url => url.includes('rpc/') ? json(null) : json([record]));
   const res=response(); await redirect(req('GET',null,{slug:'hello'}),res); assert.equal(res.code,307); assert.equal(calls.length,2); assert.equal(res.headers.location,record.destination_url);
-  calls=[]; const bot=req('GET',null,{slug:'hello'}); bot.headers['user-agent']='WhatsApp'; const preview=response(); await redirect(bot,preview); assert.equal(preview.code,200); assert.match(preview.body,/og:title/); assert.equal(calls.length,2);
+  calls=[]; const bot=req('GET',null,{slug:'hello'}); bot.headers['user-agent']='WhatsApp'; const preview=response(); await redirect(bot,preview); assert.equal(preview.code,200); assert.match(preview.body,/og:title/); assert.equal(calls.length,1);
   calls=[]; await redirect(req('HEAD',null,{slug:'hello'}),response()); assert.equal(calls.length,1);
 });
 test('analytics pages past database row limit and reports errors', async () => {
@@ -170,4 +171,33 @@ test('hourly buckets preserve event hour, local midnight boundaries, unique visi
  const buckets=buildAnalyticsBuckets(start,end,clicks);assert.equal(buckets.length,48);assert.equal(buckets[14].visitors,2);assert.equal(buckets[14].unique,1);assert.equal(buckets[14].qr,1);assert.equal(buckets[24].visitors,1);assert.equal(buckets.reduce((n,b)=>n+b.visitors,0),3);
  assert.equal(buildAnalyticsBuckets(start,start,clicks).length,24);
  const daily=buildAnalyticsBuckets(start,new Date(2026,0,12),clicks);assert.equal(daily.length,3);assert.equal(daily[0].hourly,false);assert.equal(daily[0].visitors,2);
+});
+
+test('verified user JWT scopes list/create/update/delete to that user and ignores submitted owner IDs', async()=>{
+  const token='header.payload.signature',id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  const request=(method='GET',body,query={})=>({...req(method,body,query),headers:{...req().headers,authorization:'Bearer '+token}});
+  mock((url,options)=>url.includes('/auth/v1/user')?json({id,email:'a@example.test'}):json(options.method==='POST'?[{...JSON.parse(options.body)}]:[]));
+  const list=response();await links(request(),list);assert.equal(list.code,200);assert.ok(calls.some(c=>c.url.includes('user_id=eq.'+id)));assert.equal(calls.find(c=>c.url.includes('/rest/')).options.headers.Authorization,'Bearer '+token);
+  calls=[];const create=response();await links(request('POST',{...record,user_id:'other-user'}),create);assert.equal(create.code,201);assert.equal(create.body.link.user_id,id);
+  calls=[];const edit=response();await links(request('PATCH',{...record,id:'other-record'}),edit);assert.equal(edit.code,404);assert.ok(calls.find(c=>c.url.includes('/rest/')).url.includes('user_id=eq.'+id));
+  calls=[];const del=response();await links(request('DELETE',null,{id:'other-record'}),del);assert.equal(del.code,404);
+});
+test('login stores tokens only in HttpOnly cookies; session response and errors never expose tokens', async()=>{
+  const access='header.payload.signature',refresh='private-refresh-token';
+  mock(()=>json({user:{id:'user-a',email:'a@example.test'},access_token:access,refresh_token:refresh,expires_in:3600}));
+  const result=response();await auth(req('POST',{email:'a@example.test',password:'correct-password'},{action:'login'}),result);assert.equal(result.code,200);assert.equal(result.body.user.id,'user-a');assert.ok(!JSON.stringify(result.body).includes(access));assert.ok(!JSON.stringify(result.body).includes(refresh));
+  const cookie=result.headers['set-cookie'].join(';');assert.match(cookie,/HttpOnly/);assert.match(cookie,/SameSite=Lax/);
+  const csrf=req('POST',{email:'a@example.test',password:'correct-password'},{action:'login'});csrf.headers.origin='https://evil.example';const denied=response();await auth(csrf,denied);assert.equal(denied.code,403);
+});
+test('ordinary accounts cannot configure platform credentials or inspect another user domain', async()=>{
+  const request={...req('POST',{token:'should-not-store'}),headers:{...req().headers,authorization:'Bearer header.payload.signature'}};
+  mock(url=>url.includes('/auth/v1/user')?json({id:'user-a',email:'a@example.test'}):json([]));
+  const denied=response();await integration(request,denied);assert.equal(denied.code,403);assert.ok(!calls.some(c=>c.url.includes('api.vercel.com')));
+  calls=[];request.body={action:'check',domain:'private.example.com'};const domain=response();await domains(request,domain);assert.equal(domain.code,404);assert.ok(!calls.some(c=>c.url.includes('api.vercel.com')));
+});
+test('analytics uses owner join with user JWT and public custom domains resolve only their owner links', async()=>{
+  const id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
+  mock(url=>url.includes('/auth/v1/user')?json({id,email:'a@example.test'}):json([]));
+  const request=req();request.headers.authorization='Bearer header.payload.signature';const stats=response();await analytics(request,stats);assert.equal(stats.code,200);assert.ok(calls.some(c=>c.url.includes('links.user_id=eq.'+id)));
+  calls=[];mock(url=>url.includes('user_domains')?json([{user_id:id}]):url.includes('rpc/')?json(null):json([{...record,user_id:id}]));const visit=req('GET',null,{slug:'hello'});visit.headers.host='private.example.com';const out=response();await redirect(visit,out);assert.equal(out.code,307);assert.ok(calls.some(c=>c.url.includes('links?')&&c.url.includes('user_id=eq.'+id)));
 });

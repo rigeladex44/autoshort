@@ -183,10 +183,19 @@ try {
   // Cloud mode uses API results, honors empty arrays, and never reports success after failed saves.
   const cloudContext = await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
   await cloudContext.route(/googlesyndication|doubleclick|googleads/, route => route.fulfill({body:''}));
-  let cloudLinks = []; let failSave = false; let cloudDomain = 'short.example'; let domainFailure = false; let failLogin = false; let vercelConnected = false; let attachedDomains = [];
+  let cloudLinks = []; let failSave = false; let cloudDomain = 'short.example'; let domainFailure = false; let failLogin = false; let vercelConnected = false; let attachedDomains = []; let mockUser={id:'user-a',email:'a@example.test',isOperator:true};
   await cloudContext.route('**/api/**', async route => {
     const url = new URL(route.request().url());
-    if (url.pathname === '/api/config') return route.fulfill({json:{configured:true,customDomain:cloudDomain}});
+    if (url.pathname === '/api/config') return route.fulfill({json:{configured:true,customDomain:cloudDomain,platformDomain:new URL(base).host,user:mockUser,googleEnabled:true}});
+    if(url.pathname==='/api/auth'){
+      const action=url.searchParams.get('action');
+      if(action==='logout'){mockUser=null;return route.fulfill({json:{success:true}});}
+      if(action==='login'){
+        if(failLogin)return route.fulfill({status:401,json:{error:'Email atau password salah.'}});
+        mockUser={id:'user-a',email:'a@example.test',isOperator:true};return route.fulfill({json:{user:mockUser}});
+      }
+      return route.fulfill({json:{user:mockUser}});
+    }
     if (url.pathname === '/api/domain-integration') {
       vercelConnected=route.request().method() !== 'DELETE';return route.fulfill({json:{connected:vercelConnected}});
     }
@@ -253,14 +262,12 @@ try {
   await cloudPage.click('#btnResetSettingsDomain'); await cloudPage.locator('#topDomainText').filter({hasText:'127.0.0.1:3100'}).waitFor();
   await cloudPage.goto(base+'/#settings');
   assert.equal(await cloudPage.locator('#viewDomains').isVisible(),false);
-  await cloudPage.evaluate(()=>sessionStorage.setItem('autoshort_admin_token','previous-token'));
-  failLogin=true; await cloudPage.fill('#inputAdminToken','wrong-token'); await cloudPage.click('#btnSaveAdminToken');
-  await cloudPage.locator('#adminSessionStatus').filter({hasText:'Token admin diperlukan'}).waitFor();
-  assert.equal(await cloudPage.evaluate(()=>sessionStorage.getItem('autoshort_admin_token')),'previous-token');
-  failLogin=false;
-  await cloudPage.fill('#inputAdminToken','session-token'); await cloudPage.click('#btnSaveAdminToken');
-  await cloudPage.locator('#adminSessionStatus').filter({hasText:'Sesi admin aktif'}).waitFor();
-  await cloudPage.click('#btnLogoutAdmin'); assert.equal(await cloudPage.evaluate(()=>sessionStorage.getItem('autoshort_admin_token')),null);
+  await cloudPage.goto(base+'/#login');
+  failLogin=true;await cloudPage.fill('#authEmailInput','a@example.test');await cloudPage.fill('#authPasswordInput','wrong-password');await cloudPage.click('#btnAuthSubmit');await cloudPage.locator('#authMessage').filter({hasText:'Email atau password salah'}).waitFor();
+  failLogin=false;await cloudPage.fill('#authPasswordInput','correct-password');await cloudPage.click('#btnAuthSubmit');await cloudPage.waitForFunction(()=>document.body.dataset.view==='home');
+  assert.equal(await cloudPage.locator('#authPasswordInput').inputValue(),'');
+  await cloudPage.goto(base+'/#settings');await cloudPage.click('#btnLogoutAdmin');await cloudPage.locator('#viewAuth').waitFor({state:'visible'});
+  assert.equal(await cloudPage.evaluate(()=>sessionStorage.getItem('autoshort_admin_token')),null);assert.equal(await cloudPage.locator('#homeTotalLinks').textContent(),'—');
   assert.deepEqual(errors,[]);
   console.log('PASS: domain save/failure/reset/persistence, admin login/logout, cloud backup restrictions.');
   console.log('PASS: cloud CRUD, empty synchronization, isolated local data, and save failure handling.');
@@ -272,9 +279,9 @@ try {
   assert.equal(await signedOutPage.locator('#btnOpenCreateModal').isDisabled(),true);
   assert.equal(await signedOutPage.locator('#homeTotalLinks').textContent(),'—');
   assert.equal(await signedOutPage.locator('#btnHomeCreate').isDisabled(),true);
-  assert.match(await signedOutPage.locator('#homeRecentLinks').textContent(),/Masuk admin/);
+  assert.match(await signedOutPage.locator('#homeRecentLinks').textContent(),/Masuk akun/);
   await signedOutPage.screenshot({path:'test-results/home-signed-out-390.png',fullPage:true});
-  await signedOutPage.locator('#storageNotice a').click();await signedOutPage.locator('#viewSettings').waitFor({state:'visible'});
+  await signedOutPage.locator('#storageNotice a').click();await signedOutPage.locator('#viewAuth').waitFor({state:'visible'});
   await signedOut.close();
   console.log('PASS: keyboard menu/focus handling, local icons, signed-out cloud state and default home page.');
   const listContext=await browser.newContext({viewport:{width:390,height:900},permissions:['clipboard-read','clipboard-write']});

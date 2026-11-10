@@ -518,3 +518,16 @@ body.menu-open { overflow: hidden; }
   .chart-summary span { font-size: .62rem; gap: 5px; line-height: 1.5; }
   .summary-dot { width: 6px; height: 6px; }
 }
+
+/* Private accounts */
+.auth-card { max-width: 440px; margin: 12px auto; padding: 28px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 18px; }
+.auth-tabs { display: flex; gap: 8px; padding: 4px; margin-bottom: 20px; background: var(--bg-hover); border-radius: 10px; }
+.auth-tabs a { flex: 1; padding: 10px; text-align: center; color: var(--text-secondary); border-radius: 8px; font-size: .82rem; }
+.auth-tabs a.active { background: var(--bg-card); color: var(--brand-primary); font-weight: 600; }
+#btnGoogleLogin, #btnAuthSubmit { width: 100%; min-height: 44px; }
+.auth-divider { text-align: center; color: var(--text-muted); margin: 18px 0; font-size: .72rem; }
+#authMessage { font-size: .78rem; line-height: 1.7; color: var(--text-secondary); margin: 12px 0; }
+.auth-footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; font-size: .74rem; color: var(--brand-primary); }
+#accountEmail { overflow-wrap: anywhere; font-weight: 600; }
+.user-name-label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 140px; }
+@media(max-width:768px) { .auth-card { margin: 0; padding: 22px 18px; } }

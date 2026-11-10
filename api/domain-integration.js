@@ -1,7 +1,9 @@
-import { admin, configured, db, fail } from '../lib/db.js';
+import { requireAccount } from '../lib/auth.js';
+import { configured, db, fail } from '../lib/db.js';
 import { connectVercel, integrationToken } from '../lib/vercel-domains.js';
 export default async function handler(req, res) {
-  if (!admin(req, res)) return;
+  const user=await requireAccount(req,res);if(!user)return;
+  if(!user.isOperator)return res.status(403).json({error:'Koneksi platform hanya dapat diatur pemilik AutoShort.'});
   if (!configured()) return res.status(503).json({ error: 'Integrasi Vercel membutuhkan backend cloud.' });
   try {
     if (req.method === 'GET') return res.status(200).json({ connected: Boolean(await integrationToken()), managedByServer: Boolean(process.env.VERCEL_DOMAINS_TOKEN) });

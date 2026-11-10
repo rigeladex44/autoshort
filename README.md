@@ -25,15 +25,23 @@ Tanpa konfigurasi Supabase, aplikasi memakai **mode lokal**. Tautan dan riwayat 
 | --- | --- |
 | `SUPABASE_URL` | URL proyek Supabase |
 | `SUPABASE_SERVICE_ROLE_KEY` | Kunci server Supabase; jangan masukkan ke browser |
-| `ADMIN_TOKEN` | Token rahasia acak untuk mengelola tautan dan membaca statistik |
+| `SUPABASE_ANON_KEY` | Anon key untuk permintaan dengan JWT pengguna; RLS tetap berlaku |
+| `OWNER_USER_ID` | UUID akun pemilik dari Supabase Authentication → Users |
+| `AUTH_SITE_URL` | Origin HTTPS dashboard utama untuk callback login |
+| `AUTH_GOOGLE_ENABLED` | `true` setelah provider Google dikonfigurasi |
+| `PLATFORM_HOSTS` | Domain bersama existing, dipisahkan koma |
+| `ADMIN_TOKEN` | Opsional: akses pemeliharaan server lama; tidak dipakai untuk login dashboard |
 | Domain utama | Diatur melalui Pengaturan → Nama Domain Utama setelah DNS dan HTTPS aktif |
 
-4. Buka dashboard → **Pengaturan** → masukkan `ADMIN_TOKEN` → **Masuk admin**. Token disimpan di `sessionStorage`, bukan dikirim ke pengunjung shortlink.
-5. Buat tautan dan uji dari browser/perangkat lain. Tautan publik menggunakan database server untuk redirect; API pengelolaan memerlukan token admin. Dashboard ini untuk satu pengelola/kelompok yang berbagi token, bukan layanan multiakun.
+4. Di Supabase Authentication, aktifkan Email/password dengan konfirmasi email. Tambahkan `AUTH_SITE_URL/**` ke Redirect URLs. Untuk Google, konfigurasi OAuth client pada provider Google; authorized redirect Google adalah `https://<project>.supabase.co/auth/v1/callback`.
+5. Masuk melalui **Pengaturan → Masuk/Daftar** atau Google. Sesi memakai cookie HttpOnly, Secure pada produksi, SameSite=Lax. Token tidak disimpan di localStorage/sessionStorage. Tautan, statistik, domain, dan pilihan domain utama dipisahkan per pengguna melalui JWT terverifikasi dan RLS. Slug tetap unik secara global pada domain bersama; kapital dipertahankan.
+6. Akun pemilik menghubungkan integrasi Vercel melalui dashboard sekali. Pengguna lain dapat memasang domain sendiri, memeriksa DNS/HTTPS, dan mengaktifkannya tanpa mengetahui token Vercel. Domain pribadi hanya melayani tautan pemiliknya. Domain bersama existing perlu dicantumkan di `PLATFORM_HOSTS`.
 
-Untuk cloud saat pengembangan lokal, salin `.env.example` menjadi `.env` dan isi di perangkat Anda. `npm run dev` memuat file tersebut. Jangan commit kredensial. Konfigurasi URL/key lewat browser tidak mengatur backend server; semua konfigurasi database dilakukan di environment server.
+**SMTP untuk email publik:** bawaan Supabase dibatasi dan tidak cocok untuk pendaftaran publik. Rekomendasi: buat akun Resend, tambahkan domain pengirim dan pasang record DNS yang diberikan (SPF/DKIM). Setelah domain terverifikasi, buka Supabase → Authentication → Email → SMTP: host `smtp.resend.com`, port `465`, username `resend`, password berupa API key Resend, sender misalnya `noreply@domain-anda`. Masukkan secret langsung di pengaturan Supabase, bukan chat atau repositori. Uji email konfirmasi dan lupa password dari akun sendiri sebelum membuka pendaftaran publik. Biarkan konfirmasi email aktif; Google dapat digunakan sementara SMTP belum siap.
 
-**Upgrade dari versi lama:** unduh Backup JSON terlebih dahulu jika ada data lokal. Jalankan ulang schema dan isi service-role key serta token admin sebelum redeploy. `SUPABASE_ANON_KEY` saja tidak lagi digunakan. Data lokal tidak otomatis diunggah atau ditimpa oleh sinkronisasi cloud. Dukungan Upstash lama yang hanya sebagian telah digantikan satu backend Supabase yang konsisten.
+Untuk cloud saat pengembangan lokal, salin `.env.example` menjadi `.env`; jangan commit kredensial. `npm run dev` memuat file tersebut.
+
+**Upgrade:** backup database terlebih dahulu, lalu jalankan `migrations/20261110_user_accounts.sql` pada instalasi existing (schema lengkap untuk instalasi baru). Migrasi tidak menghapus tautan/klik atau mengganti pemilik yang sudah ada. Tautan tanpa pemilik tidak dialihkan oleh skrip; pengelola harus menentukan pemiliknya secara eksplisit. Pertahankan domain bersama dan daftar redirect OAuth existing. Data lokal tidak diunggah otomatis. Dalam cloud, daftar tautan dan klik tidak dicache permanen di browser dan dibersihkan saat pergantian akun.
 
 ## Fitur
 

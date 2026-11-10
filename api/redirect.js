@@ -38,7 +38,7 @@ export default async function handler(req, res) {
     try { cleanSlug = normalizeSlug(req.query.slug); } catch { return res.status(400).send('Slug tidak valid.'); }
     const fallback = (flag = '') => { res.writeHead(302, { Location: `/redirect.html?slug=${encodeURIComponent(cleanSlug)}${req.query.src === 'qr' ? '&src=qr' : ''}${flag}` }); return res.end(); };
     if (!configured()) return fallback();
-    const link = await findLink(cleanSlug);
+    const link = await findLink(cleanSlug,req.headers.host);
     if (!link) return fallback('&missing=true');
     const state = linkState(link);
     if (state === 'paused' || state === 'expired') return fallback(`&${state}=true`);
@@ -54,7 +54,7 @@ export default async function handler(req, res) {
       // Check if social preview metadata exists
       const previewTitle = link.og_title || link.title || cleanSlug;
       const previewDesc = link.og_description || '';
-      const host = ((isSocialBot(userAgent) ? await savedDomain() : '') || req.headers['host']).replace(/^https?:\/\//, '').replace(/\/$/, '');
+      const host = (req.headers['host']).replace(/^https?:\/\//, '').replace(/\/$/, '');
       const shortUrl = `https://${host}/${cleanSlug}`;
 
       let previewImageUrl = link.og_image || '';
