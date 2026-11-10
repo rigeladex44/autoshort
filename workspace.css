@@ -502,3 +502,19 @@ body.menu-open { overflow: hidden; }
 .chart-inspect-tooltip span { color: #d8dced; font-size: .69rem; }
 .chart-bar-column.is-selected .stacked-bar-fill { filter: brightness(1.12); }
 @media(max-width:768px) { .chart-inspect-tooltip { font-size: .69rem; padding: 8px 10px; } }
+
+/* Real totals beneath the timeline, fitting all three cells on mobile. */
+.chart-summary { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); border-top: 1px solid var(--border-card); margin: 10px -24px -24px; }
+.chart-summary > div { min-width: 0; padding: 20px 24px; }
+.chart-summary > div + div { border-left: 1px solid var(--border-card); }
+.chart-summary strong { display: block; font-size: 1.7rem; font-weight: 700; letter-spacing: -.6px; margin-bottom: 6px; overflow-wrap: anywhere; }
+.chart-summary span { display: flex; align-items: baseline; gap: 7px; font-size: .76rem; color: var(--text-secondary); }
+.summary-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.links-dot { background: #3b82f6; }.visits-dot { background: var(--chart-visitors); }.unique-dot { background: var(--chart-unique); }
+@media(max-width:768px) {
+  .chart-summary { margin: 8px -12px -18px; }
+  .chart-summary > div { padding: 14px 10px; }
+  .chart-summary strong { font-size: 1.35rem; margin-bottom: 5px; }
+  .chart-summary span { font-size: .62rem; gap: 5px; line-height: 1.5; }
+  .summary-dot { width: 6px; height: 6px; }
+}

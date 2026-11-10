@@ -114,6 +114,7 @@ try {
   for(let days=1;days<=7;days++){await chooseRange(page,'2026-01-10',`2026-01-${9+days}`);assert.equal(await page.locator('.chart-bar-column').count(),days<=2?days*24:days);}
   await chooseRange(page,'2026-01-10','2026-01-10');
   assert.equal(await page.locator('#chartDetailSelect, #chartSelectedDetail, .chart-detail-controls').count(),0);
+  await page.locator('.perf-header h3').hover();
   assert.equal(await page.locator('#chartHoverDetail').isVisible(),false);
   await page.locator('.chart-bar-column').nth(14).click();assert.match(await page.locator('#chartHoverDetail').textContent(),/14:00/);
   await page.locator('.chart-bar-column').nth(9).click();assert.match(await page.locator('#chartHoverDetail').textContent(),/09:00/);
@@ -156,6 +157,7 @@ try {
   await page.goto(base + '/#analytics');
   await page.waitForFunction(()=>document.body.dataset.view==='analytics');
   assert.equal(await page.locator('#yAxisTop').textContent(),'2');
+  assert.equal(await page.locator('#chartTotalLinks').textContent(),'1');assert.equal(await page.locator('#chartVisitors').textContent(),'1');assert.equal(await page.locator('#chartUniqueVisitors').textContent(),'1');
   await page.click('#btnDownloadCsv').catch(()=>{});
   // Backup and restore preserve data, and expiry blocks a visit without logging it.
   await page.goto(base + '/#settings');
@@ -304,6 +306,18 @@ try {
   assert.match(await listPage.locator('.home-activity-item').first().textContent(),/recent-visit/);
   await listPage.evaluate(()=>{localStorage.setItem('autoshort_theme','dark');});await listPage.reload();await listPage.screenshot({path:'test-results/home-dark-1440.png',fullPage:true});
   await listPage.setViewportSize({width:390,height:900});await listPage.screenshot({path:'test-results/home-dark-390.png',fullPage:true});
+  await listPage.evaluate(()=>localStorage.setItem('autoshort_clicks',JSON.stringify([
+    {id:'sum-1',link_id:'home-0',slug:'home-0',visitor_id:'same',clicked_at:new Date(2026,0,10,9,15).toISOString()},
+    {id:'sum-2',link_id:'home-0',slug:'home-0',visitor_id:'same',clicked_at:new Date(2026,0,10,10,15).toISOString()},
+    {id:'sum-3',link_id:'home-1',slug:'home-1',visitor_id:'other',clicked_at:new Date(2026,0,10,11,15).toISOString()},
+    {id:'old',link_id:'home-0',slug:'home-0',visitor_id:'old',clicked_at:new Date(2025,0,1).toISOString()}
+  ])));
+  await listPage.reload();await listPage.goto(base+'/#analytics');await chooseRange(listPage,'2026-01-10','2026-01-10');
+  assert.equal(await listPage.locator('#chartTotalLinks').textContent(),'7');assert.equal(await listPage.locator('#chartVisitors').textContent(),'3');assert.equal(await listPage.locator('#chartUniqueVisitors').textContent(),'2');
+  await listPage.selectOption('#selectLinkFilter','home-0');assert.equal(await listPage.locator('#chartTotalLinks').textContent(),'1');assert.equal(await listPage.locator('#chartVisitors').textContent(),'2');assert.equal(await listPage.locator('#chartUniqueVisitors').textContent(),'1');
+  await chooseRange(listPage,'2026-01-11','2026-01-11');assert.equal(await listPage.locator('#chartVisitors').textContent(),'0');assert.equal(await listPage.locator('#chartUniqueVisitors').textContent(),'0');
+  for(const width of [320,390,768,1440]){await listPage.setViewportSize({width,height:900});assert.equal(await listPage.locator('.chart-summary').evaluate(e=>e.scrollWidth>e.clientWidth+1),false);await listPage.screenshot({path:`test-results/chart-summary-${width}.png`,fullPage:true});}
+  console.log('PASS: chart summary follows date/link filters and deduplicates visitors across hours.');
   await listContext.close();console.log('PASS: stacked cards, detail isolation, copy URL, home totals, empty activity, home create action and focus restoration.');
 
 } finally { await browser?.close(); server.kill(); }

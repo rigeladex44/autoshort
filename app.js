@@ -568,6 +568,12 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       return true;
     });
 
+    const summaryReady = !cloudMode || adminConnected;
+    const summaryLinks = activeLinkFilter === 'all' ? links.length : links.filter(link=>link.slug===activeLinkFilter).length;
+    const summaryUnique = new Set(filteredClicks.map(click=>click.visitor_id||click.id).filter(value=>value!==undefined&&value!==null)).size;
+    for (const [id,value] of [['chartTotalLinks',summaryLinks],['chartVisitors',filteredClicks.length],['chartUniqueVisitors',summaryUnique]]) {
+      document.getElementById(id).textContent=summaryReady?value.toLocaleString('id-ID'):'—';
+    }
     const chartData=buildAnalyticsBuckets(selectedStartDate,selectedEndDate,filteredClicks);
     renderStackedBarChart(chartData);
     renderPerformanceTable(filteredClicks);
