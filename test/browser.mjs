@@ -75,7 +75,7 @@ try {
   // Every view must fit both desktop and phone widths, including a 320 px screen.
   for (const width of [1440,768,390,320]) {
     await page.setViewportSize({width,height:900});
-    for (const view of ['analytics','shortener','qr-studio','activity','domains','settings']) {
+    for (const view of ['home','analytics','shortener','qr-studio','activity','domains','settings']) {
       await page.goto(base + '/#' + view);
       await page.waitForTimeout(80);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
@@ -107,6 +107,8 @@ try {
   assert.equal(await page.locator('.chart-bar-column').count(),7);
   await page.goto(base + '/#shortener'); await page.click('#btnOpenCreateModal'); await page.fill('#modalDestUrl','example.com'); await page.fill('#modalSlug','new-mobile');
   await page.screenshot({path:'test-results/modal-mobile.png'}); await page.keyboard.press('Escape'); assert.equal(await page.locator('#modalLink').isVisible(),false);
+  await page.goto(base+'/#home');await page.waitForFunction(()=>document.body.dataset.view==='home');
+  assert.equal(await page.locator('#homeTotalClicks').textContent(),'1');assert.equal(await page.locator('#homeQrClicks').textContent(),'1');assert.equal(await page.locator('.home-activity-item').count(),1);
   await page.goto(base + '/#analytics');
   await page.waitForFunction(()=>document.body.dataset.view==='analytics');
   assert.equal(await page.locator('#yAxisTop').textContent(),'2');
@@ -128,7 +130,7 @@ try {
   // Theme persists across reload.
   await page.click('#btnMobileMenuToggle'); await page.click('#btnThemeToggle'); await page.reload(); assert.equal(await page.locator('html').getAttribute('data-theme'),'dark');
   assert.deepEqual(errors,[]);
-  console.log('PASS: user flows, mobile navigation, separate domain/settings views and 24 responsive views.');
+  console.log('PASS: user flows, mobile navigation, separate domain/settings views and 28 responsive views.');
   await page.screenshot({path:'test-results/analytics-dark-390.png',fullPage:true});
   await page.goto(base+'/#domains'); await page.screenshot({path:'test-results/domains-dark-390.png',fullPage:true});
   await page.setViewportSize({width:1440,height:1000}); await page.screenshot({path:'test-results/domains-dark-1440.png',fullPage:true});
@@ -219,14 +221,18 @@ try {
   const signedOut=await browser.newContext({viewport:{width:390,height:844}});
   await signedOut.route('**/api/**',route=>new URL(route.request().url()).pathname==='/api/config'?route.fulfill({json:{configured:true,customDomain:''}}):route.fulfill({status:401,json:{error:'Token admin diperlukan'}}));
   const signedOutPage=await signedOut.newPage();await signedOutPage.goto(base);
+  await signedOutPage.waitForFunction(()=>document.body.dataset.view==='home');
   await signedOutPage.locator('#storageNotice a').waitFor();
   assert.equal(await signedOutPage.locator('#btnOpenCreateModal').isDisabled(),true);
-  assert.match(await signedOutPage.locator('#emptyState h4').textContent(),/cloud/);
+  assert.equal(await signedOutPage.locator('#homeTotalLinks').textContent(),'—');
+  assert.equal(await signedOutPage.locator('#btnHomeCreate').isDisabled(),true);
+  assert.match(await signedOutPage.locator('#homeRecentLinks').textContent(),/Masuk admin/);
+  await signedOutPage.screenshot({path:'test-results/home-signed-out-390.png',fullPage:true});
   await signedOutPage.locator('#storageNotice a').click();await signedOutPage.locator('#viewSettings').waitFor({state:'visible'});
   await signedOut.close();
-  console.log('PASS: keyboard menu/focus handling, local icons, signed-out cloud state and default links page.');
+  console.log('PASS: keyboard menu/focus handling, local icons, signed-out cloud state and default home page.');
   const listContext=await browser.newContext({viewport:{width:390,height:900},permissions:['clipboard-read','clipboard-write']});
-  await listContext.addInitScript(()=>localStorage.setItem('autoshort_links',JSON.stringify([1,2,3].map(n=>({id:'list-'+n,slug:'list-'+n,title:'Link '+n,destination_url:'https://example.com/private-target-'+n,tags:['detail-only-tag'],is_active:true,clicks:n,created_at:new Date().toISOString()})))));
+  await listContext.addInitScript(()=>localStorage.getItem('autoshort_links') || localStorage.setItem('autoshort_links',JSON.stringify([1,2,3].map(n=>({id:'list-'+n,slug:'list-'+n,title:'Link '+n,destination_url:'https://example.com/private-target-'+n,tags:['detail-only-tag'],is_active:true,clicks:n,created_at:new Date().toISOString()})))));
   const listPage=await listContext.newPage();await listPage.goto(base+'/#shortener');await listPage.locator('.link-summary-card').nth(2).waitFor();
   for(const width of [320,390,768,1440]){
     await listPage.setViewportSize({width,height:900});
@@ -237,6 +243,23 @@ try {
     await listPage.click('[data-action="copy"]');assert.equal(await listPage.evaluate(()=>navigator.clipboard.readText()),base+'/list-2');
     await listPage.locator('#linkDetailsModal').click({position:{x:5,y:5}});assert.equal(await listPage.locator('#linkDetailsModal').isVisible(),false);
   }
-  await listContext.close();console.log('PASS: three full-width stacked cards, detail isolation, copy URL and backdrop dismissal on all four widths.');
+  await listPage.goto(base);await listPage.waitForFunction(()=>document.body.dataset.view==='home');
+  assert.equal(await listPage.locator('#homeTotalLinks').textContent(),'3');assert.equal(await listPage.locator('#homeTotalClicks').textContent(),'6');assert.equal(await listPage.locator('#homeActiveLinks').textContent(),'3');assert.equal(await listPage.locator('#homeQrClicks').textContent(),'0');
+  assert.equal(await listPage.locator('.home-recent-link').count(),3);assert.match(await listPage.locator('#homeRecentActivity').textContent(),/Belum ada kunjungan/);
+  await listPage.locator('.home-recent-link').nth(1).click();await listPage.click('#btnCloseLinkDetails');assert.equal(await listPage.evaluate(()=>document.activeElement.classList.contains('home-recent-link')),true);
+  await listPage.click('#btnHomeCreate');await listPage.locator('#modalLink').waitFor({state:'visible'});await listPage.keyboard.press('Escape');
+  assert.equal(await listPage.evaluate(()=>document.activeElement.id),'btnHomeCreate');
+  for(const width of [320,390,768,1440]){await listPage.setViewportSize({width,height:900});assert.equal(await listPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);await listPage.screenshot({path:`test-results/home-summary-${width}.png`,fullPage:true});}
+  await listPage.evaluate(()=>{
+    localStorage.setItem('autoshort_links',JSON.stringify(Array.from({length:7},(_,n)=>({id:'home-'+n,slug:'home-'+n,title:'Link '+n,destination_url:'https://example.com/'+n,clicks:n,created_at:new Date(Date.UTC(2026,0,n+1)).toISOString(),is_active:n!==2,password:n===1?'private':null,expires_at:n===3?'2000-01-01':null}))));
+    localStorage.setItem('autoshort_clicks',JSON.stringify([{link_id:'home-0',slug:'old-visit',clicked_at:'2000-01-01T00:00:00Z',is_qr:true},{link_id:'home-6',slug:'recent-visit',clicked_at:new Date().toISOString(),is_qr:false}]));
+  });
+  await listPage.reload();await listPage.locator('.home-recent-link').nth(4).waitFor();
+  assert.equal(await listPage.locator('#homeTotalClicks').textContent(),'21');assert.equal(await listPage.locator('#homeActiveLinks').textContent(),'5');assert.equal(await listPage.locator('#homeQrClicks').textContent(),'1');
+  assert.deepEqual(await listPage.locator('.home-recent-link').evaluateAll(rows=>rows.map(row=>row.dataset.id)),['home-6','home-5','home-4','home-3','home-2']);
+  assert.match(await listPage.locator('.home-activity-item').first().textContent(),/recent-visit/);
+  await listPage.evaluate(()=>{localStorage.setItem('autoshort_theme','dark');});await listPage.reload();await listPage.screenshot({path:'test-results/home-dark-1440.png',fullPage:true});
+  await listPage.setViewportSize({width:390,height:900});await listPage.screenshot({path:'test-results/home-dark-390.png',fullPage:true});
+  await listContext.close();console.log('PASS: stacked cards, detail isolation, copy URL, home totals, empty activity, home create action and focus restoration.');
 
 } finally { await browser?.close(); server.kill(); }

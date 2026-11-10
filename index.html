@@ -31,7 +31,7 @@
       
       <!-- Brand Logo -->
       <div class="sidebar-header">
-        <a href="#shortener" class="sid-brand-logo">
+        <a href="#home" class="sid-brand-logo">
           <div class="brand-icon-square"><i class="fa-solid fa-bolt"></i></div>
           <span class="brand-text-main">Auto<span class="brand-text-accent">Short</span></span>
         </a>
@@ -42,6 +42,7 @@
       <nav class="sidebar-nav">
         <div class="nav-section-label">RUANG KERJA</div>
         <ul class="nav-list">
+          <li class="nav-item active" data-view="home" id="sidebarNavHome"><a href="#home" class="nav-link"><i class="fa-solid fa-house nav-icon" aria-hidden="true"></i><span class="nav-label">Beranda</span></a></li>
           <li class="nav-item" data-view="shortener" id="sidebarNavShortener">
             <a href="#shortener" class="nav-link">
               <i class="fa-solid fa-link nav-icon"></i>
@@ -66,7 +67,7 @@
 
         <div class="nav-section-label">RINGKASAN</div>
         <ul class="nav-list">
-          <li class="nav-item active" data-view="analytics" id="sidebarNavAnalytics">
+          <li class="nav-item" data-view="analytics" id="sidebarNavAnalytics">
             <a href="#analytics" class="nav-link">
               <i class="fa-solid fa-chart-column nav-icon"></i>
               <span class="nav-label">Analitik</span>
@@ -128,8 +129,8 @@
             <i class="fa-solid fa-bars"></i>
           </button>
           <div class="topbar-title-wrap">
-            <i class="fa-solid fa-chart-column title-icon" id="topbarIcon"></i>
-            <h1 class="topbar-title" id="topbarTitle">Data Analisis Kunjungan</h1>
+            <i class="fa-solid fa-house title-icon" id="topbarIcon"></i>
+            <h1 class="topbar-title" id="topbarTitle">Beranda</h1>
           </div>
         </div>
 
@@ -152,7 +153,22 @@
       <!-- VIEW 1: DATA ANALISIS (ANALYTICS) -->
       <!-- ======================================================== -->
       <p id="storageNotice" class="storage-notice" role="status">Memeriksa penyimpanan…</p>
-      <main tabindex="-1" class="sid-content-area" id="viewAnalytics">
+      <main tabindex="-1" class="sid-content-area" id="viewHome">
+        <div class="home-heading"><div class="page-heading"><span class="page-eyebrow">RINGKASAN</span><h2>Beranda</h2><p>Ringkasan tautan dan kunjungan Anda, dalam satu tempat.</p></div><button type="button" class="btn btn-primary" id="btnHomeCreate"><i class="fa-solid fa-plus" aria-hidden="true"></i> Buat link</button></div>
+        <div class="home-metrics" aria-label="Ringkasan keseluruhan">
+          <div class="home-metric"><span>Total link</span><strong id="homeTotalLinks">—</strong><small>Semua link yang tersimpan</small></div>
+          <div class="home-metric"><span>Total klik</span><strong id="homeTotalClicks">—</strong><small>Akumulasi klik seluruh link</small></div>
+          <div class="home-metric"><span>Link aktif</span><strong id="homeActiveLinks">—</strong><small>Termasuk link dengan password</small></div>
+          <div class="home-metric"><span>Kunjungan QR</span><strong id="homeQrClicks">—</strong><small>Dari riwayat yang tercatat</small></div>
+        </div>
+        <div class="home-grid">
+          <section class="home-panel"><div class="home-panel-header"><h3>Link terbaru</h3><a href="#shortener">Lihat semua <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a></div><div id="homeRecentLinks" class="home-recent-links"></div></section>
+          <section class="home-panel"><div class="home-panel-header"><h3>Aktivitas terakhir</h3><a href="#activity">Lihat semua <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a></div><ul id="homeRecentActivity" class="home-activity-list"></ul></section>
+        </div>
+        <a class="home-analytics-link" href="#analytics"><i class="fa-solid fa-chart-column" aria-hidden="true"></i> Buka analitik lengkap <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
+      </main>
+
+      <main tabindex="-1" class="sid-content-area" id="viewAnalytics" style="display:none;">
         <div class="page-heading"><span class="page-eyebrow">RINGKASAN</span><h2>Performa tautan</h2><p>Lihat kunjungan, sumber trafik, dan aktivitas dari tautan Anda.</p></div>
         
         <!-- 4 KPI SUMMARY METRICS ROW -->
@@ -737,6 +753,7 @@
   </div>
 
   <nav class="mobile-bottom-nav" aria-label="Navigasi utama ponsel">
+    <a href="#home" class="mobile-nav-link" data-view="home"><i class="fa-solid fa-house" aria-hidden="true"></i><span>Beranda</span></a>
     <a href="#shortener" class="mobile-nav-link" data-view="shortener"><i class="fa-solid fa-link" aria-hidden="true"></i><span>Tautan</span></a>
     <a href="#analytics" class="mobile-nav-link" data-view="analytics"><i class="fa-solid fa-chart-column" aria-hidden="true"></i><span>Analitik</span></a>
     <a href="#qr-studio" class="mobile-nav-link" data-view="qr-studio"><i class="fa-solid fa-qrcode" aria-hidden="true"></i><span>QR</span></a>

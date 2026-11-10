@@ -53,7 +53,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     return saved;
   }
   function renderAll() {
-    renderAnalytics(); renderShortenerLinks(); renderLinkDetails();
+    renderHome(); renderAnalytics(); renderShortenerLinks(); renderLinkDetails();
     if (currentView === 'qr-studio') updateQrStudio();
     if (currentView === 'activity') renderActivityTable();
   }
@@ -87,7 +87,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     if (!mobile) { sidebar.classList.remove('open'); document.getElementById('menuBackdrop').hidden = true; document.getElementById('btnMobileMenuToggle').setAttribute('aria-expanded', 'false'); }
   }
   let customDomain = location.host;
-  let currentView = 'shortener';
+  let currentView = 'home';
 
   // Dynamic Date Range (Defaults to last 7 days up to today)
   const now = new Date();
@@ -123,6 +123,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     setupRouting();
     renderAnalytics();
     renderShortenerLinks();
+    renderHome();
     initQrStudio();
     backendReady = fetchBackendConfig();
     backendReady.catch(error => showToast(error.message, 'warning'));
@@ -205,6 +206,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     if (e.key === 'autoshort_clicks' || e.key === 'autoshort_links') {
       const prevCount = clicksHistory.length;
       loadStoredData();
+      renderHome();
       renderAnalytics();
       renderShortenerLinks();
       if (currentView === 'activity') renderActivityTable();
@@ -267,7 +269,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   // --- ROUTING / VIEW SWITCHING ---
   function setupRouting() {
     const handleHash = () => {
-      const hash = window.location.hash.replace('#', '') || 'shortener';
+      const hash = window.location.hash.replace('#', '') || 'home';
       switchView(hash);
     };
 
@@ -276,12 +278,14 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   }
 
   function switchView(viewName) {
-    if (!['analytics', 'shortener', 'qr-studio', 'activity', 'domains', 'settings'].includes(viewName)) viewName = 'shortener';
+    if (['beranda', 'dashboard'].includes(viewName)) viewName = 'home';
+    if (!['home', 'analytics', 'shortener', 'qr-studio', 'activity', 'domains', 'settings'].includes(viewName)) viewName = 'home';
     document.body.dataset.view = viewName;
     closeMenu();
     window.scrollTo(0, 0);
     currentView = viewName;
     const views = {
+      home: document.getElementById('viewHome'),
       analytics: document.getElementById('viewAnalytics'),
       shortener: document.getElementById('viewShortener'),
       'qr-studio': document.getElementById('viewQrStudio'),
@@ -308,7 +312,12 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     });
     for (const [name, view] of Object.entries(views)) view?.setAttribute('aria-hidden', String(name !== viewName));
 
-    if (viewName === 'shortener') {
+    if (viewName === 'home') {
+      views.home.style.display = 'block';
+      topTitle.textContent = 'Beranda';
+      topIcon.className = 'fa-solid fa-house title-icon';
+      renderHome();
+    } else if (viewName === 'shortener') {
       if (views.shortener) views.shortener.style.display = 'block';
       if (topTitle) topTitle.textContent = 'Tautan';
       if (topIcon) topIcon.className = 'fa-solid fa-link title-icon';
@@ -1043,6 +1052,41 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     window.open(shortUrl(link.slug, isQr), '_blank', 'noopener');
   }
 
+  // Home always summarizes all loaded data, independently from analytics filters.
+  function renderHome() {
+    const ready = !cloudMode || adminConnected;
+    const put = (id,value) => { document.getElementById(id).textContent = ready ? value.toLocaleString('id-ID') : '—'; };
+    put('homeTotalLinks', links.length);
+    put('homeTotalClicks', links.reduce((sum,link)=>sum+(Number(link.clicks)||0),0));
+    put('homeActiveLinks', links.filter(link=>['active','protected'].includes(linkState(link))).length);
+    put('homeQrClicks', clicksHistory.filter(click=>click.is_qr).length);
+    const recentLinks=document.getElementById('homeRecentLinks');
+    const activity=document.getElementById('homeRecentActivity');
+    recentLinks.replaceChildren();activity.replaceChildren();
+    if (!ready) {
+      for(const container of [recentLinks,activity]) {
+        const message=document.createElement(container===activity?'li':'p');message.className='home-empty';message.append('Masuk sebagai admin untuk melihat data cloud. ');
+        const login=document.createElement('a');login.href='#settings';login.textContent='Masuk admin';message.append(login);container.append(message);
+      }
+      return;
+    }
+    const latest=[...links].sort((a,b)=>(Date.parse(b.created_at)||0)-(Date.parse(a.created_at)||0)).slice(0,5);
+    for(const link of latest) {
+      const button=document.createElement('button');button.type='button';button.className='home-recent-link';button.dataset.id=link.id;button.setAttribute('aria-haspopup','dialog');button.setAttribute('aria-controls','linkDetailsModal');
+      button.innerHTML=`<span><strong>${escapeHtml(link.og_title||link.title||link.slug)}</strong><small>${escapeHtml(shortUrl(link.slug))}</small></span><span class="home-link-clicks">${(Number(link.clicks)||0).toLocaleString('id-ID')} klik <i class="fa-solid fa-chevron-right" aria-hidden="true"></i></span>`;
+      button.onclick=()=>openLinkDetails(link.id);recentLinks.append(button);
+    }
+    if (!latest.length) recentLinks.innerHTML='<p class="home-empty">Belum ada link. Klik <strong>Buat link</strong> untuk mulai membagikan tautan Anda.</p>';
+    for(const click of [...clicksHistory].sort((a,b)=>(Date.parse(b.clicked_at)||0)-(Date.parse(a.clicked_at)||0)).slice(0,5)) {
+      const li=document.createElement('li');li.className='home-activity-item';
+      const date=new Date(click.clicked_at);
+      const label=Number.isNaN(date.getTime())?'Waktu tidak tersedia':date.toLocaleString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+      li.innerHTML=`<span class="home-activity-icon"><i class="fa-solid ${click.is_qr?'fa-qrcode':'fa-arrow-pointer'}" aria-hidden="true"></i></span><span class="home-activity-main"><strong>${escapeHtml(click.slug||'Link')}</strong><small>${click.is_qr?'Scan QR':'Klik web'}</small></span><time>${escapeHtml(label)}</time>`;
+      activity.append(li);
+    }
+    if (!activity.children.length) activity.innerHTML='<li class="home-empty">Belum ada kunjungan tercatat. Aktivitas akan muncul setelah link Anda dikunjungi.</li>';
+  }
+
   // --- LINK LIST & ON-DEMAND DETAILS ---
   function renderShortenerLinks() {
     const container = document.getElementById('linksCardsContainer');
@@ -1075,8 +1119,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     document.getElementById('linkDetailsModal').style.display='none';
     if (document.getElementById('modalLink').style.display==='none') document.body.classList.remove('modal-open');
     if (restoreFocus && id) {
-      const card=[...document.querySelectorAll('.link-summary-card')].find(card=>card.dataset.id===id);
-      (card || document.getElementById('btnOpenCreateModal')).focus();
+      const card=[...document.querySelectorAll('.link-summary-card, .home-recent-link')].find(card=>card.dataset.id===id && card.offsetParent !== null);
+      (card || document.getElementById(currentView==='home'?'btnHomeCreate':'btnOpenCreateModal')).focus();
     }
   }
   function openLinkDetails(id) {
@@ -1127,7 +1171,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
         if (cloudMode) await api(`/api/links?id=${encodeURIComponent(link.id)}`,{method:'DELETE'});
         links=links.filter(item=>item.id!==link.id);clicksHistory=clicksHistory.filter(c=>c.link_id!==link.id&&c.slug!==link.slug);
         if (activeLinkFilter===link.slug) activeLinkFilter='all';
-        closeLinkDetails(false);saveLocalLinks();saveLocalClicks();renderAll();document.getElementById('btnOpenCreateModal').focus();
+        closeLinkDetails(false);saveLocalLinks();saveLocalClicks();renderAll();document.getElementById(currentView==='home'?'btnHomeCreate':'btnOpenCreateModal').focus();
         showToast('Tautan berhasil dihapus','info');
       });
     };
@@ -1324,7 +1368,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     }
 
     // Sidebar & Header Create Link Buttons
-    ['btnSidebarCreateLink', 'btnOpenCreateModal'].forEach(id => {
+    ['btnHomeCreate', 'btnSidebarCreateLink', 'btnOpenCreateModal'].forEach(id => {
       const btn = document.getElementById(id);
       if (btn) btn.onclick = () => openEditLinkModal(null);
     });
@@ -1612,7 +1656,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     if (cloudMode && !adminConnected) {
       const link = document.createElement('a'); link.href = '#settings'; link.textContent = 'Masuk admin'; notice.append(link);
     }
-    for (const id of ['btnOpenCreateModal', 'btnSidebarCreateLink', 'btnSaveModalLink']) document.getElementById(id).disabled = cloudMode && !adminConnected;
+    for (const id of ['btnHomeCreate', 'btnOpenCreateModal', 'btnSidebarCreateLink', 'btnSaveModalLink']) document.getElementById(id).disabled = cloudMode && !adminConnected;
     document.getElementById('userRoleLabel').textContent = cloudMode ? (adminConnected ? 'Admin terhubung' : 'Mode cloud') : 'Mode lokal';
   }
 

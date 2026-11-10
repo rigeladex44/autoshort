@@ -57,7 +57,7 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Tes API memakai mock database untuk validasi, otorisasi, CRUD, proteksi redirect, pencatatan klik atomik, dan pagination. Tes Chromium menjalankan server lokal terisolasi, mencoba alur pengguna, mendekode QR hasil unduhan, serta memeriksa seluruh halaman pada lebar 320, 390, 768, dan 1440 px (24 kombinasi halaman/ukuran). Screenshot disimpan ke `test-results/`. Cloud diuji menggunakan respons API terkontrol; pengujian terhadap proyek Supabase/Vercel nyata memerlukan konfigurasi deployment Anda. Iklan pihak ketiga dikecualikan dari tes deterministik.
+Tes API memakai mock database untuk validasi, otorisasi, CRUD, proteksi redirect, pencatatan klik atomik, dan pagination. Tes Chromium menjalankan server lokal terisolasi, mencoba alur pengguna, mendekode QR hasil unduhan, serta memeriksa seluruh halaman pada lebar 320, 390, 768, dan 1440 px (28 kombinasi halaman/ukuran). Screenshot disimpan ke `test-results/`. Cloud diuji menggunakan respons API terkontrol; pengujian terhadap proyek Supabase/Vercel nyata memerlukan konfigurasi deployment Anda. Iklan pihak ketiga dikecualikan dari tes deterministik.
 
 ## Struktur
 
@@ -89,6 +89,6 @@ Jalankan kembali `supabase_schema.sql` sebelum menggunakan versi ini untuk membu
 
 ## Tampilan dan navigasi
 
-Halaman awal membuka **Tautan**. Halaman Link menyediakan tombol **Buat link** untuk membuka popup pembuatan dan daftar kartu memanjang satu per baris. Klik kartu untuk melihat detail, menyalin URL, mengedit, membuka QR/statistik, menjeda, atau menghapus link. Pada ponsel, navigasi bawah memberikan akses cepat ke Tautan, Analitik, QR, dan Domain; menu samping memuat Aktivitas, Pengaturan, serta pilihan tema. Domain dan Pengaturan merupakan halaman terpisah. Shortcut `/` membuka pencarian tautan; Escape menutup dialog/menu. Menu mobile dan dialog mendukung navigasi keyboard.
+Halaman awal membuka **Beranda**, yang merangkum seluruh link, klik, link aktif, kunjungan QR, lima link terbaru, dan lima aktivitas terakhir. Ringkasan tidak dipengaruhi filter Analitik. Tombol **Buat link** membuka popup pembuatan dan kartu link terbaru membuka detail. Halaman Link menyediakan tombol **Buat link** untuk membuka popup pembuatan dan daftar kartu memanjang satu per baris. Klik kartu untuk melihat detail, menyalin URL, mengedit, membuka QR/statistik, menjeda, atau menghapus link. Pada ponsel, navigasi bawah memberikan akses cepat ke Beranda, Tautan, Analitik, QR, dan Domain; menu samping memuat Aktivitas, Pengaturan, serta pilihan tema. Domain dan Pengaturan merupakan halaman terpisah. Shortcut `/` membuka pencarian tautan; Escape menutup dialog/menu. Menu mobile dan dialog mendukung navigasi keyboard.
 
 Ikon Font Awesome 6.5.1 disajikan dari `assets/fontawesome/` agar navigasi tidak bergantung pada CDN. Lisensi tersedia di `assets/fontawesome/LICENSE.txt`. `workspace.css` memuat komponen tampilan dan penyesuaian layar di atas stylesheet dasar. Dashboard tidak memuat iklan atau font eksternal.
