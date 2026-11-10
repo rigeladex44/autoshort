@@ -36,7 +36,9 @@ button:disabled { cursor: not-allowed; }
 .skip-link:focus { top: 12px; }
 .sid-sidebar { width: 238px; padding: 12px 0; }
 .sidebar-header { padding: 22px 24px 28px; }
-.brand-icon-square { background: #5146cb; box-shadow: none; border-radius: 11px; width: 34px; height: 36px; }
+.brand-logo-image { display: block; width: 44px; height: 44px; object-fit: contain; flex-shrink: 0; }
+.mobile-brand-logo { display: none; }
+.auth-brand-logo { display: block; width: 64px; height: 64px; object-fit: contain; margin-bottom: 16px; }
 .brand-text-main { font-size: 1.25rem; letter-spacing: -.8px; }
 .brand-text-accent { color: var(--text-main); }
 .sidebar-nav { padding: 0 16px; }
@@ -531,3 +533,10 @@ body.menu-open { overflow: hidden; }
 #accountEmail { overflow-wrap: anywhere; font-weight: 600; }
 .user-name-label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 140px; }
 @media(max-width:768px) { .auth-card { margin: 0; padding: 22px 18px; } }
+
+@media (max-width: 768px) {
+  .mobile-brand-logo { display: flex; align-items: center; justify-content: center; flex: 0 0 32px; min-height: 44px; }
+  .mobile-brand-logo img { display: block; width: 32px; height: 32px; object-fit: contain; }
+  .topbar-left { gap: 8px; }
+  .auth-brand-logo { width: 56px; height: 56px; margin-bottom: 12px; }
+}

@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>AutoShort — Dashboard Analisis Data & URL Shortener Real-Time</title>
+  <link rel="icon" type="image/png" sizes="48x48" href="/assets/brand/favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/assets/brand/apple-touch-icon.png">
   <meta name="description" content="Dashboard shortlink modern dengan analisis statistik pengunjung real-time, pengunjung unik, kunjungan QR, dan pratinjau tautan.">
 
   <link rel="stylesheet" href="assets/fontawesome/css/all.min.css">
@@ -32,7 +34,7 @@
       <!-- Brand Logo -->
       <div class="sidebar-header">
         <a href="#home" class="sid-brand-logo">
-          <div class="brand-icon-square"><i class="fa-solid fa-bolt"></i></div>
+          <img class="brand-logo-image" src="/assets/brand/autoshort-logo.png" alt="" width="44" height="44" decoding="async">
           <span class="brand-text-main">Auto<span class="brand-text-accent">Short</span></span>
         </a>
         <button type="button" class="sidebar-close" id="btnCloseSidebar" aria-label="Tutup menu navigasi"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
@@ -128,6 +130,7 @@
           <button class="mobile-menu-toggle" id="btnMobileMenuToggle" aria-label="Buka menu navigasi" aria-controls="sidSidebar" aria-expanded="false">
             <i class="fa-solid fa-bars"></i>
           </button>
+          <a class="mobile-brand-logo" href="#home" aria-label="AutoShort — Beranda"><img src="/assets/brand/autoshort-logo.png" alt="" width="32" height="32" decoding="async"></a>
           <div class="topbar-title-wrap">
             <i class="fa-solid fa-house title-icon" id="topbarIcon"></i>
             <h1 class="topbar-title" id="topbarTitle">Beranda</h1>
@@ -155,7 +158,8 @@
       <p id="storageNotice" class="storage-notice" role="status">Memeriksa penyimpanan…</p>
       <main tabindex="-1" class="sid-content-area" id="viewAuth" style="display:none;">
         <section class="auth-card">
-          <div class="page-heading"><span class="page-eyebrow">AKUN AUTOSHORT</span><h2 id="authTitle">Masuk</h2><p id="authDescription">Kelola tautan dan statistik milik Anda sendiri.</p></div>
+          <div class="page-heading"><img class="auth-brand-logo" src="/assets/brand/autoshort-logo.png" alt="Logo AutoShort" width="64" height="64" decoding="async"><span class="page-eyebrow">AKUN AUTOSHORT</span>
+          <h2 id="authTitle">Masuk</h2><p id="authDescription">Kelola tautan dan statistik milik Anda sendiri.</p></div>
           <div class="auth-tabs" id="authTabs"><a href="#login" data-auth-mode="login">Masuk</a><a href="#signup" data-auth-mode="signup">Daftar</a></div>
           <button type="button" id="btnGoogleLogin" class="btn btn-outline" hidden><i class="fa-brands fa-google" aria-hidden="true"></i> Lanjutkan dengan Google</button>
           <p id="authDivider" class="auth-divider" hidden>atau gunakan email</p>
