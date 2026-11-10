@@ -1,7 +1,7 @@
 import { normalizeUrl, linkState } from './lib/validation.js';
 const params = new URLSearchParams(location.search);
 const parts = location.pathname.split('/').filter(Boolean);
-const slug = (params.get('slug') || (['r','s'].includes(parts[0]) ? parts[1] : parts[0]) || '').toLowerCase();
+const slug = (params.get('slug') || (['r','s'].includes(parts[0]) ? parts[1] : parts[0]) || '').trim();
 const states = ['Loading','Protected','Expired','Paused','NotFound','Error'];
 const show = name => states.forEach(state => document.getElementById('state' + state).style.display = state === name ? 'block' : 'none');
 const error = message => { document.getElementById('errorMessage').textContent = message; show('Error'); };

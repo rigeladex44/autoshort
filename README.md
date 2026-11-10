@@ -37,7 +37,7 @@ Untuk cloud saat pengembangan lokal, salin `.env.example` menjadi `.env` dan isi
 
 ## Fitur
 
-- Buat, edit (termasuk slug), jeda/aktifkan, dan hapus tautan; validasi HTTP(S), slug unik 2–64 karakter, serta nama rute sistem yang dicadangkan.
+- Buat, edit (termasuk slug), jeda/aktifkan, dan hapus tautan; validasi HTTP(S), slug unik 2–64 karakter (huruf kapital dipertahankan; `PromoVIP` dan `promovip` merupakan URL berbeda), serta nama rute sistem yang dicadangkan.
 - URL tanpa protokol otomatis memakai HTTPS. Password/PIN (hash scrypt di cloud), kedaluwarsa, tag, dan UTM dapat diatur dari dialog tautan.
 - Pencarian judul, URL, slug, dan tag; tampilan kartu atau ringkas; tombol salin, QR, dan analisis per tautan.
 - Preview sosial dengan judul, deskripsi, serta unggah PNG/JPG/WebP maksimal 1 MB atau URL gambar. Crawler menerima Open Graph dari server cloud. Tampilan akhir dan pembaruan cache preview mengikuti platform sosial.

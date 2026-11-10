@@ -1244,7 +1244,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
 
     const titleVal = (inputTitle && inputTitle.value.trim()) || 'PROMO SPESIAL HARI INI!';
     const descVal = (inputDesc && inputDesc.value.trim()) || 'Klik tautan untuk melihat penawaran menarik.';
-    const slugVal = (inputSlug && inputSlug.value.trim().toLowerCase()) || 'link';
+    const slugVal = (inputSlug && inputSlug.value.trim()) || 'link';
     const imgVal = (inputImg && inputImg.value.trim()) || '';
 
     if (previewTitle) previewTitle.textContent = titleVal;

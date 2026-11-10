@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     return res.status(400).send('Slug or ID is required');
   }
 
-  const cleanSlug = String(slug || '').trim().toLowerCase();
+  const cleanSlug = String(slug || '').trim();
   let link = null;
   if (configured()) {
     try {

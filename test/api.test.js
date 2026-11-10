@@ -4,6 +4,7 @@ import links from '../api/links.js';
 import redirect from '../api/redirect.js';
 import analytics from '../api/analytics.js';
 import config from '../api/config.js';
+import image from '../api/image.js';
 import domains from '../api/domains.js';
 import integration from '../api/domain-integration.js';
 import { encryptToken, decryptToken, domainDetails } from '../lib/vercel-domains.js';
@@ -22,7 +23,7 @@ function json(value, status = 200) { return new Response(JSON.stringify(value), 
 test('URL validation rejects executable schemes; slugs reject reserved routes', () => {
   assert.equal(normalizeUrl('example.com/path'), 'https://example.com/path');
   for (const value of ['javascript:alert(1)', 'data:text/html,bad', 'https://user:pass@example.com', 'http://']) assert.throws(() => normalizeUrl(value));
-  for (const value of ['api','redirect','a','has space']) assert.throws(() => normalizeSlug(value));
+  for (const value of ['api','API','Redirect','AsSeTs','a','has space']) assert.throws(() => normalizeSlug(value));
   assert.equal(csvCell('=SUM(A1)'), '"\'=SUM(A1)"'); assert.equal(csvCell('a,"b'), '"a,""b"');
 });
 test('config never discloses database credentials', async () => { mock(() => json([{value:'go.example.com'}])); const res=response(); await config(req(),res); assert.equal(res.body.configured,true); assert.ok(!JSON.stringify(res.body).includes('server-only')); });
@@ -149,4 +150,15 @@ test('dashboard can clear a domain redirect without changing unrelated domain se
   mock(url=>json(url.includes('/config')?{misconfigured:false}:{name:'example.com',apexName:'example.com',verified:true,redirect:null}));
   const res=response();await domains(req('POST',{action:'clear_redirect',domain:'example.com'}),res);assert.equal(res.code,200);
   const patch=calls.find(c=>c.options.method==='PATCH');assert.match(patch.url,/projects\/prj_Test\/domains\/example.com/);assert.deepEqual(JSON.parse(patch.options.body),{redirect:null});
+});
+
+test('mixed-case slug survives create, edit, public redirect and social image lookup', async () => {
+  assert.equal(normalizeSlug('  PromoVIP-2026  '),'PromoVIP-2026');
+  mock((url,options)=>json([{...record,...JSON.parse(options.body||'{}')}]));
+  const created=response();await links(req('POST',{...record,slug:'PromoVIP-2026'}),created);assert.equal(created.code,201);assert.equal(created.body.link.slug,'PromoVIP-2026');assert.equal(JSON.parse(calls[0].options.body).slug,'PromoVIP-2026');
+  const updated=response();await links(req('PATCH',{...record,slug:'NewPromoVIP'}),updated);assert.equal(updated.body.link.slug,'NewPromoVIP');
+  calls=[];mock(url=>url.includes('rpc/')?json(null):json([{...record,slug:'PromoVIP-2026'}]));
+  const visit=response();await redirect(req('GET',null,{slug:'PromoVIP-2026'}),visit);assert.equal(visit.code,307);assert.match(calls[0].url,/slug=eq.PromoVIP-2026/);assert.equal(calls.length,2);
+  calls=[];mock(()=>json([{og_image:'data:image/png;base64,aGk='}]));
+  const preview=response();await image(req('GET',null,{slug:'PromoVIP-2026'}),preview);assert.match(calls[0].url,/slug=eq.PromoVIP-2026/);assert.equal(preview.headers['content-type'],'image/png');
 });

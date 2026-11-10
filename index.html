@@ -622,11 +622,12 @@
               <label for="modalSlug">Nama tautan <span class="required">*</span></label>
               <div class="slug-input-wrapper">
                 <span class="slug-domain-addon" id="modalDomainAddon">rigeel.id/</span>
-                <input type="text" id="modalSlug" minlength="2" maxlength="64" placeholder="promo-heboh" required pattern="[a-zA-Z0-9_-]+" />
+                <input type="text" id="modalSlug" autocapitalize="off" autocomplete="off" spellcheck="false" aria-describedby="slugCaseHint" minlength="2" maxlength="64" placeholder="promo-heboh" required pattern="[a-zA-Z0-9_-]+" />
                 <button type="button" class="btn-random-slug" id="btnRandomizeSlug" title="Buat slug acak">
                   <i class="fa-solid fa-dice"></i>
                 </button>
               </div>
+              <span class="field-hint" id="slugCaseHint">Huruf besar dan kecil dipertahankan dan dibedakan. Contoh: PromoVIP.</span>
             </div>
 
             <div class="form-divider">
