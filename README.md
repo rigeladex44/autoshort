@@ -93,4 +93,4 @@ Halaman awal membuka **Beranda**, yang merangkum seluruh link, klik, link aktif,
 
 Ikon Font Awesome 6.5.1 disajikan dari `assets/fontawesome/` agar navigasi tidak bergantung pada CDN. Lisensi tersedia di `assets/fontawesome/LICENSE.txt`. `workspace.css` memuat komponen tampilan dan penyesuaian layar di atas stylesheet dasar. Dashboard tidak memuat iklan atau font eksternal.
 
-Performa per tautan menampilkan empat kolom ringkas (tautan, klik, unik, QR) tanpa scroll horizontal pada mobile. Klik nama tautan untuk membuka detail lengkap. Detail waktu grafik mengikuti zona waktu browser dan dapat dipilih melalui batang atau dropdown waktu.
+Performa per tautan menampilkan empat kolom ringkas (tautan, klik, unik, QR) tanpa scroll horizontal pada mobile. Klik nama tautan untuk membuka detail lengkap. Detail waktu grafik mengikuti zona waktu browser dan tampil langsung pada sumbu grafik; sentuh/klik batang atau arahkan kursor untuk tooltip detail, tanpa kontrol tambahan di bawah grafik.

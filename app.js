@@ -581,18 +581,19 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     const yAxisMid = document.getElementById('yAxisMid');
     if (!track) return;
 
-    const detailSelect=document.getElementById('chartDetailSelect');
-    const previous=detailSelect.value;
+    hideChartDetail();
     track.innerHTML = '';
-    track.dataset.granularity=chartData[0]?.hourly?'hourly':'daily';
-    detailSelect.replaceChildren(...chartData.map(d=>{const option=document.createElement('option');option.value=d.iso;option.textContent=d.label;return option;}));
-    const showDetail=key=>{
-      const d=chartData.find(d=>d.iso===key)||chartData[0];if(!d)return;
-      detailSelect.value=d.iso;
-      document.getElementById('chartSelectedDetail').textContent=`${d.label} · ${d.visitors} klik · ${d.unique} unik · ${d.qr} QR`;
-      for(const col of track.children)col.setAttribute('aria-pressed',String(col.dataset.key===d.iso));
+    const hourly=Boolean(chartData[0]?.hourly);
+    track.dataset.granularity=hourly?'hourly':'daily';
+    const tooltip=document.getElementById('chartHoverDetail');
+    const showDetail=(d,col)=>{
+      tooltip.innerHTML=`<strong>${escapeHtml(d.label)}</strong><span>${d.visitors} klik · ${d.unique} unik · ${d.qr} QR</span>`;
+      tooltip.hidden=false;
+      for(const item of track.children){item.classList.toggle('is-selected',item===col);item.removeAttribute('aria-describedby');}
+      col.setAttribute('aria-describedby','chartHoverDetail');
     };
-    detailSelect.onchange=()=>showDetail(detailSelect.value);
+    track.onpointerleave=event=>{if(event.pointerType==='mouse')hideChartDetail();};
+    track.onfocusout=event=>{if(!track.contains(event.relatedTarget))hideChartDetail();};
 
     const maxDayTotal = Math.max(...chartData.map(d => d.visitors), 1);
     const magnitude = 10 ** Math.floor(Math.log10(maxDayTotal));
@@ -602,7 +603,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     if (yAxisTop) yAxisTop.textContent = scaleMax;
     if (yAxisMid) yAxisMid.textContent = scaleMid;
 
-    const labelStep = Math.ceil(chartData.length / (window.innerWidth <= 768 ? 4 : 10));
+    const labelStep = hourly ? (chartData.length>26 && window.innerWidth<=768 ? 12 : 6) : Math.ceil(chartData.length/(window.innerWidth<=768?4:10));
     chartData.forEach((d, index) => {
       const col = document.createElement('div');
       col.className = 'chart-bar-column';
@@ -621,33 +622,25 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
           <div class="bar-segment-unique" style="height: ${uniquePct}%;"></div>
           <div class="bar-segment-visitors" style="height: ${visitorsPct}%;"></div>
         </div>
-        <span class="bar-date-label" style="display:${index % labelStep === 0 ? 'block' : 'none'}">${d.shortLabel}</span>
+        <span class="bar-date-label" style="display:${(hourly ? (index+1)%labelStep===0 || index===chartData.length-1 : index%labelStep===0) ? 'block' : 'none'}">${d.shortLabel}</span>
         
-        <div class="chart-tooltip">
-          <div style="font-weight:700; margin-bottom:4px; color:#fff;">${d.label}</div>
-          <div style="display:flex; align-items:center; gap:6px; color:#ef4444;">
-            <span class="dot-indicator dot-red"></span> Total Klik: <strong>${d.visitors}</strong>
-          </div>
-          <div style="display:flex; align-items:center; gap:6px; color:#8b5cf6;">
-            <span class="dot-indicator dot-purple"></span> Pengunjung Unik: <strong>${d.unique}</strong>
-          </div>
-          <div style="display:flex; align-items:center; gap:6px; color:#06b6d4; font-size:0.7rem; margin-top:2px;">
-            <span class="dot-indicator dot-cyan"></span> Scan QR: <strong>${d.qr}</strong>
-          </div>
-          <div style="color:#94a3b8; font-size:0.7rem; margin-top:4px;">
-            Sumber Teratas: ${escapeHtml(d.topRef)}
-          </div>
-        </div>
       `;
 
       col.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); col.click(); } });
       col.addEventListener('click', () => {
-        showDetail(d.iso);
+        showDetail(d,col);
       });
 
+      col.addEventListener('pointerenter',event=>{if(event.pointerType==='mouse')showDetail(d,col);});
+      col.addEventListener('focus',()=>showDetail(d,col));
       track.appendChild(col);
     });
-    showDetail(chartData.some(d=>d.iso===previous)?previous:(chartData.find(d=>d.visitors>0)||chartData[0])?.iso);
+  }
+
+  function hideChartDetail() {
+    const tooltip=document.getElementById('chartHoverDetail');
+    if(tooltip)tooltip.hidden=true;
+    document.querySelectorAll('#chartBarsTrack .is-selected').forEach(col=>{col.classList.remove('is-selected');col.removeAttribute('aria-describedby');});
   }
 
   // --- PERFORMANCE PER SHORTLINK TABLE ---
@@ -1387,8 +1380,9 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     document.getElementById('btnCloseLinkDetails').onclick=()=>closeLinkDetails();
     detailsModal.addEventListener('click',event=>{if(event.target===detailsModal)closeLinkDetails();});
     modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+    document.addEventListener('pointerdown',e=>{if(!e.target.closest('#chartBarsTrack, #chartHoverDetail'))hideChartDetail();});
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') { if (detailsModal.style.display!=='none') closeLinkDetails(); else closeModal(); closeMenu(true); document.getElementById('calendarPopup').style.display = 'none'; }
+      if (e.key === 'Escape') { hideChartDetail(); if (detailsModal.style.display!=='none') closeLinkDetails(); else closeModal(); closeMenu(true); document.getElementById('calendarPopup').style.display = 'none'; }
       if (e.key === '/' && !['INPUT','TEXTAREA','SELECT'].includes(document.activeElement.tagName) && modal.style.display === 'none' && detailsModal.style.display === 'none') {
         e.preventDefault(); location.hash = '#shortener'; document.getElementById('searchInput').focus();
       }

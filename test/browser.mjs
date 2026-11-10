@@ -113,11 +113,18 @@ try {
   assert.equal(await page.locator('.cal-preset-btn, #calendarRangeHint').count(),0);
   for(let days=1;days<=7;days++){await chooseRange(page,'2026-01-10',`2026-01-${9+days}`);assert.equal(await page.locator('.chart-bar-column').count(),days<=2?days*24:days);}
   await chooseRange(page,'2026-01-10','2026-01-10');
-  await page.selectOption('#chartDetailSelect',{index:14});assert.match(await page.locator('#chartSelectedDetail').textContent(),/14.00/);
-  await page.locator('.chart-bar-column').nth(9).click();assert.match(await page.locator('#chartSelectedDetail').textContent(),/09.00/);
+  assert.equal(await page.locator('#chartDetailSelect, #chartSelectedDetail, .chart-detail-controls').count(),0);
+  assert.equal(await page.locator('#chartHoverDetail').isVisible(),false);
+  await page.locator('.chart-bar-column').nth(14).click();assert.match(await page.locator('#chartHoverDetail').textContent(),/14:00/);
+  await page.locator('.chart-bar-column').nth(9).click();assert.match(await page.locator('#chartHoverDetail').textContent(),/09:00/);
+  await page.click('#btnDateRangeDropdown');assert.equal(await page.locator('#chartHoverDetail').isVisible(),false);await page.click('#btnDateRangeDropdown');
+  const timeLabels=await page.locator('.bar-date-label').evaluateAll(labels=>labels.filter(label=>getComputedStyle(label).display!=='none').map(label=>label.textContent));assert.deepEqual(timeLabels,['05:00','11:00','17:00','23:00']);
   await chooseRange(page,'2026-01-10','2026-01-11');assert.equal(await page.locator('.chart-bar-column').count(),48);
   for(const width of [320,390,768,1440]){
     await page.setViewportSize({width,height:900});
+    await page.locator('.chart-bar-column').last().click();
+    const bubble=await page.locator('#chartHoverDetail').boundingBox();assert.ok(bubble.x>=0 && bubble.x+bubble.width<=width+1);
+    await page.locator('.performance-table-card h3').click();assert.equal(await page.locator('#chartHoverDetail').isVisible(),false);
     assert.equal(await page.locator('.performance-table-card .table-responsive').evaluate(e=>e.scrollWidth>e.clientWidth+1),false);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
     await page.screenshot({path:`test-results/analytics-hourly-${width}.png`,fullPage:true});
@@ -141,7 +148,7 @@ try {
   const today=await page.evaluate(()=>{const d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');});
   await chooseRange(page,today,today);
   const hour=await page.evaluate(()=>new Date(JSON.parse(localStorage.getItem('autoshort_clicks'))[0].clicked_at).getHours());
-  await page.locator('.chart-bar-column').nth(hour).click();assert.match(await page.locator('#chartSelectedDetail').textContent(),/1 klik/);
+  await page.locator('.chart-bar-column').nth(hour).click();assert.match(await page.locator('#chartHoverDetail').textContent(),/1 klik/);
   const perf=page.locator('.perf-link');await perf.click();await page.locator('#linkDetailsModal').waitFor({state:'visible'});await page.click('#btnCloseLinkDetails');
   assert.equal(await page.evaluate(()=>document.activeElement.classList.contains('perf-link')),true);
   await chooseRange(page,...dates);
