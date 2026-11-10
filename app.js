@@ -1,3 +1,4 @@
+import { buildAnalyticsBuckets } from './lib/analytics.js';
 import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from './lib/validation.js';
 /**
  * AutoShort — Real-Time Analytics Engine & Shortlink Suite
@@ -567,83 +568,10 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       return true;
     });
 
-    // Build Daily Stacked Data for Chart
-    const daysList = generateDateRangeList(selectedStartDate, selectedEndDate);
-    const dailyMap = {};
-
-    daysList.forEach(d => {
-      dailyMap[d.iso] = {
-        iso: d.iso,
-        label: d.label,
-        visitors: 0,
-        uniqueSet: new Set(),
-        qrCount: 0,
-        referrers: {}
-      };
-    });
-
-    filteredClicks.forEach(c => {
-      const cDate = toISODate(new Date(c.clicked_at));
-      if (dailyMap[cDate]) {
-        dailyMap[cDate].visitors++;
-        const vId = c.visitor_id || c.id;
-        dailyMap[cDate].uniqueSet.add(vId);
-        if (c.is_qr) dailyMap[cDate].qrCount++;
-
-        const ref = c.referer || 'Direct';
-        dailyMap[cDate].referrers[ref] = (dailyMap[cDate].referrers[ref] || 0) + 1;
-      }
-    });
-
-    const chartData = daysList.map(d => {
-      const item = dailyMap[d.iso];
-      return {
-        iso: d.iso,
-        label: d.label,
-        visitors: item.visitors,
-        unique: item.uniqueSet.size,
-        qr: item.qrCount,
-        topRef: getTopKey(item.referrers)
-      };
-    });
-
+    const chartData=buildAnalyticsBuckets(selectedStartDate,selectedEndDate,filteredClicks);
     renderStackedBarChart(chartData);
     renderPerformanceTable(filteredClicks);
     renderDeepDiveBreakdowns(filteredClicks);
-  }
-
-  function generateDateRangeList(start, end) {
-    const list = [];
-    const curr = new Date(start);
-    curr.setHours(0, 0, 0, 0);
-
-    const endNormalized = new Date(end);
-    endNormalized.setHours(0, 0, 0, 0);
-
-    while (curr <= endNormalized) {
-      const iso = toISODate(curr);
-      const day = curr.getDate();
-      const month = curr.toLocaleDateString('id-ID', { month: 'short' });
-      const year = String(curr.getFullYear()).slice(-2);
-      list.push({
-        iso: iso,
-        label: `${day} ${month} ${year}`
-      });
-      curr.setDate(curr.getDate() + 1);
-    }
-    return list;
-  }
-
-  function getTopKey(obj) {
-    let top = 'Direct';
-    let max = 0;
-    Object.keys(obj).forEach(k => {
-      if (obj[k] > max) {
-        max = obj[k];
-        top = k;
-      }
-    });
-    return top;
   }
 
   // --- STACKED BAR CHART RENDERING ---
@@ -653,7 +581,18 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     const yAxisMid = document.getElementById('yAxisMid');
     if (!track) return;
 
+    const detailSelect=document.getElementById('chartDetailSelect');
+    const previous=detailSelect.value;
     track.innerHTML = '';
+    track.dataset.granularity=chartData[0]?.hourly?'hourly':'daily';
+    detailSelect.replaceChildren(...chartData.map(d=>{const option=document.createElement('option');option.value=d.iso;option.textContent=d.label;return option;}));
+    const showDetail=key=>{
+      const d=chartData.find(d=>d.iso===key)||chartData[0];if(!d)return;
+      detailSelect.value=d.iso;
+      document.getElementById('chartSelectedDetail').textContent=`${d.label} · ${d.visitors} klik · ${d.unique} unik · ${d.qr} QR`;
+      for(const col of track.children)col.setAttribute('aria-pressed',String(col.dataset.key===d.iso));
+    };
+    detailSelect.onchange=()=>showDetail(detailSelect.value);
 
     const maxDayTotal = Math.max(...chartData.map(d => d.visitors), 1);
     const magnitude = 10 ** Math.floor(Math.log10(maxDayTotal));
@@ -668,6 +607,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       const col = document.createElement('div');
       col.className = 'chart-bar-column';
       col.tabIndex = 0;
+      col.setAttribute('role','button');col.dataset.key=d.iso;
+      if(index===0)col.classList.add('chart-first');if(index===chartData.length-1)col.classList.add('chart-last');
       col.setAttribute('aria-label', `${d.label}: ${d.visitors} kunjungan, ${d.unique} unik, ${d.qr} QR`);
 
       const totalVal = d.visitors;
@@ -680,7 +621,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
           <div class="bar-segment-unique" style="height: ${uniquePct}%;"></div>
           <div class="bar-segment-visitors" style="height: ${visitorsPct}%;"></div>
         </div>
-        <span class="bar-date-label" style="visibility:${index % labelStep === 0 ? 'visible' : 'hidden'}">${d.label.replace(/ \d{2}$/, '')}</span>
+        <span class="bar-date-label" style="display:${index % labelStep === 0 ? 'block' : 'none'}">${d.shortLabel}</span>
         
         <div class="chart-tooltip">
           <div style="font-weight:700; margin-bottom:4px; color:#fff;">${d.label}</div>
@@ -701,11 +642,12 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
 
       col.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); col.click(); } });
       col.addEventListener('click', () => {
-        showToast(`Detail tanggal ${d.label}: ${d.visitors} kunjungan, ${d.unique} unik.`, 'info');
+        showDetail(d.iso);
       });
 
       track.appendChild(col);
     });
+    showDetail(chartData.some(d=>d.iso===previous)?previous:(chartData.find(d=>d.visitors>0)||chartData[0])?.iso);
   }
 
   // --- PERFORMANCE PER SHORTLINK TABLE ---
@@ -715,7 +657,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     tbody.innerHTML = '';
 
     if (links.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="7" class="text-center" style="padding:20px; color:#9ca3af;">Belum ada shortlink yang dibuat.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center" style="padding:20px; color:#9ca3af;">Belum ada shortlink yang dibuat.</td></tr>';
       return;
     }
 
@@ -725,72 +667,16 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
 
       const uSet = new Set();
       let qrVis = 0;
-      const refCount = {};
 
       linkClicks.forEach(c => {
         uSet.add(c.visitor_id || c.id);
         if (c.is_qr || (c.referer && c.referer.toLowerCase().includes('qr'))) qrVis++;
-        const r = c.referer || 'Direct';
-        refCount[r] = (refCount[r] || 0) + 1;
       });
 
-      const topSource = getTopKey(refCount);
-
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>
-          <div style="font-weight:700; color:var(--text-main); font-size:0.9rem;">
-            ${escapeHtml(link.title || link.slug)}
-          </div>
-          <div class="table-slug">
-            <a href="${escapeHtml(shortUrl(link.slug))}" target="_blank">
-              ${escapeHtml(cloudMode ? customDomain : location.host)}/${escapeHtml(link.slug)}
-            </a>
-          </div>
-        </td>
-        <td>
-          <div class="table-dest" title="${escapeHtml(link.destination_url)}">
-            ${escapeHtml(link.destination_url)}
-          </div>
-        </td>
-        <td>
-          <strong style="color:var(--text-main); font-size:0.95rem;">${totalVis}</strong>
-        </td>
-        <td>
-          <span style="color:#8b5cf6; font-weight:700;">${uSet.size}</span>
-        </td>
-        <td>
-          <span style="color:#06b6d4; font-weight:700;">${qrVis}</span>
-        </td>
-        <td>
-          <span style="background:var(--bg-hover); padding:3px 8px; border-radius:4px; font-size:0.76rem;">${escapeHtml(topSource)}</span>
-        </td>
-        <td>
-          <div style="display:flex; gap:6px;">
-            <button class="btn btn-sm btn-outline btn-table-test-click" data-slug="${escapeHtml(link.slug)}" data-id="${escapeHtml(link.id)}" title="Kirim Klik Riil">
-              <i class="fa-solid fa-play"></i> Klik
-            </button>
-            <button class="btn btn-sm btn-outline btn-table-qr" data-slug="${escapeHtml(link.slug)}" title="Buka di QR Studio">
-              <i class="fa-solid fa-qrcode"></i> QR
-            </button>
-          </div>
-        </td>
-      `;
-
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td><button type="button" class="perf-link" data-id="${escapeHtml(link.id)}" aria-haspopup="dialog"><strong>${escapeHtml(link.title||link.slug)}</strong><span>/${escapeHtml(link.slug)}</span></button></td><td>${totalVis}</td><td>${uSet.size}</td><td>${qrVis}</td>`;
+      tr.querySelector('button').onclick=()=>openLinkDetails(link.id);
       tbody.appendChild(tr);
-    });
-
-    tbody.querySelectorAll('.btn-table-test-click').forEach(btn => {
-      btn.onclick = () => {
-        simulateRealClick(btn.getAttribute('data-slug'), btn.getAttribute('data-id'), false);
-      };
-    });
-
-    tbody.querySelectorAll('.btn-table-qr').forEach(btn => {
-      btn.onclick = () => {
-        qrSelectedSlug = btn.getAttribute('data-slug');
-        window.location.hash = '#qr-studio';
-      };
     });
   }
 
@@ -1069,8 +955,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     document.getElementById('linkDetailsModal').style.display='none';
     if (document.getElementById('modalLink').style.display==='none') document.body.classList.remove('modal-open');
     if (restoreFocus && id) {
-      const card=[...document.querySelectorAll('.link-summary-card, .home-recent-link')].find(card=>card.dataset.id===id && card.offsetParent !== null);
-      (card || document.getElementById(currentView==='home'?'btnHomeCreate':'btnOpenCreateModal')).focus();
+      const card=[...document.querySelectorAll('.link-summary-card, .home-recent-link, .perf-link')].find(card=>card.dataset.id===id && card.offsetParent !== null);
+      (card || document.getElementById(currentView==='home'?'btnHomeCreate':currentView==='analytics'?'selectLinkFilter':'btnOpenCreateModal')).focus();
     }
   }
   function openLinkDetails(id) {
@@ -1121,7 +1007,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
         if (cloudMode) await api(`/api/links?id=${encodeURIComponent(link.id)}`,{method:'DELETE'});
         links=links.filter(item=>item.id!==link.id);clicksHistory=clicksHistory.filter(c=>c.link_id!==link.id&&c.slug!==link.slug);
         if (activeLinkFilter===link.slug) activeLinkFilter='all';
-        closeLinkDetails(false);saveLocalLinks();saveLocalClicks();renderAll();document.getElementById(currentView==='home'?'btnHomeCreate':'btnOpenCreateModal').focus();
+        closeLinkDetails(false);saveLocalLinks();saveLocalClicks();renderAll();document.getElementById(currentView==='home'?'btnHomeCreate':currentView==='analytics'?'selectLinkFilter':'btnOpenCreateModal').focus();
         showToast('Tautan berhasil dihapus','info');
       });
     };

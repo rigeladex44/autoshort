@@ -1,3 +1,4 @@
+import { buildAnalyticsBuckets } from '../lib/analytics.js';
 import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import links from '../api/links.js';
@@ -161,4 +162,12 @@ test('mixed-case slug survives create, edit, public redirect and social image lo
   const visit=response();await redirect(req('GET',null,{slug:'PromoVIP-2026'}),visit);assert.equal(visit.code,307);assert.match(calls[0].url,/slug=eq.PromoVIP-2026/);assert.equal(calls.length,2);
   calls=[];mock(()=>json([{og_image:'data:image/png;base64,aGk='}]));
   const preview=response();await image(req('GET',null,{slug:'PromoVIP-2026'}),preview);assert.match(calls[0].url,/slug=eq.PromoVIP-2026/);assert.equal(preview.headers['content-type'],'image/png');
+});
+
+test('hourly buckets preserve event hour, local midnight boundaries, unique visitors and QR totals',()=>{
+ const start=new Date(2026,0,10),end=new Date(2026,0,11);
+ const clicks=[{id:'a',visitor_id:'same',clicked_at:new Date(2026,0,10,14,5).toISOString(),is_qr:true},{id:'b',visitor_id:'same',clicked_at:new Date(2026,0,10,14,59).toISOString()},{id:'c',visitor_id:'other',clicked_at:new Date(2026,0,11,0,0).toISOString()},{id:'outside',clicked_at:new Date(2026,0,12,0,0).toISOString()}];
+ const buckets=buildAnalyticsBuckets(start,end,clicks);assert.equal(buckets.length,48);assert.equal(buckets[14].visitors,2);assert.equal(buckets[14].unique,1);assert.equal(buckets[14].qr,1);assert.equal(buckets[24].visitors,1);assert.equal(buckets.reduce((n,b)=>n+b.visitors,0),3);
+ assert.equal(buildAnalyticsBuckets(start,start,clicks).length,24);
+ const daily=buildAnalyticsBuckets(start,new Date(2026,0,12),clicks);assert.equal(daily.length,3);assert.equal(daily[0].hourly,false);assert.equal(daily[0].visitors,2);
 });

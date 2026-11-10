@@ -470,3 +470,41 @@ body.menu-open { overflow: hidden; }
   .cal-day-cell { height: 35px; min-height: 35px; }
   .analytics-controls-bar .controls-right > button { min-height: 36px; font-size: .65rem; padding: 6px; }
 }
+
+/* Hourly chart details stay usable without squeezing labels or scrolling. */
+.chart-detail-controls { display: grid; grid-template-columns: auto minmax(0,220px); align-items: center; gap: 10px; padding-top: 18px; border-top: 1px solid var(--border-light); }
+.chart-detail-controls label { font-size: .73rem; color: var(--text-secondary); }
+.chart-detail-controls select { border: 1px solid var(--border-card); border-radius: 8px; color: var(--text-main); background: var(--bg-input); padding: 7px 9px; min-height: 38px; font-size: .76rem; min-width: 0; }
+#chartSelectedDetail { grid-column: 1 / -1; color: var(--text-secondary); font-size: .75rem; line-height: 1.7; overflow-wrap: anywhere; }
+.chart-bars-track[data-granularity="hourly"] { padding-inline: 0; gap: 1px; }
+.chart-bars-track[data-granularity="hourly"] .chart-bar-column { min-width: 0; }
+.chart-bars-track[data-granularity="hourly"] .stacked-bar-fill { width: 90%; gap: 1px; }
+.chart-bars-track[data-granularity="hourly"] .bar-date-label { font-size: .6rem; }
+.chart-first .bar-date-label { left: 0; }
+.chart-last .bar-date-label { right: 0; }
+.chart-first .chart-tooltip { left: 0; right: auto; transform: none; }
+.chart-last .chart-tooltip { right: 0; left: auto; transform: none; }
+.performance-table-card .real-analytics-table { min-width: 0; width: 100%; table-layout: fixed; }
+.performance-table-card .real-analytics-table th:first-child { width: 58%; }
+.performance-table-card .real-analytics-table th:not(:first-child), .performance-table-card .real-analytics-table td:not(:first-child) { width: 14%; text-align: right; font-size: .76rem; font-weight: 600; }
+.performance-table-card .real-analytics-table th, .performance-table-card .real-analytics-table td { padding: 12px 10px; }
+.perf-link { display: grid; gap: 5px; min-width: 0; max-width: 100%; width: 100%; text-align: left; border: 0; color: var(--text-main); background: transparent; cursor: pointer; }
+.perf-link strong { font-size: .8rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.perf-link span { font-size: .7rem; color: var(--brand-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.perf-link:hover strong { color: var(--brand-primary); }
+@media (max-width:768px) {
+  .chart-detail-controls { grid-template-columns: minmax(0,1fr); gap: 8px; padding-top: 14px; }
+  .chart-detail-controls select { width: 100%; }
+  #chartSelectedDetail { font-size: .7rem; }
+  .chart-bars-track[data-granularity="hourly"] .chart-tooltip { display: none; }
+  .performance-table-card .real-analytics-table th, .performance-table-card .real-analytics-table td { padding: 11px 5px; }
+  .performance-table-card .real-analytics-table th:not(:first-child), .performance-table-card .real-analytics-table td:not(:first-child) { font-size: .7rem; }
+  .performance-table-card .real-analytics-table th:first-child { width: 55%; font-size: .7rem; }
+  .performance-table-card .real-analytics-table th:not(:first-child), .performance-table-card .real-analytics-table td:not(:first-child) { width: 15%; }
+  .perf-link strong { font-size: .74rem; }
+  .perf-link span { font-size: .65rem; }
+}
+
+.chart-bars-track[data-granularity="hourly"] .chart-bar-column:nth-child(-n+8) .chart-tooltip { left: 0; right: auto; transform: none; }
+.chart-bars-track[data-granularity="hourly"] .chart-bar-column:nth-last-child(-n+8) .chart-tooltip { right: 0; left: auto; transform: none; }
+@media(max-width:768px) { .chart-bar-column .chart-tooltip { display: none !important; } }

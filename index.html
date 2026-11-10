@@ -261,7 +261,7 @@
               <span class="legend-item"><span class="legend-dot purple"></span> Pengunjung unik</span>
             </div>
             <div class="chart-hint-label">
-              <i class="fa-solid fa-circle-info"></i> Pilih batang untuk detail harian
+              <i class="fa-solid fa-circle-info"></i> Pilih batang untuk detail waktu
             </div>
           </div>
 
@@ -277,6 +277,7 @@
               <!-- Rendered via JS -->
             </div>
           </div>
+          <div class="chart-detail-controls"><label for="chartDetailSelect">Detail waktu</label><select id="chartDetailSelect" aria-label="Pilih detail waktu"></select><p id="chartSelectedDetail" role="status" aria-live="polite"></p></div>
         </div>
 
         <!-- REAL PERFORMANCE BREAKDOWN PER SHORTLINK TABLE -->
@@ -290,13 +291,7 @@
             <table class="real-analytics-table">
               <thead>
                 <tr>
-                  <th>Tautan & Judul</th>
-                  <th>URL Tujuan Asli</th>
-                  <th>Total Klik</th>
-                  <th>Pengunjung Unik</th>
-                  <th>Scan QR</th>
-                  <th>Sumber Terbanyak</th>
-                  <th>Aksi Cepat</th>
+                  <th scope="col">Tautan</th><th scope="col">Klik</th><th scope="col">Unik</th><th scope="col">QR</th>
                 </tr>
               </thead>
               <tbody id="tableLinksAnalyticsBody">
