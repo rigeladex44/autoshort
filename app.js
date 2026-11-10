@@ -245,8 +245,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     if (!cloudMode || !currentUser) return;
     if (syncPromise) return syncPromise;
     const pending = (async () => {
+      const accountId=currentUser.id;
       try {
-        const accountId=currentUser.id;
         const [linkData, clickData, domainData] = await Promise.all([api('/api/links'), api('/api/analytics'), api('/api/config')]);
         if(currentUser?.id!==accountId)return;
         if(domainData.user?.id!==accountId){clearAccountData();location.reload();return;}
@@ -261,11 +261,12 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
         updateAdminUI();
         saveLocalLinks(); saveLocalClicks(); renderAll();
         updateDomainControls();
-        if (firstAdminSync) await loadDomainManager().then(()=>{domainsLoadedFor=accountId;}).catch(error => { document.getElementById('vercelIntegrationStatus').textContent = error.message; });
+        if (firstAdminSync) await loadDomainManager().then(()=>{if(currentUser?.id===accountId)domainsLoadedFor=accountId;}).catch(error => { document.getElementById('vercelIntegrationStatus').textContent = error.message; });
+        if(currentUser?.id!==accountId)return;
         document.getElementById('btnExportJsonBackup').disabled = false;
         document.getElementById('accountSessionStatus').textContent = 'Anda masuk. Tautan, statistik, dan pengaturan tersimpan di akun Anda.';
         status('Cloud Terhubung', true);
-      } catch (error) { if(error.status===401){clearAccountData();updateAdminUI();renderAll();}status('Cloud: perlu perhatian'); throw error; }
+      } catch (error) { if(currentUser?.id!==accountId)return;if(error.status===401){clearAccountData();updateAdminUI();renderAll();}status('Cloud: perlu perhatian'); throw error; }
     })();
     syncPromise=pending;
     try { await pending; } finally { if(syncPromise===pending)syncPromise=null; }
@@ -1527,9 +1528,11 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   }
   async function loadDomainManager() {
     if (!cloudMode || !adminConnected) return;
+    const accountId=currentUser?.id;
     let result;
     try { result = await api('/api/domains'); }
     catch (error) { document.getElementById('vercelIntegrationStatus').textContent = error.message; throw error; }
+    if(currentUser?.id!==accountId)return;
     vercelConnected = result.connected === true;
     vercelManagedByServer = result.managedByServer === true;
     updateDomainControls();
