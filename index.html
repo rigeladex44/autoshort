@@ -496,13 +496,7 @@
             <!-- Custom Domain Box -->
             <div class="settings-box domain-settings">
               <h3>Hubungkan domain Anda</h3>
-              <p>Gunakan alamat sendiri untuk semua tautan. Tambahkan domain, ikuti petunjuk DNS, lalu aktifkan setelah pemeriksaan berhasil.</p>
-              <ol class="domain-setup-steps">
-                <li><strong>Tambahkan hostname</strong><span>Disarankan memakai subdomain seperti go.domainanda.com agar website utama tetap berjalan.</span></li>
-                <li><strong>Pasang record DNS</strong><span>Buka pengelola DNS domain Anda, lalu salin record yang muncul setelah domain ditambahkan.</span></li>
-                <li><strong>Periksa dan aktifkan</strong><span>Periksa DNS &amp; HTTPS. Setelah siap, jadikan domain utama untuk URL dan QR akun Anda.</span></li>
-              </ol>
-              <details class="domain-dns-help"><summary>Di mana saya mengatur DNS?</summary><p>Gunakan layanan yang mengelola nameserver domain: misalnya Domainesia → Kelola Domain → DNS Management, atau Cloudflare → DNS → Records jika nameserver memakai Cloudflare.</p><p>Gunakan TTL Auto/default. Di Cloudflare, pilih DNS only (awan abu-abu) selama penyiapan. Tidak perlu mengganti nameserver. Jangan menghapus record email (MX, SPF, DKIM) atau record hostname lain.</p><p>Jika memakai subdomain, isi Nama/Host sesuai petunjuk yang muncul, misalnya go. Untuk domain utama gunakan @. Record TXT verifikasi mungkin perlu dipasang pada zona domain utama.</p><p>Perubahan DNS bisa memerlukan beberapa menit hingga 24–48 jam. Sertifikat HTTPS diproses otomatis setelah DNS dan kepemilikan terverifikasi. Periksa ulang sebelum mengaktifkan domain.</p></details>
+              <p>Gunakan alamat sendiri untuk semua tautan. Tambahkan hostname, ikuti petunjuk DNS yang muncul, lalu aktifkan.</p>
               <details id="vercelConnectionPanel" hidden>
                 <summary>Koneksi Vercel <span class="connection-caption">· satu kali pengaturan</span></summary>
                 <p>Hubungkan token Vercel yang memiliki akses ke proyek AutoShort. Token disimpan terenkripsi dan tidak ditampilkan kembali.</p>
@@ -515,6 +509,20 @@
                 </div>
               </details>
               <p id="vercelIntegrationStatus" role="status" aria-live="polite">Masuk untuk mengelola domain pribadi Anda.</p>
+              <div id="sharedDomainOwnerSection" class="settings-box" style="margin-top:16px;background:var(--bg-card-subtle,rgba(255,255,255,0.03));border:1px solid var(--border-color,#333);border-radius:8px;padding:14px;" hidden>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                  <span class="badge" style="background:#5146cb;color:#fff;font-size:0.75rem;padding:2px 8px;border-radius:4px;">ADMIN</span>
+                  <strong>Domain Utama AutoShort (Bersama)</strong>
+                </div>
+                <p style="font-size:0.88rem;margin-bottom:10px;">Domain utama yang dipakai oleh semua pengguna yang tidak memiliki domain pribadi aktif. Domain lama tetap melayani tautan saat domain utama diganti.</p>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
+                  <span>Domain bersama saat ini:</span>
+                  <code id="currentSharedDomainDisplay" style="font-size:0.95rem;font-weight:600;">-</code>
+                </div>
+                <div class="domain-actions">
+                  <button type="button" class="btn btn-outline btn-sm" id="btnResetSharedDomain">Kembalikan ke Alamat Hosting Default</button>
+                </div>
+              </div>
               <div class="form-group domain-host-field" style="margin-top:12px;">
                 <label for="inputSettingsDomain">Hostname domain</label>
                 <input type="text" id="inputSettingsDomain" class="input-control" placeholder="contoh: go.domainanda.com" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="domainStatus" />

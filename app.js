@@ -1281,9 +1281,19 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       customDomain = platformDomain;
       updateDomainDisplays(); renderAll();
       if (vercelConnected) await loadDomainManager().catch(() => showToast('Domain direset; daftar domain belum dapat dimuat ulang.', 'warning'));
-      domainStatus.textContent = 'Menggunakan alamat situs yang sedang dibuka. Tautan dan domain Vercel tidak dihapus.';
-      showToast('Domain utama dikembalikan ke alamat situs.', 'success');
+      domainStatus.textContent = 'Menggunakan domain bersama. Tautan dan domain Vercel tidak dihapus.';
+      showToast('Domain akun dikembalikan ke domain bersama.', 'success');
     });
+    const btnResetShared = document.getElementById('btnResetSharedDomain');
+    if (btnResetShared) {
+      btnResetShared.onclick = () => saveAction(btnResetShared, async () => {
+        if (!confirm('Kembalikan domain utama bersama ke alamat default hosting?')) return;
+        await api('/api/domains?scope=shared', { method: 'DELETE' });
+        await fetchBackendConfig();
+        await loadDomainManager();
+        showToast('Domain utama bersama dikembalikan ke alamat hosting default.', 'success');
+      });
+    }
     document.getElementById('btnLogoutAdmin').onclick=()=>saveAction(document.getElementById('btnLogoutAdmin'),async()=>{
       await api('/api/auth?action=logout',{method:'POST',body:'{}'});clearAccountData();notifyAuthChange();updateAdminUI();updateDomainControls();renderAll();location.hash='#login';
     });
@@ -1518,6 +1528,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     document.getElementById('btnAuthSubmit').disabled=!cloudMode;
   }
 
+  let currentSharedDomain = '';
   function updateDomainControls() {
     const enabled = cloudMode && adminConnected;
     for (const id of ['btnSaveSettingsDomain', 'btnResetSettingsDomain']) document.getElementById(id).disabled = !enabled;
@@ -1535,6 +1546,13 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     if(currentUser?.id!==accountId)return;
     vercelConnected = result.connected === true;
     vercelManagedByServer = result.managedByServer === true;
+    currentSharedDomain = result.sharedDomain || '';
+    const sharedSection = document.getElementById('sharedDomainOwnerSection');
+    if (sharedSection) {
+      sharedSection.hidden = !result.canManageShared;
+      const display = document.getElementById('currentSharedDomainDisplay');
+      if (display) display.textContent = currentSharedDomain || '(Default hosting: ' + platformDomain + ')';
+    }
     updateDomainControls();
     document.getElementById('vercelConnectionPanel').open = !vercelConnected;
     document.getElementById('vercelConnectionPanel').hidden=!currentUser?.isOperator;
@@ -1588,13 +1606,14 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
         await loadDomainManager(); renderDomainDetails(result.domain);
       }); root.append(clear);
     }
-    if(domain.dnsZone){const zone=document.createElement('p');zone.textContent='Pasang record di zona DNS '+domain.dnsZone+'. Gunakan Nama/Host dan Nilai di bawah; TTL Auto/default.';root.append(zone);}
-    if (domain.nameservers?.length) { const p=document.createElement('p');p.textContent='Nameserver: '+domain.nameservers.join(', ')+'. Jika DNS dikelola penyedia lain, pasang record berikut di penyedia tersebut.';root.append(p); }
+    if(domain.dnsZone){const zone=document.createElement('p');zone.textContent='Pasang record di zona DNS '+domain.dnsZone+'. Gunakan Nama/Host dan Nilai di bawah; TTL Auto/default (misal 300 atau 14400 detik). Di Cloudflare, atur Proxy ke DNS only.';root.append(zone);}
+    if (domain.nameservers?.length) { const p=document.createElement('p');p.textContent='Nameserver terdeteksi: '+domain.nameservers.join(', ')+'. Jika DNS dikelola penyedia lain (seperti Domainesia/Cloudflare), pasang record di penyedia nameserver aktif tersebut.';root.append(p); }
     for(const record of domain.dns || []) {
       const row=document.createElement('div');row.className='domain-record';
       const label=document.createElement('strong');const host=domain.dnsZone&&(record.name===domain.dnsZone||record.name.endsWith('.'+domain.dnsZone))?(record.name===domain.dnsZone?'@':record.name.slice(0,-domain.dnsZone.length-1)):record.name;label.textContent=record.type+(record.purpose==='ownership'?' · Verifikasi kepemilikan':' · Arahkan domain');row.append(label);
-      const hostname=document.createElement('p');hostname.textContent='Nama / Host: '+host;row.append(hostname);
+      const hostname=document.createElement('p');hostname.textContent='Nama / Host: '+host+(host==='@'?' (Domain utama)':' (Subdomain)');row.append(hostname);
       const copyHost=document.createElement('button');copyHost.className='btn btn-outline btn-sm';copyHost.textContent='Salin Nama';copyHost.onclick=()=>copyToClipboard(host,copyHost);row.append(copyHost);
+      const ttl=document.createElement('p');ttl.style.fontSize='0.8rem';ttl.style.color='var(--text-muted,#888)';ttl.textContent='TTL: Auto / default penyedia';row.append(ttl);
       const value=document.createElement('code');value.textContent=record.value;row.append(value);
       const copy=document.createElement('button');copy.className='btn btn-outline btn-sm';copy.textContent='Salin Nilai';copy.onclick=()=>copyToClipboard(record.value,copy);row.append(copy);root.append(row);
     }
@@ -1602,7 +1621,22 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     if (domain.conflicts?.length) {const p=document.createElement('p');p.textContent='Ada record DNS yang bertentangan. Sesuaikan record hostname ini dengan rekomendasi di atas tanpa mengubah record domain lain.';root.append(p);}
     const check=document.createElement('button');check.className='btn btn-outline btn-sm';check.textContent='Periksa DNS & HTTPS';
     check.onclick=()=>saveAction(check,async()=>{const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'check',domain:domain.name})});renderDomainDetails(result.domain);await loadDomainManager();});root.append(check);
-    if(domain.httpsReady&&!domain.redirect){const activate=document.createElement('button');activate.className='btn btn-primary btn-sm';activate.textContent='Jadikan Domain Utama';activate.onclick=()=>saveAction(activate,async()=>{const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'activate',domain:domain.name})});customDomain=result.customDomain;document.getElementById('inputSettingsDomain').value=customDomain;updateDomainDisplays();renderAll();await loadDomainManager();showToast('Domain utama akun Anda sudah aktif.','success');});root.append(activate);}
+    if(domain.httpsReady&&!domain.redirect){
+      const activate=document.createElement('button');activate.className='btn btn-primary btn-sm';activate.textContent='Jadikan Domain Pribadi Utama';
+      activate.onclick=()=>saveAction(activate,async()=>{
+        const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'activate',domain:domain.name})});
+        customDomain=result.customDomain;document.getElementById('inputSettingsDomain').value=customDomain;updateDomainDisplays();renderAll();await loadDomainManager();showToast('Domain utama akun Anda sudah aktif.','success');
+      });root.append(activate);
+      if (currentUser?.isOperator) {
+        const setShared=document.createElement('button');setShared.className='btn btn-outline btn-sm';setShared.style.borderColor='#5146cb';setShared.textContent='Jadikan Domain Bersama (Semua Akun)';
+        setShared.onclick=()=>saveAction(setShared,async()=>{
+          if(!confirm(`Jadikan ${domain.name} sebagai domain utama bersama untuk semua pengguna AutoShort?`)) return;
+          const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'activate',domain:domain.name,scope:'shared'})});
+          currentSharedDomain=result.sharedDomain;
+          await fetchBackendConfig();await loadDomainManager();renderAll();showToast(`Domain utama bersama AutoShort berhasil diubah ke ${domain.name}.`,'success');
+        });root.append(setShared);
+      }
+    }
   }
 
   function updateSettingsState() {

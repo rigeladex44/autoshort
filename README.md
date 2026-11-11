@@ -83,13 +83,27 @@ MIT License © 2026 rigeladex44
 
 ## Kelola domain langsung dari dashboard
 
-1. Masuk sebagai admin → **Domain → Koneksi Vercel**. Tempel secret token Vercel dengan akses ke team proyek AutoShort, lalu klik **Hubungkan Vercel**. Token dikirim melalui HTTPS dan disimpan dengan enkripsi AES-256-GCM dalam tabel server `domain_credentials`; nilainya tidak dikembalikan ke browser atau dimasukkan ke backup. Kolom token dikosongkan setelah pengiriman. Token yang kedaluwarsa dapat diganti melalui koneksi ini. Rotasi service-role key memerlukan koneksi ulang karena kunci tersebut menjadi dasar enkripsi kredensial.
-2. Isi hostname, misalnya `go.contoh.com`, lalu klik **Tambahkan Domain**. Server mendaftarkannya pada proyek Vercel AutoShort yang sudah dikonfigurasi, tanpa membuat proyek baru atau memindahkan domain dari proyek lain.
-3. Dashboard menampilkan rekomendasi record A/CNAME dan TXT verifikasi dari Vercel, lengkap dengan tombol salin. Pasang record di penyedia DNS yang ditunjukkan oleh nameserver Anda. DNS eksternal (misalnya Domainesia) tetap memerlukan akses ke penyedia itu; aplikasi tidak mengklaim sudah mengubah DNS eksternal.
-4. Klik **Periksa DNS & HTTPS**. Status menampilkan kepemilikan, konfigurasi DNS, pengalihan, dan kesiapan HTTPS/backend. Record TXT yang belum ada ditampilkan sebagai menunggu verifikasi, bukan sukses palsu.
-5. Pilih hostname dan klik **Jadikan Domain Utama**. Server memeriksa DNS publik, TLS, dan bukti dari backend yang sama sebelum menyimpan ke `app_settings`. Pengaturan berlaku untuk semua browser, tautan, salin URL, QR, dan preview sosial tanpa redeploy. Domain yang mengalihkan ke hostname lain tidak dapat dijadikan domain utama; pilih hostname tujuannya atau gunakan **Gunakan Tanpa Pengalihan** di rincian domain untuk menghapus pengalihan dari dashboard.
+### Domain Utama AutoShort (Bersama)
+- Akun pemilik/admin (`OWNER_USER_ID`) dapat mengatur domain utama bersama (shared domain) langsung melalui menu **Domain**.
+- Domain utama bersama ini otomatis digunakan oleh seluruh akun baru dan pengguna yang belum/tidak memiliki domain pribadi aktif.
+- Jika domain utama bersama diganti (misalnya ke `rigeel.id` atau `www.rigeel.id`), domain lama tetap melayani tautan yang sudah dibuat sebelumnya tanpa menghapus data tautan atau melepas domain dari proyek.
+- Jika domain di Vercel memiliki pengalihan (misalnya `rigeel.id` dialihkan ke `www.rigeel.id`), gunakan tombol **Gunakan Tanpa Pengalihan** di rincian domain untuk melayani AutoShort langsung pada hostname tersebut, atau gunakan hostname tujuannya (`www.rigeel.id`).
 
-**Gunakan Alamat Situs** menghapus pilihan domain utama tanpa melepas domain Vercel atau menghapus tautan. **Lepas Domain** melepas hanya hostname yang dipilih dari proyek setelah konfirmasi, tanpa menghapus data tautan. Domain utama, hostname dashboard yang sedang digunakan, dan domain bawaan Vercel dilindungi dari pelepasan. **Putus Koneksi** menghapus kredensial integrasi yang disimpan, tanpa mengubah domain/tautan yang sudah terpasang.
+### Domain Pribadi Setiap Pengguna
+1. Pengguna masuk ke akun masing-masing → buka menu **Domain**.
+2. Pengguna **tidak perlu** memiliki akun Vercel, membuka Vercel, atau memasukkan token Vercel (koneksi Vercel dikelola terpusat oleh server/admin).
+3. Masukkan hostname pribadi yang diinginkan (disarankan subdomain seperti `go.domainanda.com`), lalu klik **Tambahkan Domain**.
+4. Dashboard secara otomatis mendaftarkan domain ke hosting proyek dan menampilkan record DNS aktual:
+   - **Jenis Record:** A, CNAME, atau TXT sesuai kebutuhan.
+   - **Nama / Host:** Nilai host yang harus dimasukkan (contoh: `go` untuk subdomain, `@` untuk domain utama/apex).
+   - **Target / Nilai:** Nilai tujuan dari Vercel DNS.
+   - **TTL:** TTL yang disarankan (Auto / default penyedia).
+   - Tombol salin satu klik untuk Nama dan Nilai.
+5. Panduan pemasangan DNS disediakan di dashboard untuk berbagai penyedia DNS termasuk **Domainesia** (Kelola Domain → DNS Management) dan **Cloudflare** (DNS → Records, pilih opsi *DNS only* / awan abu-abu).
+6. Klik **Periksa DNS & HTTPS** untuk memverifikasi propagasi DNS, kepemilikan domain, dan penerbitan sertifikat SSL/HTTPS secara nyata.
+7. Tombol **Jadikan Domain Pribadi Utama** hanya akan aktif setelah domain lolos seluruh pemeriksaan DNS, HTTPS, dan pembuktian backend AutoShort.
+8. Pengguna bebas memilih menggunakan domain pribadi miliknya atau kembali menggunakan domain utama bersama melalui tombol **Gunakan Alamat Situs / Bersama**.
+9. Domain pribadi pengguna hanya melayani tautan milik akun pemilik domain tersebut dan tidak dapat dilihat atau diubah oleh akun lain.
 
 Konfigurasi server satu kali: `AUTOSHORT_VERCEL_PROJECT_ID` (atau system variable `VERCEL_PROJECT_ID`) dan `AUTOSHORT_VERCEL_TEAM_ID` untuk team. Opsional, secret server `VERCEL_DOMAINS_TOKEN` dapat dipakai sebagai pengganti koneksi token di dashboard; koneksi ini dikelola melalui secret server. Jangan masukkan token ke kode, query URL, log, atau chat.
 

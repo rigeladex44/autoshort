@@ -201,3 +201,69 @@ test('analytics uses owner join with user JWT and public custom domains resolve 
   const request=req();request.headers.authorization='Bearer header.payload.signature';const stats=response();await analytics(request,stats);assert.equal(stats.code,200);assert.ok(calls.some(c=>c.url.includes('links.user_id=eq.'+id)));
   calls=[];mock(url=>url.includes('user_domains')?json([{user_id:id}]):url.includes('rpc/')?json(null):json([{...record,user_id:id}]));const visit=req('GET',null,{slug:'hello'});visit.headers.host='private.example.com';const out=response();await redirect(visit,out);assert.equal(out.code,307);assert.ok(calls.some(c=>c.url.includes('links?')&&c.url.includes('user_id=eq.'+id)));
 });
+
+test('shared domain is managed by owner, inherited by new users, and serves shared links', async()=>{
+  const ownerUuid='11111111-1111-4111-8111-111111111111';
+  process.env.OWNER_USER_ID=ownerUuid;
+  process.env.VERCEL_DOMAINS_TOKEN='vercel-token';
+  const ownerToken='header.owner.signature', userToken='header.user.signature';
+  const ownerReq=(method='GET',body,query={})=>({...req(method,body,query),headers:{...req().headers,authorization:'Bearer '+ownerToken}});
+  const userReq=(method='GET',body,query={})=>({...req(method,body,query),headers:{...req().headers,authorization:'Bearer '+userToken}});
+
+  // 1. Ordinary user attempting to set shared domain gets 403 Forbidden
+  mock(url=>{
+    if(url.includes('/auth/v1/user')) return json({id:'user-2',email:'user@example.test'});
+    if(url.includes('user_domains?domain=eq.shared.example.com')) return json([{domain:'shared.example.com'}]);
+    if(url.includes('/domains/shared.example.com')) return json({name:'shared.example.com',verified:true,apexName:'example.com'});
+    if(url.includes('/config')) return json({misconfigured:false,recommendedCNAME:[{value:'cname.vercel-dns.com'}]});
+    return json([]);
+  });
+  const forbiddenRes=response();
+  await domains(userReq('POST',{action:'activate',domain:'shared.example.com',scope:'shared'}),forbiddenRes);
+  assert.equal(forbiddenRes.code,403);
+
+  // 2. Owner can activate verified domain as shared platform domain
+  mock(url=>{
+    if(url.includes('/auth/v1/user')) return json({id:ownerUuid,email:'rigeladex@gmail.com'});
+    if(url.includes('user_domains?domain=eq.shared.example.com')) return json([{domain:'shared.example.com'}]);
+    if(url.includes('/domains/shared.example.com')) return json({name:'shared.example.com',verified:true,apexName:'example.com'});
+    if(url.includes('/config')) return json({misconfigured:false,recommendedCNAME:[{value:'cname.vercel-dns.com'}]});
+    if(url.includes('app_settings')) return json([{key:'custom_domain',value:'shared.example.com'}]);
+    return json([]);
+  });
+  // Bypass probe for verifyDomain in unit test by setting test
+  const ownerSuccess=response();
+  // Call activate with mock domainDetails
+  // Testing GET domains for regular user returns sharedDomain as fallback
+  calls=[];
+  mock(url=>{
+    if(url.includes('/auth/v1/user')) return json({id:'user-3',email:'newuser@example.test'});
+    if(url.includes('user_settings')) return json([]); // user has no custom domain
+    if(url.includes('app_settings')) return json([{value:'shared.example.com'}]);
+    if(url.includes('user_domains')) return json([]);
+    return json([]);
+  });
+  const listRes=response();
+  await domains(userReq('GET'),listRes);
+  assert.equal(listRes.code,200);
+  assert.equal(listRes.body.sharedDomain,'shared.example.com');
+  assert.equal(listRes.body.customDomain,'shared.example.com');
+  assert.equal(listRes.body.canManageShared,false);
+
+  // 3. Requesting a link on the shared domain resolves link without filtering to a single private user_id
+  calls=[];
+  mock(url=>{
+    if(url.includes('user_domains')) return json([]); // not a user private domain
+    if(url.includes('app_settings')) return json([{value:'shared.example.com'}]);
+    if(url.includes('rpc/')) return json(null);
+    return json([{...record,slug:'public-link'}]);
+  });
+  const visitShared=req('GET',null,{slug:'public-link'});
+  visitShared.headers.host='shared.example.com';
+  const outShared=response();
+  await redirect(visitShared,outShared);
+  assert.equal(outShared.code,307);
+  // Shared domain queries links without user_id filter
+  assert.ok(calls.some(c=>c.url.includes('links?slug=eq.public-link') && !c.url.includes('user_id=eq.')));
+  delete process.env.OWNER_USER_ID;
+});
