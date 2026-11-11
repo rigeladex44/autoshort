@@ -575,18 +575,60 @@ body.menu-open { overflow: hidden; }
   .summary-dot { width: 6px; height: 6px; }
 }
 
-/* Private accounts */
-.auth-card { max-width: 440px; margin: 12px auto; padding: 28px; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 18px; }
-.auth-tabs { display: flex; gap: 8px; padding: 4px; margin-bottom: 20px; background: var(--bg-hover); border-radius: 10px; }
-.auth-tabs a { flex: 1; padding: 10px; text-align: center; color: var(--text-secondary); border-radius: 8px; font-size: .82rem; }
-.auth-tabs a.active { background: var(--bg-card); color: var(--brand-primary); font-weight: 600; }
-#btnGoogleLogin, #btnAuthSubmit { width: 100%; min-height: 44px; }
+/* Private accounts / Glass Login Page */
+body[data-view="auth"] .sid-sidebar,
+body[data-view="auth"] .sid-topbar,
+body[data-view="auth"] .mobile-bottom-nav,
+body[data-view="auth"] #storageNotice {
+  display: none !important;
+}
+body[data-view="auth"] .sid-main-wrapper {
+  margin: 0 !important;
+  width: 100vw !important;
+  min-height: 100vh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 24px 16px !important;
+}
+body[data-view="auth"] .sid-content-area {
+  padding: 0 !important;
+  max-width: 460px !important;
+  width: 100% !important;
+}
+.auth-card { 
+  max-width: 440px; 
+  margin: 0 auto; 
+  padding: 36px 32px; 
+  background: var(--bg-card); 
+  backdrop-filter: var(--glass-blur); 
+  -webkit-backdrop-filter: var(--glass-blur); 
+  border: 1px solid var(--border-glass); 
+  border-radius: var(--radius-xl); 
+  box-shadow: var(--shadow-lg), var(--glass-highlight); 
+}
+.auth-card .page-heading {
+  text-align: center;
+  margin-bottom: 24px;
+}
+.auth-card .auth-brand-logo {
+  margin: 0 auto 16px;
+}
+.auth-card .page-heading p {
+  margin: 0 auto;
+}
+.auth-tabs { display: flex; gap: 8px; padding: 4px; margin-bottom: 22px; background: var(--bg-hover); border: 1px solid var(--border-glass); border-radius: var(--radius-md); box-shadow: var(--glass-highlight); }
+.auth-tabs a { flex: 1; padding: 10px; text-align: center; color: var(--text-secondary); border-radius: var(--radius-sm); font-size: .82rem; font-weight: 550; transition: all .2s ease; }
+.auth-tabs a.active { background: var(--bg-card); color: var(--brand-primary); font-weight: 600; box-shadow: var(--shadow-sm), var(--glass-highlight); }
+#btnGoogleLogin, #btnAuthSubmit { width: 100%; min-height: 44px; border-radius: var(--radius-md); font-size: .85rem; }
 .auth-divider { text-align: center; color: var(--text-muted); margin: 18px 0; font-size: .72rem; }
-#authMessage { font-size: .78rem; line-height: 1.7; color: var(--text-secondary); margin: 12px 0; }
-.auth-footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 20px; font-size: .74rem; color: var(--brand-primary); }
+#authMessage { font-size: .78rem; line-height: 1.7; color: var(--text-secondary); margin: 12px 0; text-align: center; }
+.auth-footer { display: flex; justify-content: space-between; gap: 12px; margin-top: 22px; font-size: .74rem; color: var(--brand-primary); font-weight: 600; }
+.auth-footer a { transition: opacity .15s ease; }
+.auth-footer a:hover { opacity: 0.8; }
 #accountEmail { overflow-wrap: anywhere; font-weight: 600; }
 .user-name-label { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 140px; }
-@media(max-width:768px) { .auth-card { margin: 0; padding: 22px 18px; } }
+@media(max-width:768px) { .auth-card { margin: 0; padding: 28px 20px; } }
 
 @media (max-width: 768px) {
   .mobile-brand-logo { display: flex; align-items: center; justify-content: center; flex: 0 0 32px; min-height: 44px; }

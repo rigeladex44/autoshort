@@ -236,6 +236,9 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       else{currentUser=null;adminConnected=false;loadStoredData();}
       customDomain=config.customDomain||platformDomain;
       updateSettingsState();updateAdminUI();updateDomainDisplays();renderAll();renderAuthForm();
+      if(cloudMode&&!currentUser&&!['login','signup','recover','reset'].includes(location.hash.replace('#',''))) {
+        location.hash='#login';
+      }
       if(cloudMode&&currentUser)await syncWithBackend().catch(error=>showToast(error.message,'warning'));
       else status(cloudMode?'Belum masuk':'Mode Lokal');
     }catch(error){status('Server tidak terhubung');const notice=document.getElementById('storageNotice');notice.hidden=false;notice.textContent='Server tidak dapat dimuat. Periksa koneksi dan muat ulang.';throw error;}
@@ -279,7 +282,11 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   // --- ROUTING / VIEW SWITCHING ---
   function setupRouting() {
     const handleHash = () => {
-      const hash = window.location.hash.replace('#', '') || 'home';
+      let hash = window.location.hash.replace('#', '');
+      if (cloudMode && !adminConnected && !['login','signup','recover','reset'].includes(hash)) {
+        hash = 'login';
+      }
+      hash = hash || 'home';
       switchView(hash);
     };
 
@@ -288,6 +295,9 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   }
 
   function switchView(viewName) {
+    if (cloudMode && !adminConnected && !['login','signup','recover','reset'].includes(viewName)) {
+      viewName = 'login';
+    }
     if (['login','signup','recover','reset'].includes(viewName)){authMode=viewName;viewName='auth';}
     if (['beranda', 'dashboard'].includes(viewName)) viewName = 'home';
     if (!['auth','home', 'analytics', 'shortener', 'qr-studio', 'activity', 'domains', 'settings'].includes(viewName)) viewName = 'home';
