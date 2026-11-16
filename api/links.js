@@ -1,5 +1,7 @@
 import { requireAccount } from '../lib/auth.js';
-import { configured, userDb, userScope, fail, randomUUID, hashPassword, managedLink } from '../lib/db.js';
+import { configured, userDb, userScope, fail, randomUUID, hashPassword, managedLink, domainOwner, db } from '../lib/db.js';
+import { savedDomain, normalizeDomain } from '../lib/domains.js';
+import { siteOrigin } from '../lib/auth.js';
 import { normalizeLink } from '../lib/validation.js';
 export default async function handler(req, res) {
   const user=await requireAccount(req,res);if(!user)return;
@@ -32,6 +34,15 @@ export default async function handler(req, res) {
       const updated = await userDb(user,`links?id=eq.${encodeURIComponent(input.id)}${userScope(user)}`, { method: 'PATCH', body: JSON.stringify(record) });
       if (!updated?.length) return res.status(404).json({ error: 'Tautan tidak ditemukan.' });
       return res.status(200).json({ link: managedLink(updated[0]) });
+    }
+    const defaultDomain = user.legacy ? req.headers.host : (await savedDomain(user) || new URL(siteOrigin()).host);
+    record.short_domain=defaultDomain;
+    if(input.short_domain && input.short_domain!==defaultDomain){
+      const requested=normalizeDomain(input.short_domain);
+      const owner=await domainOwner(requested);
+      const registeredShared = owner===null ? (await db(`shared_domains?domain=eq.${encodeURIComponent(requested)}&select=domain&limit=1`))?.length : true;
+      if(!registeredShared || owner===false || (owner!==null && owner!==user.id))return res.status(403).json({error:'Domain ini tidak tersedia untuk akun Anda.'});
+      record.short_domain=requested;
     }
     const created = await userDb(user,'links', { method: 'POST', body: JSON.stringify({ ...record, ...(!user.legacy?{user_id:user.id,user_email:user.email}:{}), id: randomUUID(), clicks: 0, created_at: new Date().toISOString() }) });
     return res.status(201).json({ link: managedLink(created[0]) });

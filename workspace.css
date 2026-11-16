@@ -650,3 +650,13 @@ body[data-view="auth"] .sid-content-area {
 .domain-record .btn { margin-right: 6px; }
 .domain-details > .btn { margin: 14px 6px 0 0; }
 @media (max-width: 768px) { .domain-setup-steps { grid-template-columns: 1fr; gap: 8px; } .domain-setup-steps li { padding: 12px; } }
+/* Domain controls must fit long hostnames and narrow screens. */
+#viewDomains .settings-box, #viewDomains .domain-details, #viewDomains .domain-item { min-width: 0; overflow-wrap: anywhere; }
+#viewDomains .domain-actions { display: flex; flex-wrap: wrap; min-width: 0; }
+#viewDomains .domain-actions .btn, #viewDomains .domain-details > .btn { white-space: normal; max-width: 100%; min-width: 0; height: auto; }
+#viewDomains input { min-width: 0; max-width: 100%; }
+#viewDomains code { overflow-wrap: anywhere; }
+@media(max-width:768px){ #viewDomains .domain-actions .btn { flex: 1 1 130px; font-size: .73rem; padding: 10px 12px; } #viewDomains .domain-settings { padding: 16px; } }
+#viewDomains .domain-actions p { flex: 1 1 100%; min-width: 0; max-width: 100%; white-space: normal; }
+
+.link-domain-note { font-size: .73rem; color: var(--text-secondary); line-height: 1.6; margin-bottom: 10px; }

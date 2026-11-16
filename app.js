@@ -27,8 +27,11 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   let searchTerm = '';
   let selectedLinkId = null;
   let returnFocus = null;
-  function shortUrl(slug, qr = false) {
-    const base = cloudMode ? (customDomain === location.host ? location.origin : `https://${customDomain}`) : location.origin;
+  let modalLinkDomain = "";
+  let checkedDomain = "";
+  function shortUrl(slug, qr = false, domainOverride = "") {
+    const domain = domainOverride || links.find(link=>link.slug===slug)?.short_domain || customDomain;
+    const base = cloudMode ? (domain === location.host ? location.origin : `https://${domain}`) : location.origin;
     return `${base}/${encodeURIComponent(slug)}${qr ? '?src=qr' : ''}`;
   }
   async function api(path, options = {}) {
@@ -46,7 +49,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     if (cloudMode && !Object.hasOwn(record, 'password')) delete normalized.password;
     if (links.some(l => l.slug === normalized.slug && l.id !== id)) throw new Error('Slug sudah digunakan.');
     let saved = { ...normalized, id: id || crypto.randomUUID(), clicks: 0, created_at: new Date().toISOString() };
-    if (cloudMode) saved = (await api('/api/links', { method: id ? 'PATCH' : 'POST', body: JSON.stringify({ ...normalized, ...(id ? { id } : {}) }) })).link;
+    if (cloudMode) saved = (await api('/api/links', { method: id ? 'PATCH' : 'POST', body: JSON.stringify({ ...normalized, ...(id ? { id } : {short_domain:record.short_domain || customDomain}) }) })).link;
     const index = links.findIndex(l => l.id === id);
     const previous = index >= 0 ? links[index] : null;
     if (index >= 0) links[index] = { ...previous, ...saved, ...(!cloudMode ? { clicks: previous.clicks, created_at: previous.created_at } : {}) };
@@ -651,7 +654,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
           <div class="bar-segment-visitors" style="height: ${visitorsPct}%;"></div>
         </div>
         <span class="bar-date-label" style="display:${(hourly ? (index+1)%labelStep===0 || index===chartData.length-1 : index%labelStep===0) ? 'block' : 'none'}">${d.shortLabel}</span>
-        
+
       `;
 
       col.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); col.click(); } });
@@ -964,7 +967,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       card.setAttribute('aria-haspopup','dialog');card.setAttribute('aria-controls','linkDetailsModal');
       const state=linkState(link);
       card.innerHTML = `
-        <span class="link-summary-main"><span class="link-title">${escapeHtml(link.og_title || link.title || link.slug)}</span><span class="short-url-link">${escapeHtml((cloudMode ? customDomain : location.host)+'/'+link.slug)}</span></span>
+        <span class="link-summary-main"><span class="link-title">${escapeHtml(link.og_title || link.title || link.slug)}</span><span class="short-url-link">${escapeHtml((cloudMode ? (link.short_domain||customDomain) : location.host)+'/'+link.slug)}</span></span>
         <span class="link-summary-meta"><span class="link-status status-${state}">${({active:'Aktif',paused:'Dijeda',expired:'Kedaluwarsa',protected:'Dilindungi'})[state]}</span><span class="link-summary-clicks">${(Number(link.clicks)||0).toLocaleString('id-ID')} klik</span></span>
         <i class="fa-solid fa-chevron-right link-summary-arrow" aria-hidden="true"></i>`;
       card.onclick=()=>openLinkDetails(link.id);
@@ -1069,6 +1072,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     }
 
     const existing = links.find(l => l.id === id);
+    modalLinkDomain = existing?.short_domain || customDomain;
+    document.getElementById('modalDomainAddon').textContent=modalLinkDomain+'/';
     document.querySelector('.advanced-options').open = Boolean(existing && (existing.password || existing.has_password || existing.expires_at || existing.tags?.length));
     document.getElementById('modalPassword').value = '';
     document.getElementById('modalPassword').placeholder = (existing?.password || existing?.has_password) ? 'Biarkan kosong untuk mempertahankan password' : 'Tanpa password';
@@ -1107,8 +1112,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     if (previewTitle) previewTitle.textContent = titleVal;
     if (previewDesc) previewDesc.textContent = descVal;
     if (previewTextLink) {
-      previewTextLink.textContent = shortUrl(slugVal);
-      previewTextLink.href = shortUrl(slugVal);
+      previewTextLink.textContent = shortUrl(slugVal, false, modalLinkDomain);
+      previewTextLink.href = shortUrl(slugVal, false, modalLinkDomain);
     }
     if (previewImg) { previewImg.src = imgVal || ''; document.getElementById('waPreviewImgWrap').style.display = imgVal ? 'block' : 'none'; }
     if (previewDomain) previewDomain.textContent = customDomain.toUpperCase();
@@ -1125,6 +1130,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
           const id = document.getElementById('modalLinkId').value;
           const record = {
             destination_url: document.getElementById('modalDestUrl').value,
+            short_domain: modalLinkDomain,
             slug: document.getElementById('modalSlug').value,
             og_title: document.getElementById('modalOgTitle').value,
             og_description: document.getElementById('modalOgDescription').value,
@@ -1246,20 +1252,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       };
     }
 
-    document.getElementById('btnConnectVercel').onclick = () => saveAction(document.getElementById('btnConnectVercel'), async () => {
-      const input = document.getElementById('inputVercelToken');
-      try {
-        await api('/api/domain-integration', { method: 'POST', body: JSON.stringify({ token: input.value.trim() }) });
-        await loadDomainManager();
-        showToast('Vercel terhubung. Domain dapat dikelola dari dashboard.', 'success');
-      } finally { input.value = ''; }
-    });
-    document.getElementById('btnDisconnectVercel').onclick = () => saveAction(document.getElementById('btnDisconnectVercel'), async () => {
-      if (!confirm('Putus koneksi Vercel? Domain dan tautan tetap terpasang, tetapi pengelolaan domain membutuhkan koneksi ulang.')) return;
-      await api('/api/domain-integration', { method: 'DELETE' });
-      document.getElementById('domainDetails').hidden = true;
-      await loadDomainManager();
-    });
+    document.getElementById('inputSettingsDomain').addEventListener('input',()=>{checkedDomain='';updateDomainControls();});
     document.getElementById('btnAddDomain').onclick = () => saveAction(document.getElementById('btnAddDomain'), async () => {
       const domain = document.getElementById('inputSettingsDomain').value.trim();
       document.getElementById('domainStatus').textContent = 'Menambahkan domain ke proyek AutoShort…';
@@ -1282,28 +1275,18 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
         updateDomainDisplays(); renderAll();
         domainStatus.textContent = `Aktif: ${customDomain}. Tersimpan di cloud untuk semua browser.`;
         if (vercelConnected) await loadDomainManager().catch(() => showToast('Domain tersimpan; daftar domain belum dapat dimuat ulang.', 'warning'));
-        showToast('Domain terverifikasi dan tersimpan di cloud.', 'success');
+        showToast('Domain untuk tautan baru diperbarui. Alamat tautan lama tetap sama.', 'success');
       } catch (error) { domainStatus.textContent = error.message; throw error; }
     });
     const btnResetDomain = document.getElementById('btnResetSettingsDomain');
     btnResetDomain.onclick = () => saveAction(btnResetDomain, async () => {
       await api('/api/domains', { method: 'DELETE' });
-      customDomain = platformDomain;
+      await fetchBackendConfig();
       updateDomainDisplays(); renderAll();
       if (vercelConnected) await loadDomainManager().catch(() => showToast('Domain direset; daftar domain belum dapat dimuat ulang.', 'warning'));
-      domainStatus.textContent = 'Menggunakan domain bersama. Tautan dan domain Vercel tidak dihapus.';
+      domainStatus.textContent = 'Tautan baru memakai domain default AutoShort. Alamat tautan lama tetap sama.';
       showToast('Domain akun dikembalikan ke domain bersama.', 'success');
     });
-    const btnResetShared = document.getElementById('btnResetSharedDomain');
-    if (btnResetShared) {
-      btnResetShared.onclick = () => saveAction(btnResetShared, async () => {
-        if (!confirm('Kembalikan domain utama bersama ke alamat default hosting?')) return;
-        await api('/api/domains?scope=shared', { method: 'DELETE' });
-        await fetchBackendConfig();
-        await loadDomainManager();
-        showToast('Domain utama bersama dikembalikan ke alamat hosting default.', 'success');
-      });
-    }
     document.getElementById('btnLogoutAdmin').onclick=()=>saveAction(document.getElementById('btnLogoutAdmin'),async()=>{
       await api('/api/auth?action=logout',{method:'POST',body:'{}'});clearAccountData();notifyAuthChange();updateAdminUI();updateDomainControls();renderAll();location.hash='#login';
     });
@@ -1506,12 +1489,12 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     document.getElementById('accountSignedIn').hidden=!adminConnected;
     document.getElementById('accountEmail').textContent=currentUser?.email||'';
     document.getElementById('accountSessionStatus').textContent=cloudMode?(adminConnected?'Anda masuk. Data tersimpan secara pribadi di akun Anda.':'Masuk atau daftar untuk menyimpan data pribadi.'): 'Akun tersedia dalam mode cloud. Data lokal tetap berada di browser ini.';
-    document.getElementById('vercelConnectionPanel').hidden=!currentUser?.isOperator;
+
     document.getElementById('btnExportJsonBackup').disabled=cloudMode&&!adminConnected;
   }
   function clearAccountData() {
     syncPromise=null;domainsLoadedFor=null;currentUser=null;adminConnected=false;links=[];clicksHistory=[];selectedLinkId=null;searchTerm='';activeLinkFilter='all';vercelConnected=false;vercelManagedByServer=false;customDomain=platformDomain;
-    document.getElementById('searchInput').value='';document.getElementById('domainList').replaceChildren();document.getElementById('domainDetails').hidden=true;document.getElementById('inputVercelToken').value='';
+    document.getElementById('searchInput').value='';document.getElementById('domainList').replaceChildren();document.getElementById('domainDetails').hidden=true;
     document.getElementById('linkDetailsModal').style.display='none';document.getElementById('modalLink').style.display='none';document.body.classList.remove('modal-open');
     updateDomainDisplays();updateAdminUI();updateDomainControls();renderAll();
   }
@@ -1541,11 +1524,10 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   let currentSharedDomain = '';
   function updateDomainControls() {
     const enabled = cloudMode && adminConnected;
-    for (const id of ['btnSaveSettingsDomain', 'btnResetSettingsDomain']) document.getElementById(id).disabled = !enabled;
-    document.getElementById('btnConnectVercel').disabled = !enabled || vercelManagedByServer || !currentUser?.isOperator;
-    document.getElementById('inputVercelToken').disabled = !enabled || vercelManagedByServer || !currentUser?.isOperator;
-    for (const id of ['btnAddDomain', 'btnRefreshDomains']) document.getElementById(id).disabled = !enabled || !vercelConnected;
-    document.getElementById('btnDisconnectVercel').disabled = !enabled || !vercelConnected || vercelManagedByServer;
+    document.getElementById('btnSaveSettingsDomain').disabled=!enabled||!vercelConnected||!checkedDomain||checkedDomain!==document.getElementById('inputSettingsDomain').value.trim().toLowerCase();
+    document.getElementById('btnResetSettingsDomain').disabled=!enabled;
+    for(const id of ['btnAddDomain','btnRefreshDomains'])document.getElementById(id).disabled=!enabled||!vercelConnected;
+
   }
   async function loadDomainManager() {
     if (!cloudMode || !adminConnected) return;
@@ -1564,29 +1546,27 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       if (display) display.textContent = currentSharedDomain || '(Default hosting: ' + platformDomain + ')';
     }
     updateDomainControls();
-    document.getElementById('vercelConnectionPanel').open = !vercelConnected;
-    document.getElementById('vercelConnectionPanel').hidden=!currentUser?.isOperator;
+
+
     document.getElementById('vercelIntegrationStatus').textContent = vercelConnected
-      ? 'Vercel terhubung. Penambahan, pemeriksaan, dan pelepasan domain dilakukan dari dashboard ini.'
-      : currentUser?.isOperator?'Hubungkan secret token Vercel satu kali untuk mengaktifkan domain pengguna.':'Pengelola belum mengaktifkan custom domain. Anda tetap bisa memakai alamat bersama.';
+      ? 'Tambahkan domain pribadi, pasang record DNS, lalu periksa dan gunakan untuk tautan baru.'
+      : currentUser?.isOperator?'Pemasangan domain belum aktif. Konfigurasikan Secret server VERCEL_DOMAINS_TOKEN di proyek hosting; token tidak dimasukkan melalui dashboard.':'Pemasangan domain pribadi belum tersedia. Anda tetap dapat membuat tautan dengan domain default AutoShort.';
     const container = document.getElementById('domainList');
     container.replaceChildren();
     for (const domain of result.domains || []) {
       const item = document.createElement('div'); item.className = 'domain-item';
       const name = document.createElement('strong'); name.textContent = domain.name; item.append(name);
       const state = document.createElement('p');
-      state.textContent = domain.shared?'Domain bersama · tersedia untuk semua pengguna':domain.name === result.customDomain ? 'Domain utama' : domain.redirect ? `Mengalihkan ke ${domain.redirect}` : domain.verified ? 'Kepemilikan terverifikasi · Periksa DNS & HTTPS untuk kesiapan' : 'Menunggu verifikasi kepemilikan'; item.append(state);
+      state.textContent = domain.currentShared?'Domain default AutoShort':domain.shared?'Domain bersama lama · tautan tetap aktif':domain.name === result.customDomain ? 'Default untuk tautan baru' : domain.redirect ? `Mengalihkan ke ${domain.redirect}` : domain.verified ? 'Kepemilikan terverifikasi · Periksa DNS & HTTPS untuk kesiapan' : 'Menunggu verifikasi kepemilikan'; item.append(state);
       const actions = document.createElement('div'); actions.className = 'domain-actions'; item.append(actions);
-      if(domain.shared){container.append(item);continue;}
+      if(domain.shared&&!currentUser?.isOperator){container.append(item);continue;}
       const inspect = document.createElement('button'); inspect.className = 'btn btn-outline btn-sm'; inspect.textContent = 'Periksa DNS & HTTPS';
       inspect.onclick = () => saveAction(inspect, async () => {
         document.getElementById('inputSettingsDomain').value = domain.name;
         const result = await api('/api/domains', {method:'POST',body:JSON.stringify({action:'check',domain:domain.name})});
         renderDomainDetails(result.domain);
       }); actions.append(inspect);
-      const select = document.createElement('button'); select.className = 'btn btn-outline btn-sm'; select.textContent = 'Pilih Domain';
-      select.onclick = () => { document.getElementById('inputSettingsDomain').value = domain.name; document.getElementById('inputSettingsDomain').focus(); }; actions.append(select);
-      if (!domain.platform && domain.name !== result.customDomain && domain.name !== location.hostname) {
+      if (!domain.shared && !domain.platform && domain.name !== result.customDomain && domain.name !== location.hostname) {
         const remove = document.createElement('button'); remove.className = 'btn btn-outline btn-sm'; remove.textContent = 'Lepas Domain';
         remove.onclick = () => saveAction(remove, async () => {
           if (!confirm(`Lepas ${domain.name} dari proyek? Semua shortlink pada hostname ini akan berhenti bekerja. Data tautan tidak dihapus.`)) return;
@@ -1600,6 +1580,9 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   }
   function renderDomainDetails(domain) {
     const root = document.getElementById('domainDetails'); root.replaceChildren(); root.hidden = false;
+    checkedDomain=domain.httpsReady&&!domain.redirect&&!domain.shared?domain.name:'';
+    document.getElementById('inputSettingsDomain').value=domain.name;
+    updateDomainControls();
     const title = document.createElement('strong'); title.textContent = 'Konfigurasi ' + domain.name; root.append(title);
     const state = document.createElement('p');
     state.textContent = domain.redirect ? `Domain mengalihkan ke ${domain.redirect}. Pilih hostname tujuan sebagai domain utama.`
@@ -1621,24 +1604,19 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     for(const record of domain.dns || []) {
       const row=document.createElement('div');row.className='domain-record';
       const label=document.createElement('strong');const host=domain.dnsZone&&(record.name===domain.dnsZone||record.name.endsWith('.'+domain.dnsZone))?(record.name===domain.dnsZone?'@':record.name.slice(0,-domain.dnsZone.length-1)):record.name;label.textContent=record.type+(record.purpose==='ownership'?' · Verifikasi kepemilikan':' · Arahkan domain');row.append(label);
-      const hostname=document.createElement('p');hostname.textContent='Nama / Host: '+host+(host==='@'?' (Domain utama)':' (Subdomain)');row.append(hostname);
+      const hostname=document.createElement('p');hostname.textContent='Nama / Host: '+host+(host==='@'?' (Akar domain)':' (Subdomain)');row.append(hostname);
       const copyHost=document.createElement('button');copyHost.className='btn btn-outline btn-sm';copyHost.textContent='Salin Nama';copyHost.onclick=()=>copyToClipboard(host,copyHost);row.append(copyHost);
       const ttl=document.createElement('p');ttl.style.fontSize='0.8rem';ttl.style.color='var(--text-muted,#888)';ttl.textContent='TTL: Auto / default penyedia';row.append(ttl);
       const value=document.createElement('code');value.textContent=record.value;row.append(value);
       const copy=document.createElement('button');copy.className='btn btn-outline btn-sm';copy.textContent='Salin Nilai';copy.onclick=()=>copyToClipboard(record.value,copy);row.append(copy);root.append(row);
     }
-    if (!domain.dns?.length) {const p=document.createElement('p');p.textContent='Vercel belum memberikan rekomendasi record DNS untuk domain ini. Periksa kembali setelah proses pemasangan selesai.';root.append(p);}
+    if (!domain.dns?.length) {const p=document.createElement('p');p.textContent='Layanan hosting belum memberikan rekomendasi record DNS untuk domain ini. Periksa kembali setelah proses pemasangan selesai.';root.append(p);}
     if (domain.conflicts?.length) {const p=document.createElement('p');p.textContent='Ada record DNS yang bertentangan. Sesuaikan record hostname ini dengan rekomendasi di atas tanpa mengubah record domain lain.';root.append(p);}
     const check=document.createElement('button');check.className='btn btn-outline btn-sm';check.textContent='Periksa DNS & HTTPS';
     check.onclick=()=>saveAction(check,async()=>{const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'check',domain:domain.name})});renderDomainDetails(result.domain);await loadDomainManager();});root.append(check);
     if(domain.httpsReady&&!domain.redirect){
-      const activate=document.createElement('button');activate.className='btn btn-primary btn-sm';activate.textContent='Jadikan Domain Pribadi Utama';
-      activate.onclick=()=>saveAction(activate,async()=>{
-        const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'activate',domain:domain.name})});
-        customDomain=result.customDomain;document.getElementById('inputSettingsDomain').value=customDomain;updateDomainDisplays();renderAll();await loadDomainManager();showToast('Domain utama akun Anda sudah aktif.','success');
-      });root.append(activate);
       if (currentUser?.isOperator) {
-        const setShared=document.createElement('button');setShared.className='btn btn-outline btn-sm';setShared.style.borderColor='#5146cb';setShared.textContent='Jadikan Domain Bersama (Semua Akun)';
+        const setShared=document.createElement('button');setShared.className='btn btn-outline btn-sm';setShared.style.borderColor='#5146cb';setShared.textContent='Jadikan Default AutoShort';
         setShared.onclick=()=>saveAction(setShared,async()=>{
           if(!confirm(`Jadikan ${domain.name} sebagai domain utama bersama untuk semua pengguna AutoShort?`)) return;
           const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'activate',domain:domain.name,scope:'shared'})});
@@ -1650,7 +1628,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   }
 
   function updateSettingsState() {
-    for (const id of ['btnSaveSettingsDomain', 'btnResetSettingsDomain', 'inputSettingsDomain', 'btnLogoutAdmin']) document.getElementById(id).disabled = !cloudMode;
+    for (const id of ['btnResetSettingsDomain', 'inputSettingsDomain', 'btnLogoutAdmin']) document.getElementById(id).disabled = !cloudMode;
     document.getElementById('domainStatus').textContent = cloudMode
       ? 'Tambahkan domain, pasang record DNS yang ditampilkan, lalu periksa dan pilih domain utama di dashboard ini.'
       : 'Mode lokal: custom domain tidak tersedia. Tautan memakai alamat browser ini.';
@@ -1666,7 +1644,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     const addon = document.getElementById('modalDomainAddon');
     const topDomain = document.getElementById('topDomainText');
     const displayDomain = cloudMode ? customDomain : location.host;
-    if (addon) addon.textContent = `${displayDomain}/`;
+    if (addon) addon.textContent = `${modalLinkDomain || displayDomain}/`;
     if (topDomain) topDomain.textContent = displayDomain;
     const activeDomain = document.getElementById('activeDomainText');
     if (activeDomain) activeDomain.textContent = displayDomain;

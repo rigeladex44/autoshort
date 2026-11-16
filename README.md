@@ -31,11 +31,11 @@ Tanpa konfigurasi Supabase, aplikasi memakai **mode lokal**. Tautan dan riwayat 
 | `AUTH_GOOGLE_ENABLED` | `true` setelah provider Google dikonfigurasi |
 | `PLATFORM_HOSTS` | Domain bersama existing, dipisahkan koma |
 | `ADMIN_TOKEN` | Opsional: akses pemeliharaan server lama; tidak dipakai untuk login dashboard |
-| Domain utama | Diatur melalui Pengaturan → Nama Domain Utama setelah DNS dan HTTPS aktif |
+| Domain default | Diatur oleh pemilik di halaman Domain setelah DNS dan HTTPS aktif |
 
 4. Di Supabase Authentication, aktifkan Email/password dengan konfirmasi email. Tambahkan `AUTH_SITE_URL/**` ke Redirect URLs. Untuk Google, konfigurasi OAuth client pada provider Google; authorized redirect Google adalah `https://<project>.supabase.co/auth/v1/callback`.
 5. Masuk melalui **Pengaturan → Masuk/Daftar** atau Google. Sesi memakai cookie HttpOnly, Secure pada produksi, SameSite=Lax. Token tidak disimpan di localStorage/sessionStorage. Tautan, statistik, domain, dan pilihan domain utama dipisahkan per pengguna melalui JWT terverifikasi dan RLS. Slug tetap unik secara global pada domain bersama; kapital dipertahankan.
-6. Akun pemilik menghubungkan integrasi Vercel melalui dashboard sekali. Pengguna lain dapat memasang domain sendiri, memeriksa DNS/HTTPS, dan mengaktifkannya tanpa mengetahui token Vercel. Domain pribadi hanya melayani tautan pemiliknya. Domain bersama existing perlu dicantumkan di `PLATFORM_HOSTS`.
+6. Pemilik mengatur Secret server `VERCEL_DOMAINS_TOKEN` satu kali; dashboard tidak meminta token hosting. Pengguna lain dapat memasang domain sendiri, memeriksa DNS/HTTPS, dan mengaktifkannya tanpa mengetahui token Vercel. Domain pribadi hanya melayani tautan pemiliknya. Domain bersama existing perlu dicantumkan di `PLATFORM_HOSTS`.
 
 **SMTP untuk email publik:** bawaan Supabase dibatasi dan tidak cocok untuk pendaftaran publik. Rekomendasi: buat akun Resend, tambahkan domain pengirim dan pasang record DNS yang diberikan (SPF/DKIM). Setelah domain terverifikasi, buka Supabase → Authentication → Email → SMTP: host `smtp.resend.com`, port `465`, username `resend`, password berupa API key Resend, sender misalnya `noreply@domain-anda`. Masukkan secret langsung di pengaturan Supabase, bukan chat atau repositori. Uji email konfirmasi dan lupa password dari akun sendiri sebelum membuka pendaftaran publik. Biarkan konfirmasi email aktif; Google dapat digunakan sementara SMTP belum siap.
 
@@ -81,33 +81,21 @@ QRCode.js © David Shim, MIT; lihat [`assets/QRCode-LICENSE.txt`](assets/QRCode-
 
 MIT License © 2026 rigeladex44
 
-## Kelola domain langsung dari dashboard
+## Domain default, domain pribadi, dan alamat tautan
 
-### Domain Utama AutoShort (Bersama)
-- Akun pemilik/admin (`OWNER_USER_ID`) dapat mengatur domain utama bersama (shared domain) langsung melalui menu **Domain**.
-- Domain utama bersama ini otomatis digunakan oleh seluruh akun baru dan pengguna yang belum/tidak memiliki domain pribadi aktif.
-- Jika domain utama bersama diganti (misalnya ke `rigeel.id` atau `www.rigeel.id`), domain lama tetap melayani tautan yang sudah dibuat sebelumnya tanpa menghapus data tautan atau melepas domain dari proyek.
-- Jika domain di Vercel memiliki pengalihan (misalnya `rigeel.id` dialihkan ke `www.rigeel.id`), gunakan tombol **Gunakan Tanpa Pengalihan** di rincian domain untuk melayani AutoShort langsung pada hostname tersebut, atau gunakan hostname tujuannya (`www.rigeel.id`).
+- **Domain Default AutoShort** dikelola hanya oleh pemilik (`OWNER_USER_ID`). Akun yang tidak memilih domain pribadi memakainya untuk tautan baru. Tambahkan/periksa hostname, lalu setelah DNS dan HTTPS siap pilih **Jadikan Default AutoShort**. Domain bersama lama tetap terdaftar dalam `shared_domains` dan tetap melayani tautan publik.
+- **Domain untuk tautan baru** adalah pilihan akun sendiri. Pengguna menambahkan hostname → menyalin record DNS → **Periksa DNS & HTTPS** → **Gunakan untuk Tautan Baru**. **Gunakan Domain Default AutoShort** menghapus pilihan pribadi dan langsung memuat domain bersama yang benar.
+- **Alamat setiap tautan** disimpan di `links.short_domain`. Kartu, preview edit, salin, CSV, dan QR menggunakan alamat tersebut. Mengganti default tidak mengganti alamat tautan lama. API dan trigger database menolak perubahan domain tautan yang sudah diterbitkan. Slug tetap unik global dan kapital dipertahankan.
+- Domain pribadi dicatat untuk semua akun, termasuk pemilik aplikasi, dan hanya melayani tautan milik pemilik domain. Domain bersama diperiksa sebelum domain pribadi agar promosi domain tidak membatasi routing ke satu akun.
+- Domain yang masih dirujuk tautan atau menjadi domain bersama tidak dapat dilepas. Gangguan DNS/TLS saat pemeriksaan ulang tidak membatalkan kepemilikan yang sebelumnya sudah terverifikasi.
 
-### Domain Pribadi Setiap Pengguna
-1. Pengguna masuk ke akun masing-masing → buka menu **Domain**.
-2. Pengguna **tidak perlu** memiliki akun Vercel, membuka Vercel, atau memasukkan token Vercel (koneksi Vercel dikelola terpusat oleh server/admin).
-3. Masukkan hostname pribadi yang diinginkan (disarankan subdomain seperti `go.domainanda.com`), lalu klik **Tambahkan Domain**.
-4. Dashboard secara otomatis mendaftarkan domain ke hosting proyek dan menampilkan record DNS aktual:
-   - **Jenis Record:** A, CNAME, atau TXT sesuai kebutuhan.
-   - **Nama / Host:** Nilai host yang harus dimasukkan (contoh: `go` untuk subdomain, `@` untuk domain utama/apex).
-   - **Target / Nilai:** Nilai tujuan dari Vercel DNS.
-   - **TTL:** TTL yang disarankan (Auto / default penyedia).
-   - Tombol salin satu klik untuk Nama dan Nilai.
-5. Panduan pemasangan DNS disediakan di dashboard untuk berbagai penyedia DNS termasuk **Domainesia** (Kelola Domain → DNS Management) dan **Cloudflare** (DNS → Records, pilih opsi *DNS only* / awan abu-abu).
-6. Klik **Periksa DNS & HTTPS** untuk memverifikasi propagasi DNS, kepemilikan domain, dan penerbitan sertifikat SSL/HTTPS secara nyata.
-7. Tombol **Jadikan Domain Pribadi Utama** hanya akan aktif setelah domain lolos seluruh pemeriksaan DNS, HTTPS, dan pembuktian backend AutoShort.
-8. Pengguna bebas memilih menggunakan domain pribadi miliknya atau kembali menggunakan domain utama bersama melalui tombol **Gunakan Alamat Situs / Bersama**.
-9. Domain pribadi pengguna hanya melayani tautan milik akun pemilik domain tersebut dan tidak dapat dilihat atau diubah oleh akun lain.
+Record A/CNAME/TXT diambil dari API hosting untuk hostname aktual. Dashboard menampilkan Nama/Host, Nilai, TTL, serta tombol salin. Pasang record di penyedia nameserver aktif (misalnya DNS Management Domainesia atau DNS → Records Cloudflare). Gunakan TTL Auto/default dan DNS only di Cloudflare selama penyiapan. Jangan mengganti nameserver atau menghapus record email/hostname lain. Perubahan DNS bisa memerlukan beberapa menit hingga 48 jam; HTTPS diproses otomatis. Verifikasi menguji DNS publik, TLS tanpa pengalihan, dan bukti dari backend AutoShort yang sama. Tombol aktivasi terkunci sebelum pemeriksaan berhasil; server tetap memeriksa ulang saat aktivasi.
 
-Konfigurasi server satu kali: `AUTOSHORT_VERCEL_PROJECT_ID` (atau system variable `VERCEL_PROJECT_ID`) dan `AUTOSHORT_VERCEL_TEAM_ID` untuk team. Opsional, secret server `VERCEL_DOMAINS_TOKEN` dapat dipakai sebagai pengganti koneksi token di dashboard; koneksi ini dikelola melalui secret server. Jangan masukkan token ke kode, query URL, log, atau chat.
+Hosting tetap memerlukan autentikasi **di server**: atur `VERCEL_DOMAINS_TOKEN` sebagai encrypted Secret produksi, `AUTOSHORT_VERCEL_PROJECT_ID`, dan `AUTOSHORT_VERCEL_TEAM_ID`. Pengguna tidak perlu akun/token Vercel. Kredensial lama yang sudah terenkripsi tetap didukung untuk kompatibilitas. Jangan menyalin placeholder proxy dari environment agent ke aplikasi. `/api/domain-integration` merupakan endpoint pemeliharaan khusus pemilik; tidak ada formulir token di dashboard.
 
-Jalankan kembali `supabase_schema.sql` sebelum menggunakan versi ini untuk membuat tabel `app_settings` dan `domain_credentials`. Data tautan/klik existing tidak dihapus. `CUSTOM_DOMAIN` pada environment tidak lagi menjadi sumber konfigurasi. Mode lokal menonaktifkan pengelolaan domain karena tautan bergantung pada penyimpanan browser. Pemeriksaan HTTPS saat ini membutuhkan IPv4 publik (record A atau CNAME yang mengarah ke A).
+**Upgrade existing:** backup, lalu jalankan `migrations/20261116_domain_addresses.sql`. Daftarkan seluruh hostname bersama existing (termasuk origin `AUTH_SITE_URL` dan `PLATFORM_HOSTS`) ke `shared_domains`, simpan default bersama yang sedang dipakai, dan isi `short_domain` yang masih NULL dari pilihan pribadi terverifikasi atau default sebelumnya. Jangan menebak alamat historis atau menimpa `short_domain` yang sudah terisi. Data tautan/klik/pemilik tidak dihapus. Fungsi `set_shared_domain` menyimpan default lama dan baru secara atomik, hanya bisa dipanggil server/service role. Instalasi baru memakai schema lengkap dan perlu domain bersama awal yang terverifikasi sebelum membuat tautan cloud.
+
+`AUTH_SITE_URL` tetap menjadi origin callback autentikasi. Mengganti default shortlink tidak otomatis memindahkan origin login/OAuth. Domain dashboard lama tetap dipertahankan; jika origin autentikasi dipindah, perbarui `AUTH_SITE_URL` dan allowlist Supabase secara terpisah sambil mempertahankan callback existing.
 
 ## Tampilan dan navigasi
 

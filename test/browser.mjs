@@ -183,10 +183,10 @@ try {
   // Cloud mode uses API results, honors empty arrays, and never reports success after failed saves.
   const cloudContext = await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
   await cloudContext.route(/googlesyndication|doubleclick|googleads/, route => route.fulfill({body:''}));
-  let cloudLinks = []; let failSave = false; let cloudDomain = 'short.example'; let domainFailure = false; let failLogin = false; let vercelConnected = false; let attachedDomains = []; let mockUser={id:'user-a',email:'a@example.test',isOperator:true};
+  let cloudLinks = []; let failSave = false; let cloudDomain = 'short.example'; let domainFailure = false; let failLogin = false; let vercelConnected = true; let dnsReady = false; let attachedDomains = []; let mockUser={id:'user-a',email:'a@example.test',isOperator:true};
   await cloudContext.route('**/api/**', async route => {
     const url = new URL(route.request().url());
-    if (url.pathname === '/api/config') return route.fulfill({json:{configured:true,customDomain:cloudDomain,platformDomain:new URL(base).host,user:mockUser,googleEnabled:true}});
+    if (url.pathname === '/api/config') return route.fulfill({json:{configured:true,customDomain:cloudDomain,platformDomain:"short.example",user:mockUser,googleEnabled:true}});
     if(url.pathname==='/api/auth'){
       const action=url.searchParams.get('action');
       if(action==='logout'){mockUser=null;return route.fulfill({json:{success:true}});}
@@ -201,15 +201,15 @@ try {
     }
     if (url.pathname === '/api/domains') {
       const method=route.request().method();
-      if(method==='GET')return route.fulfill({json:{connected:vercelConnected,customDomain:cloudDomain,domains:attachedDomains}});
+      if(method==='GET')return route.fulfill({json:{connected:vercelConnected,customDomain:cloudDomain,sharedDomain:"short.example",canManageShared:mockUser?.isOperator,domains:attachedDomains}});
       if(method==='DELETE'&&url.searchParams.has('domain')){attachedDomains=attachedDomains.filter(d=>d.name!==url.searchParams.get('domain'));return route.fulfill({json:{removed:url.searchParams.get('domain')}});}
       const input=route.request().postDataJSON()||{};
       if(input.action==='add'||input.action==='check'){
         if(input.action==='add')attachedDomains.push({name:input.domain,verified:false});
-        return route.fulfill({json:{domain:{name:input.domain,dnsZone:'pending.example',verified:false,misconfigured:true,nameservers:['ns.provider.test'],dns:[{type:'CNAME',name:'go',value:'target.vercel-dns.example',purpose:'routing'},{type:'TXT',name:'_vercel.pending.example',value:'test-ownership-value',purpose:'ownership'}]}}});
+        return route.fulfill({json:{domain:{name:input.domain,dnsZone:'pending.example',httpsReady:dnsReady,verified:dnsReady,misconfigured:!dnsReady,nameservers:['ns.provider.test'],dns:[{type:'CNAME',name:'go',value:'target.vercel-dns.example',purpose:'routing'},{type:'TXT',name:'_vercel.pending.example',value:'test-ownership-value',purpose:'ownership'}]}}});
       }
       if (domainFailure) return route.fulfill({status:422,json:{error:'DNS belum tersedia'}});
-      cloudDomain = method === 'DELETE' ? '' : input.domain;
+      cloudDomain = method === 'DELETE' ? 'short.example' : input.domain;
       return route.fulfill({json:{customDomain:cloudDomain,verified:true}});
     }
     if (failLogin && ['/api/links','/api/analytics'].includes(url.pathname)) return route.fulfill({status:401,json:{error:'Token admin diperlukan'}});
@@ -241,9 +241,8 @@ try {
   assert.equal(await cloudPage.locator('#btnResetAllData').isDisabled(),true);
   await cloudPage.goto(base+'/#domains');
   assert.equal(await cloudPage.locator('#viewSettings').isVisible(),false);
-  await cloudPage.fill('#inputVercelToken','test-vercel-secret');await cloudPage.click('#btnConnectVercel');
-  await cloudPage.locator('#vercelIntegrationStatus').filter({hasText:'Vercel terhubung'}).waitFor();
-  assert.equal(await cloudPage.locator('#inputVercelToken').inputValue(),'');
+  assert.equal(await cloudPage.locator('#inputVercelToken, #vercelConnectionPanel').count(),0);
+  assert.equal(await cloudPage.locator('#btnSaveSettingsDomain').isDisabled(),true);
   await cloudPage.fill('#inputSettingsDomain','go.pending.example');await cloudPage.click('#btnAddDomain');
   await cloudPage.locator('#domainList').filter({hasText:'go.pending.example'}).waitFor();
   await cloudPage.locator('#domainDetails').filter({hasText:'target.vercel-dns.example'}).waitFor();
@@ -256,14 +255,22 @@ try {
   await cloudPage.locator('#domainList').getByRole('button',{name:'Lepas Domain'}).click();
   await cloudPage.locator('#domainList .domain-item').waitFor({state:'hidden'});
   for(const width of [320,390,768,1440]){await cloudPage.setViewportSize({width,height:1000});assert.equal(await cloudPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Domain settings overflow '+width);}
-  domainFailure=true; await cloudPage.fill('#inputSettingsDomain','bad.example'); await cloudPage.click('#btnSaveSettingsDomain');
-  await cloudPage.locator('#domainStatus').filter({hasText:'DNS belum tersedia'}).waitFor();
+  // Pending DNS cannot activate; successful readiness is required before activation.
+  assert.equal(await cloudPage.locator('#btnSaveSettingsDomain').isDisabled(),true);
+  dnsReady=true;await cloudPage.fill('#inputSettingsDomain','go.example.com');await cloudPage.click('#btnAddDomain');
+  await cloudPage.locator('#domainDetails').getByRole('button',{name:'Periksa DNS & HTTPS',exact:true}).click();
+  await cloudPage.waitForFunction(()=>!document.getElementById('btnSaveSettingsDomain').disabled);
+  domainFailure=true;await cloudPage.click('#btnSaveSettingsDomain');await cloudPage.locator('#domainStatus').filter({hasText:'DNS belum tersedia'}).waitFor();
   assert.equal(await cloudPage.locator('#topDomainText').textContent(),'short.example');
-  domainFailure=false; await cloudPage.fill('#inputSettingsDomain','go.example.com'); await cloudPage.click('#btnSaveSettingsDomain');
+  domainFailure=false;await cloudPage.click('#btnSaveSettingsDomain');
   await cloudPage.locator('#domainStatus').filter({hasText:'Aktif: go.example.com'}).waitFor();
-  assert.equal(await cloudPage.locator('#topDomainText').textContent(),'go.example.com');
-  await cloudPage.reload(); await cloudPage.locator('#topDomainText').filter({hasText:'go.example.com'}).waitFor();
-  await cloudPage.click('#btnResetSettingsDomain'); await cloudPage.locator('#topDomainText').filter({hasText:'127.0.0.1:3100'}).waitFor();
+  await cloudPage.reload();await cloudPage.locator('#topDomainText').filter({hasText:'go.example.com'}).waitFor();
+  // Create on a personal domain, then reset to shared default. Existing address and QR stay personal.
+  await cloudPage.goto(base+'/#shortener');await cloudPage.click('#btnOpenCreateModal');await cloudPage.fill('#modalDestUrl','example.com');await cloudPage.fill('#modalSlug','KeepDomain');await cloudPage.click('#btnSaveModalLink');
+  await cloudPage.locator('#detailShortUrl').filter({hasText:'go.example.com/KeepDomain'}).waitFor();await cloudPage.keyboard.press('Escape');
+  await cloudPage.goto(base+'/#domains');await cloudPage.click('#btnResetSettingsDomain');await cloudPage.locator('#topDomainText').filter({hasText:'short.example'}).waitFor();
+  await cloudPage.goto(base+'/#shortener');assert.match(await cloudPage.locator('.link-card').textContent(),/go.example.com\/KeepDomain/);
+  await cloudPage.locator('.link-card').click();assert.equal(await cloudPage.locator('#detailShortUrl').getAttribute('href'),'https://go.example.com/KeepDomain');await cloudPage.click('[data-action="qr"]');assert.match(await cloudPage.locator('#qrStudioUrlText').textContent(),/go.example.com/);
   await cloudPage.goto(base+'/#settings');
   assert.equal(await cloudPage.locator('#viewDomains').isVisible(),false);
   await cloudPage.goto(base+'/#login');
@@ -278,14 +285,14 @@ try {
   const signedOut=await browser.newContext({viewport:{width:390,height:844}});
   await signedOut.route('**/api/**',route=>new URL(route.request().url()).pathname==='/api/config'?route.fulfill({json:{configured:true,customDomain:''}}):route.fulfill({status:401,json:{error:'Token admin diperlukan'}}));
   const signedOutPage=await signedOut.newPage();await signedOutPage.goto(base);
-  await signedOutPage.waitForFunction(()=>document.body.dataset.view==='home');
-  await signedOutPage.locator('#storageNotice a').waitFor();
+  await signedOutPage.locator('#viewAuth').waitFor({state:'visible'});
+  assert.equal(await signedOutPage.locator('.sid-sidebar').isVisible(),false);
   assert.equal(await signedOutPage.locator('#btnOpenCreateModal').isDisabled(),true);
   assert.equal(await signedOutPage.locator('#homeTotalLinks').textContent(),'—');
   assert.equal(await signedOutPage.locator('#btnHomeCreate').isDisabled(),true);
   assert.match(await signedOutPage.locator('#homeRecentLinks').textContent(),/Masuk akun/);
   await signedOutPage.screenshot({path:'test-results/home-signed-out-390.png',fullPage:true});
-  await signedOutPage.locator('#storageNotice a').click();await signedOutPage.locator('#viewAuth').waitFor({state:'visible'});
+  assert.equal(await signedOutPage.locator('#viewAuth').isVisible(),true);
   await signedOut.close();
   console.log('PASS: keyboard menu/focus handling, local icons, signed-out cloud state and default home page.');
   const listContext=await browser.newContext({viewport:{width:390,height:900},permissions:['clipboard-read','clipboard-write']});

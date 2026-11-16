@@ -20,7 +20,7 @@ const record = { id: 'one', slug: 'hello', destination_url: 'https://example.com
 let calls;
 beforeEach(() => { process.env.SUPABASE_URL = 'https://db.example'; process.env.SUPABASE_SERVICE_ROLE_KEY = 'server-only'; process.env.ADMIN_TOKEN = 'test-token'; process.env.PLATFORM_HOSTS='short.example'; process.env.AUTOSHORT_VERCEL_PROJECT_ID='prj_Test'; process.env.AUTOSHORT_VERCEL_TEAM_ID='team_Test'; calls=[]; });
 afterEach(() => { globalThis.fetch = realFetch; delete process.env.SUPABASE_URL; delete process.env.SUPABASE_SERVICE_ROLE_KEY; delete process.env.ADMIN_TOKEN; delete process.env.AUTOSHORT_VERCEL_PROJECT_ID; delete process.env.AUTOSHORT_VERCEL_TEAM_ID; delete process.env.VERCEL_DOMAINS_TOKEN; delete process.env.PLATFORM_HOSTS; });
-function mock(fn) { globalThis.fetch = async (url, options) => { calls.push({url:String(url), options}); return fn(String(url), options); }; }
+function mock(fn) { globalThis.fetch = async (url, options) => { calls.push({url:String(url), options}); if(String(url).includes('/rest/v1/shared_domains?'))return json([]); return fn(String(url), options); }; }
 function json(value, status = 200) { return new Response(JSON.stringify(value), { status }); }
 test('URL validation rejects executable schemes; slugs reject reserved routes', () => {
   assert.equal(normalizeUrl('example.com/path'), 'https://example.com/path');
@@ -97,8 +97,8 @@ test('domain verification requires DNS, HTTPS and a proof from this backend', as
 });
 test('domain management requires admin and cloud; reset deletes only the domain setting', async () => {
   const denied=req('DELETE');denied.headers.authorization='Bearer wrong';const res=response();await domains(denied,res);assert.equal(res.code,401);assert.equal(calls.length,0);
-  mock(()=>json(null));const reset=response();await domains(req('DELETE'),reset);assert.equal(reset.code,200);assert.equal(reset.body.customDomain,'');assert.match(calls[0].url,/app_settings\?key=eq.custom_domain$/);assert.equal(calls[0].options.method,'DELETE');
-  calls=[];const invalid=response();await domains(req('POST',{domain:'127.0.0.1'}),invalid);assert.equal(invalid.code,400);assert.equal(calls.length,0);
+  mock(()=>json(null));const reset=response();await domains(req('DELETE'),reset);assert.equal(reset.code,200);assert.equal(reset.body.customDomain,'localhost:3000');assert.ok(!calls.some(c=>c.options.method==='DELETE'));
+  calls=[];const invalid=response();await domains(req('POST',{domain:'127.0.0.1'}),invalid);assert.equal(invalid.code,400);assert.ok(!calls.some(c=>c.options.method==='POST'));
   delete process.env.SUPABASE_URL;const local=response();await domains(req('POST',{domain:'go.example.com'}),local);assert.equal(local.code,503);
 });
 test('public config shares the saved domain and exposes only a valid challenge proof', async () => {
@@ -126,19 +126,19 @@ test('domain add registers in the configured existing project and returns actual
   mock(url=>json(url.includes('/config')?{misconfigured:true,nameservers:['ns.provider.example'],recommendedCNAME:[{value:'specific.vercel-dns.com.'}]}:url.includes('/domains?')?{domains:[]}:{name:'go.example.com',apexName:'example.com',verified:false,verification:[{type:'TXT',domain:'_vercel.example.com',value:'ownership-test'}]}));
   const res=response();await domains(req('POST',{action:'add',domain:'go.example.com'}),res);assert.equal(res.code,200);assert.equal(res.body.domain.misconfigured,true);
   assert.deepEqual(res.body.domain.dns,[{type:'CNAME',name:'go',value:'specific.vercel-dns.com.',purpose:'routing'},{type:'TXT',name:'_vercel.example.com',value:'ownership-test',purpose:'ownership'}]);
-  const add=calls.find(c=>c.options.method==='POST');assert.match(add.url,/v10\/projects\/prj_Test\/domains/);assert.deepEqual(JSON.parse(add.options.body),{name:'go.example.com'});assert.ok(calls.every(c=>!c.url.includes('app_settings')));
+  const add=calls.find(c=>c.options.method==='POST'&&c.url.includes('api.vercel.com'));assert.match(add.url,/v10\/projects\/prj_Test\/domains/);assert.deepEqual(JSON.parse(add.options.body),{name:'go.example.com'});assert.ok(!calls.some(c=>c.url.includes('app_settings')&&c.options.method==='POST'));
 });
 test('domain status confirms membership, checks Vercel verification and does not activate pending DNS', async () => {
   process.env.VERCEL_DOMAINS_TOKEN='server-vercel-token';
   mock(url=>json(url.includes('/config')?{misconfigured:true,recommendedIPv4:[{value:['8.8.8.8']}]}:{name:'example.com',apexName:'example.com',verified:false}));
-  const res=response();await domains(req('POST',{action:'check',domain:'example.com'}),res);assert.equal(res.code,200);assert.equal(res.body.domain.httpsReady,false);assert.equal(res.body.domain.dns[0].type,'A');assert.equal(res.body.domain.dnsZone,'example.com');assert.ok(calls.some(c=>c.url.includes('/verify')));assert.ok(!calls.some(c=>c.url.includes('app_settings')));
+  const res=response();await domains(req('POST',{action:'check',domain:'example.com'}),res);assert.equal(res.code,200);assert.equal(res.body.domain.httpsReady,false);assert.equal(res.body.domain.dns[0].type,'A');assert.equal(res.body.domain.dnsZone,'example.com');assert.ok(calls.some(c=>c.url.includes('/verify')));assert.ok(!calls.some(c=>c.url.includes('app_settings')&&c.options.method==='POST'));
   calls=[];mock(()=>json({error:{code:'not_found'}},404));await assert.rejects(domainDetails('other.example.com'));assert.equal(calls.length,1);assert.ok(!calls[0].url.includes('/config'));
 });
 test('domain removal protects primary/current/platform domains and removes only selected hostname', async () => {
   process.env.VERCEL_DOMAINS_TOKEN='server-vercel-token';
-  mock(url=>json(url.includes('app_settings')?[{value:'primary.example.com'}]:{}));
+  mock(url=>json(url.includes('app_settings')?[{value:'primary.example.com'}]:url.includes('links?')?[]:{}));
   for(const domain of ['primary.example.com','short.example','project.vercel.app']){const r=response();await domains(req('DELETE',null,{domain}),r);assert.equal(r.code,409);}
-  calls=[];const removed=response();await domains(req('DELETE',null,{domain:'test.example.com'}),removed);assert.equal(removed.code,200);assert.equal(removed.body.removed,'test.example.com');assert.ok(calls.some(c=>c.url.includes('/domains/test.example.com')&&c.options.method==='DELETE'));assert.ok(!calls.some(c=>c.url.includes('/links')));
+  calls=[];const removed=response();await domains(req('DELETE',null,{domain:'test.example.com'}),removed);assert.equal(removed.code,200);assert.equal(removed.body.removed,'test.example.com');assert.ok(calls.some(c=>c.url.includes('/domains/test.example.com')&&c.options.method==='DELETE'));assert.ok(!calls.some(c=>c.url.includes('/links')&&c.options.method==='DELETE'));
 });
 
 test('missing Vercel ownership TXT remains an actionable pending status with DNS instructions', async () => {
@@ -266,4 +266,71 @@ test('shared domain is managed by owner, inherited by new users, and serves shar
   // Shared domain queries links without user_id filter
   assert.ok(calls.some(c=>c.url.includes('links?slug=eq.public-link') && !c.url.includes('user_id=eq.')));
   delete process.env.OWNER_USER_ID;
+});
+
+test('shared current and historical domains override private routing; unrelated hosts are denied',async()=>{
+ const {domainOwner}=await import('../lib/db.js');
+ globalThis.fetch=async url=>json(String(url).includes('app_settings')?[{value:'current.example'}]:String(url).includes('shared_domains')?(String(url).includes('old.example')?[{domain:'old.example'}]:[]):[{user_id:'private-user'}]);
+ assert.equal(await domainOwner('current.example'),null);
+ assert.equal(await domainOwner('old.example'),null);
+ assert.equal(await domainOwner('private.example'),'private-user');
+ globalThis.fetch=async()=>json([]);assert.equal(await domainOwner('unknown.example'),false);
+});
+test('owner private-domain registration is recorded before provider allocation and rejects other owners',async()=>{
+ process.env.OWNER_USER_ID='owner';process.env.VERCEL_DOMAINS_TOKEN='test-secret';
+ const request=req('POST',{action:'add',domain:'private.example'});request.headers.authorization='Bearer owner.jwt.signature';
+ mock((url,options)=>{
+  if(url.includes('/auth/v1/user'))return json({id:'owner'});
+  if(url.includes('app_settings'))return json([{value:'shared.example'}]);
+  if(url.includes('user_domains'))return json(options.method==='POST'?[JSON.parse(options.body)]:[]);
+  if(url.includes('/domains?'))return json({domains:[]});
+  if(url.includes('/config'))return json({misconfigured:true,recommendedCNAME:[{value:'actual.target.example'}]});
+  return json({name:'private.example',apexName:'example',verified:false});
+ });
+ const out=response();await domains(request,out);assert.equal(out.code,200);
+ const registration=calls.findIndex(c=>c.url.includes('/rest/v1/user_domains')&&c.options.method==='POST');
+ const provider=calls.findIndex(c=>c.url.includes('api.vercel.com')&&c.options.method==='POST');
+ assert.ok(registration>=0&&registration<provider);assert.equal(JSON.parse(calls[registration].options.body).user_id,'owner');
+ mock(url=>json(url.includes('/auth/v1/user')?{id:'owner'}:url.includes('app_settings')?[{value:'shared.example'}]:[{user_id:'other-user'}]));
+ const denied=response();await domains(request,denied);assert.equal(denied.code,404);
+ delete process.env.OWNER_USER_ID;
+});
+test('changing shared default retains prior host through atomic registry operation',async()=>{
+ const {createDomainHandler}=await import('../api/domains.js');
+ const handler=createDomainHandler({verify:async()=>true});process.env.OWNER_USER_ID='owner';process.env.VERCEL_DOMAINS_TOKEN='test-secret';
+ const request=req('POST',{action:'activate',domain:'next.example',scope:'shared'});request.headers.authorization='Bearer owner.jwt.signature';
+ mock((url,options)=>{
+  if(url.includes('/auth/v1/user'))return json({id:'owner'});
+  if(url.includes('app_settings'))return json([{value:'old.example'}]);
+  if(url.includes('user_domains'))return json([]);
+  if(url.includes('/config'))return json({misconfigured:false});
+  if(url.includes('/rpc/set_shared_domain'))return json(null);
+  return json({name:'next.example',verified:true});
+ });
+ const out=response();await handler(request,out);assert.equal(out.code,200);assert.equal(out.body.sharedDomain,'next.example');
+ const atomic=calls.find(c=>c.url.includes('/rpc/set_shared_domain'));assert.deepEqual(JSON.parse(atomic.options.body),{p_domain:'next.example'});
+ const reset=response();await handler(req('DELETE',null,{scope:'shared'}),reset);assert.equal(reset.code,409);
+ delete process.env.OWNER_USER_ID;
+});
+test('personal reset returns shared default and pending DNS cannot change active domain',async()=>{
+ mock(url=>json(url.includes('/auth/v1/user')?{id:'user-a'}:url.includes('app_settings')?[{value:'shared.example'}]:[]));
+ const request=req('DELETE');request.headers.authorization='Bearer user.jwt.signature';const out=response();await domains(request,out);
+ assert.equal(out.code,200);assert.equal(out.body.customDomain,'shared.example');
+ const denied=response();await domains({...request,method:'POST',body:{domain:'shared.example'}},denied);assert.equal(denied.code,403);
+});
+test('editing link ignores attempts to rewrite its published domain; creating rejects foreign domain',async()=>{
+ mock((url,options)=>json(options.method==='PATCH'?[{...JSON.parse(options.body),short_domain:'original.example'}]:[]));
+ const out=response();await links(req('PATCH',{...record,short_domain:'attacker.example'}),out);assert.equal(out.code,200);assert.equal(out.body.link.short_domain,'original.example');assert.ok(!Object.hasOwn(JSON.parse(calls[0].options.body),'short_domain'));
+ globalThis.fetch=async url=>json(String(url).includes('/auth/v1/user')?{id:'user-a'}:String(url).includes('app_settings')?[{value:'shared.example'}]:String(url).includes('user_domains')?[{user_id:'other-user'}]:[]);
+ const request=req('POST',{...record,short_domain:'other.example'});request.headers.authorization='Bearer user.jwt.signature';const denied=response();await links(request,denied);assert.equal(denied.code,403);
+});
+test('removing a domain referenced by a published link is rejected before provider deletion',async()=>{
+ mock(url=>json(url.includes('app_settings')?[{value:'shared.example'}]:url.includes('links?')?[{id:'published'}]:[]));
+ const out=response();await domains(req('DELETE',null,{domain:'keep.example'}),out);assert.equal(out.code,409);assert.ok(!calls.some(c=>c.url.includes('api.vercel.com')&&c.options.method==='DELETE'));
+});
+test('failed DNS recheck never revokes previously verified domain ownership',async()=>{
+ process.env.VERCEL_DOMAINS_TOKEN='test-secret';
+ mock(url=>json(url.includes('/auth/v1/user')?{id:'user-a'}:url.includes('app_settings')?[{value:'shared.example'}]:url.includes('user_domains')?[{user_id:'user-a',verified:true}]:url.includes('/config')?{misconfigured:true}:{name:'private.example',verified:true}));
+ const request=req('POST',{action:'check',domain:'private.example'});request.headers.authorization='Bearer user.jwt.signature';const out=response();await domains(request,out);
+ assert.equal(out.code,200);assert.equal(out.body.domain.httpsReady,false);assert.ok(!calls.some(c=>c.url.includes('user_domains')&&c.options.method==='PATCH'));
 });

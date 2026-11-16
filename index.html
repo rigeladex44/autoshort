@@ -145,7 +145,7 @@
           </button>
 
           <!-- Current Domain Display Pill -->
-          <button class="domain-pill-btn" id="btnTopDomainModal" title="Domain yang digunakan">
+          <button class="domain-pill-btn" id="btnTopDomainModal" title="Domain untuk tautan baru">
             <i class="fa-solid fa-globe" style="color: #06b6d4;"></i>
             <span id="topDomainText">rigeel.id</span>
           </button>
@@ -492,27 +492,17 @@
       <!-- ======================================================== -->
       <main tabindex="-1" class="sid-content-area" id="viewDomains" style="display: none;">
         <div class="page-heading"><span class="page-eyebrow">RUANG KERJA</span><h2>Domain Anda</h2><p>Domain pribadi untuk tautan Anda. Domain dan pengaturannya hanya dapat dikelola oleh akun Anda.</p></div>
-        <div class="active-domain-summary"><span class="summary-icon"><i class="fa-solid fa-globe" aria-hidden="true"></i></span><div><span class="summary-label">Alamat utama saat ini</span><strong id="activeDomainText"></strong></div><span class="summary-note">Berlaku untuk URL &amp; QR</span></div>
+        <div class="active-domain-summary"><span class="summary-icon"><i class="fa-solid fa-globe" aria-hidden="true"></i></span><div><span class="summary-label">Domain untuk tautan baru</span><strong id="activeDomainText"></strong></div><span class="summary-note">Alamat tautan lama tetap sama</span></div>
             <!-- Custom Domain Box -->
             <div class="settings-box domain-settings">
               <h3>Hubungkan domain Anda</h3>
-              <p>Gunakan alamat sendiri untuk semua tautan. Tambahkan hostname, ikuti petunjuk DNS yang muncul, lalu aktifkan.</p>
-              <details id="vercelConnectionPanel" hidden>
-                <summary>Koneksi Vercel <span class="connection-caption">· satu kali pengaturan</span></summary>
-                <p>Hubungkan token Vercel yang memiliki akses ke proyek AutoShort. Token disimpan terenkripsi dan tidak ditampilkan kembali.</p>
-                <label for="inputVercelToken">Secret token Vercel</label>
-                <input type="password" id="inputVercelToken" class="input-control" autocomplete="new-password" placeholder="Token Vercel Anda" />
-                <div class="domain-actions">
-                  <button type="button" class="btn btn-primary btn-sm" id="btnConnectVercel" disabled>Hubungkan Vercel</button>
-                  <button type="button" class="btn btn-outline btn-sm" id="btnDisconnectVercel" disabled>Putus Koneksi</button>
-                  <a href="https://vercel.com/account/tokens" target="_blank" rel="noopener noreferrer">Buat token</a>
-                </div>
-              </details>
+              <p>Atur alamat untuk tautan baru. Tambahkan domain, salin record DNS ke penyedia domain Anda, lalu periksa DNS dan HTTPS. Mengganti default tidak mengubah alamat tautan yang sudah dibuat.</p>
+              <details class="domain-dns-help"><summary>Cara memasang DNS</summary><p>Buka DNS Management di penyedia nameserver aktif Anda (misalnya Domainesia atau Cloudflare). Pasang Nama/Host dan Nilai yang muncul setelah domain ditambahkan. Subdomain go.domainanda.com biasanya memakai Host go; domain utama memakai @. Gunakan TTL Auto/default dan DNS only di Cloudflare. Jangan menghapus record email atau record hostname lain. Propagasi dapat memerlukan beberapa menit hingga 48 jam; setelah itu klik Periksa DNS &amp; HTTPS.</p></details>
               <p id="vercelIntegrationStatus" role="status" aria-live="polite">Masuk untuk mengelola domain pribadi Anda.</p>
               <div id="sharedDomainOwnerSection" class="settings-box" style="margin-top:16px;background:var(--bg-card-subtle,rgba(255,255,255,0.03));border:1px solid var(--border-color,#333);border-radius:8px;padding:14px;" hidden>
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
                   <span class="badge" style="background:#5146cb;color:#fff;font-size:0.75rem;padding:2px 8px;border-radius:4px;">ADMIN</span>
-                  <strong>Domain Utama AutoShort (Bersama)</strong>
+                  <strong>Domain Default AutoShort</strong>
                 </div>
                 <p style="font-size:0.88rem;margin-bottom:10px;">Domain utama yang dipakai oleh semua pengguna yang tidak memiliki domain pribadi aktif. Domain lama tetap melayani tautan saat domain utama diganti.</p>
                 <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
@@ -520,18 +510,18 @@
                   <code id="currentSharedDomainDisplay" style="font-size:0.95rem;font-weight:600;">-</code>
                 </div>
                 <div class="domain-actions">
-                  <button type="button" class="btn btn-outline btn-sm" id="btnResetSharedDomain">Kembalikan ke Alamat Hosting Default</button>
+                  <p>Untuk mengganti default, tambahkan atau periksa domain di bawah. Setelah DNS dan HTTPS siap, pilih Jadikan Default AutoShort. Domain bersama lama tetap aktif.</p>
                 </div>
               </div>
               <div class="form-group domain-host-field" style="margin-top:12px;">
-                <label for="inputSettingsDomain">Hostname domain</label>
+                <label for="inputSettingsDomain">Domain yang ingin dihubungkan</label>
                 <input type="text" id="inputSettingsDomain" class="input-control" placeholder="contoh: go.domainanda.com" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="domainStatus" />
               </div>
               <div class="domain-actions">
               <button type="button" class="btn btn-primary btn-sm" id="btnAddDomain" disabled>Tambahkan Domain</button>
               <button type="button" class="btn btn-outline btn-sm" id="btnRefreshDomains" disabled>Muat Ulang Domain</button>
-              <button class="btn btn-primary btn-sm" id="btnSaveSettingsDomain" disabled>Jadikan Domain Utama</button>
-              <button class="btn btn-outline btn-sm" id="btnResetSettingsDomain" disabled>Gunakan Alamat Situs</button>
+              <button class="btn btn-primary btn-sm" id="btnSaveSettingsDomain" disabled>Gunakan untuk Tautan Baru</button>
+              <button class="btn btn-outline btn-sm" id="btnResetSettingsDomain" disabled>Gunakan Domain Default AutoShort</button>
               </div>
               <div id="domainList" class="domain-list" aria-label="Domain terpasang"></div>
               <div id="domainDetails" class="domain-details" hidden></div>
@@ -600,6 +590,7 @@
             </div>
 
             <div class="form-group">
+              <p class="link-domain-note">Alamat tautan ini tetap memakai domain yang ditampilkan, meskipun default akun berubah.</p>
               <label for="modalSlug">Nama tautan <span class="required">*</span></label>
               <div class="slug-input-wrapper">
                 <span class="slug-domain-addon" id="modalDomainAddon">rigeel.id/</span>
