@@ -334,3 +334,13 @@ test('failed DNS recheck never revokes previously verified domain ownership',asy
  const request=req('POST',{action:'check',domain:'private.example'});request.headers.authorization='Bearer user.jwt.signature';const out=response();await domains(request,out);
  assert.equal(out.code,200);assert.equal(out.body.domain.httpsReady,false);assert.ok(!calls.some(c=>c.url.includes('user_domains')&&c.options.method==='PATCH'));
 });
+test('Google login canonicalizes origin before PKCE and uses canonical callback and session landing',async()=>{
+ const priorOrigin=process.env.AUTH_SITE_URL,priorGoogle=process.env.AUTH_GOOGLE_ENABLED;
+ process.env.AUTH_SITE_URL='https://rigeel.id';process.env.AUTH_GOOGLE_ENABLED='true';
+ try{
+  const old=req('GET',null,{action:'google'});old.headers.host='autoshort-alpha.vercel.app';const moved=response();await auth(old,moved);assert.equal(moved.code,302);assert.equal(moved.headers.location,'https://rigeel.id/api/auth?action=google');assert.equal(moved.headers['set-cookie'],undefined);
+  const canonical=req('GET',null,{action:'google'});canonical.headers.host='rigeel.id';const start=response();await auth(canonical,start);assert.equal(start.code,302);const location=new URL(start.headers.location);assert.equal(location.searchParams.get('redirect_to'),'https://rigeel.id/api/auth?action=callback');assert.ok(location.searchParams.get('code_challenge'));assert.match(start.headers['set-cookie'].join(';'),/HttpOnly/);
+  mock(()=>json({access_token:'test-access',refresh_token:'test-refresh',user:{id:'test-user'},expires_in:3600}));
+  const callback=req('GET',null,{action:'callback',code:'test-code'});callback.headers.host='rigeel.id';callback.headers.cookie='as_pkce=test-verifier';const complete=response();await auth(callback,complete);assert.equal(complete.headers.location,'https://rigeel.id/#home');assert.match(complete.headers['set-cookie'].join(';'),/as_access=/);
+ }finally{if(priorOrigin===undefined)delete process.env.AUTH_SITE_URL;else process.env.AUTH_SITE_URL=priorOrigin;if(priorGoogle===undefined)delete process.env.AUTH_GOOGLE_ENABLED;else process.env.AUTH_GOOGLE_ENABLED=priorGoogle;}
+});

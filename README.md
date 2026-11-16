@@ -106,3 +106,9 @@ Ikon Font Awesome 6.5.1 disajikan dari `assets/fontawesome/` agar navigasi tidak
 Performa per tautan menampilkan empat kolom ringkas (tautan, klik, unik, QR) tanpa scroll horizontal pada mobile. Klik nama tautan untuk membuka detail lengkap. Detail waktu grafik mengikuti zona waktu browser dan tampil langsung pada sumbu grafik; sentuh/klik batang atau arahkan kursor untuk tooltip detail, tanpa kontrol tambahan di bawah grafik.
 
 Ringkasan di bawah grafik mengikuti filter aktif: Total Link menghitung link dalam pilihan (tetap ada meski tanpa kunjungan), Kunjungan menghitung event dalam rentang tanggal, dan Pengunjung Unik menghitung identitas berbeda di keseluruhan rentang, bukan penjumlahan unik per jam. Sebelum autentikasi cloud, angka ditampilkan sebagai —.
+
+## Alamat publik aplikasi
+
+`https://rigeel.id` adalah origin login dan dashboard. Atur `AUTH_SITE_URL=https://rigeel.id` pada server dan pertahankan allowlist callback Supabase untuk domain existing. Rules host di `vercel.json` mengalihkan alamat produksi Vercel dan `www.rigeel.id` ke root `rigeel.id` dengan HTTP 308, sambil mempertahankan path dan query string. Domain pribadi pengguna tidak terkena aturan ini. Alamat teknis deployment Vercel tetap ada.
+
+Migrasi origin dilakukan terpisah dari perubahan default shortlink: backup dulu, kemudian pengelola dapat mengganti `short_domain` khusus alias bersama lama ke origin canonical melalui service role. HTTP redirect menjaga alamat yang sudah dibagikan tetap bekerja. Pilihan domain pribadi, slug, tujuan, klik, serta pemilik tautan tidak diubah. Sesi cookie host lama tidak dipindahkan; pengguna masuk kembali pada origin baru.

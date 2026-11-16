@@ -32,5 +32,29 @@
         }
       ]
     }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "autoshort-alpha.vercel.app"
+        }
+      ],
+      "destination": "https://rigeel.id/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.rigeel.id"
+        }
+      ],
+      "destination": "https://rigeel.id/:path*",
+      "permanent": true
+    }
   ]
 }
