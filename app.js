@@ -1620,7 +1620,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
         setShared.onclick=()=>saveAction(setShared,async()=>{
           if(!confirm(`Jadikan ${domain.name} sebagai domain utama bersama untuk semua pengguna AutoShort?`)) return;
           const result=await api('/api/domains',{method:'POST',body:JSON.stringify({action:'activate',domain:domain.name,scope:'shared'})});
-          currentSharedDomain=result.sharedDomain;
+          currentSharedDomain=result.sharedDomain;checkedDomain='';
           await fetchBackendConfig();await loadDomainManager();renderAll();showToast(`Domain utama bersama AutoShort berhasil diubah ke ${domain.name}.`,'success');
         });root.append(setShared);
       }
