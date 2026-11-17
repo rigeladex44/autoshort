@@ -195,6 +195,7 @@ try {
     }
     if (url.pathname === '/api/domains') {
       const method=route.request().method();
+      if(method==='GET'&&url.searchParams.has('domain'))return route.fulfill({json:{domain:{name:url.searchParams.get('domain'),dnsZone:'pending.example',verified:dnsReady,misconfigured:!dnsReady,dns:[{type:'CNAME',name:'go',value:'target.vercel-dns.example',purpose:'routing'}]}}});
       if(method==='GET')return route.fulfill({json:{connected:vercelConnected,customDomain:cloudDomain,sharedDomain,canManageShared:mockUser?.isOperator,domains:attachedDomains}});
       if(method==='DELETE'&&url.searchParams.has('domain')){attachedDomains=attachedDomains.filter(d=>d.name!==url.searchParams.get('domain'));return route.fulfill({json:{removed:url.searchParams.get('domain')}});}
       const input=route.request().postDataJSON()||{};
@@ -241,12 +242,14 @@ try {
   await cloudPage.fill('#inputSettingsDomain','go.pending.example');await cloudPage.click('#btnAddDomain');
   await cloudPage.locator('#domainList').filter({hasText:'go.pending.example'}).waitFor();
   await cloudPage.locator('#domainDetails').filter({hasText:'target.vercel-dns.example'}).waitFor();
-  assert.match(await cloudPage.locator('#domainDetails').textContent(),/Nama \/ Host: _vercel/);
+  assert.equal(await cloudPage.locator('#domainDetails .dns-host-cell textarea').nth(1).inputValue(),'_vercel');
   assert.equal(await cloudPage.locator('#domainDetails').getByRole('button',{name:'Salin Nama',exact:true}).count(),2);
   assert.equal(await cloudPage.locator('#domainDetails').getByRole('button',{name:'Jadikan Domain Utama',exact:true}).count(),0);
   await cloudPage.locator('.domain-dns-help summary').click();assert.match(await cloudPage.locator('.domain-dns-help').textContent(),/DNS only/);
   await cloudPage.locator('#domainList').getByRole('button',{name:'Periksa DNS & HTTPS',exact:true}).click();
   await cloudPage.locator('#domainDetails').filter({hasText:'Verifikasi kepemilikan diperlukan'}).waitFor();
+  assert.equal(await cloudPage.locator('#emailDomainPanel').isVisible(),false);
+  for(const width of [320,390,768,1440]){await cloudPage.setViewportSize({width,height:1000});for(const theme of ['light','dark']){await cloudPage.evaluate(t=>document.documentElement.dataset.theme=t,theme);assert.equal(await cloudPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Shortlink DNS overflow '+width);await cloudPage.evaluate(()=>{document.activeElement?.blur();window.scrollTo(0,0);});await cloudPage.screenshot({path:`test-results/shortlink-dns-${width}-${theme}.png`,fullPage:true,animations:'disabled'});}}
   await cloudPage.locator('#domainList').getByRole('button',{name:'Lepas Domain'}).click();
   await cloudPage.locator('#domainList .domain-item').waitFor({state:'hidden'});
   for(const width of [320,390,768,1440]){await cloudPage.setViewportSize({width,height:1000});assert.equal(await cloudPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Domain settings overflow '+width);}
@@ -359,7 +362,7 @@ try {
     if(action==='overview')data={configured:mailOn,domains:isA&&domainAdded?[{id:domain.id,domain:domain.domain,sending_ready:mailReady,receiving_ready:mailReady},...(mailReady?[{id:'mail-domain-2',domain:'second.example',sending_ready:true,receiving_ready:true},{id:'mail-pending',domain:'pending.example',sending_ready:true,receiving_ready:false}]:[])]:[],mailboxes:boxCreated?[{id:isA?'mail-box-a':'mail-box-b',address:isA?'admin@own.example':'admin@other.example',display_name:'Admin',ready:true}]:[],message:mailOn?'Inbox siap':'Layanan email belum aktif.'};
     else if(action==='domain-add'){domainAdded=true;data={domain};}
     else if(action==='domain-details')data={domain};
-    else if(action==='domain-check'){mailReady=true;data={domain:{...domain,sendingReady:true,receivingReady:true,cnameConflict:false}};}
+    else if(action==='domain-check'){mailReady=true;data={domain:{...domain,sendingReady:true,receivingReady:true,cnameConflict:false,records:domain.records.map(record=>({...record,status:'verified'}))}};}
     else if(action==='mailbox-create'){boxCreated=true;data={mailbox:{id:'mail-box-a',address:'admin@own.example',ready:true}};}
     else if(action==='mailbox-check')data={mailbox:{id:payload.mailbox_id,address:isA?'admin@own.example':'admin@other.example',active:true,sendingReady:true,receivingReady:true,lastReceived:null}};
     else if(action==='threads')data={threads:isA?[...(newMail&&!payload.after?[{id:'new-arrival',subject:'Kode uji masuk',from:'outside@example.test',to:['admin@own.example'],read:false,received_at:'2026-11-17T08:05:00Z'}]:[]),{id:payload.after?'older':'thread-a',subject:payload.after?'Older A':'Private A',from:'sender@example.com',to:['admin@own.example'],read:false,received_at:'2026-11-17T08:00:00Z'}]:[],hasMore:isA&&!payload.after&&!loadOlder,next:isA&&!payload.after?'older':null};
@@ -370,8 +373,27 @@ try {
   });
   const mailPage=await mailContext.newPage();await mailPage.clock.install();mailPage.on('pageerror',e=>errors.push(e.message));await mailPage.goto(base+'/#mail');await mailPage.locator('#mailNotice').filter({hasText:'Layanan email belum aktif'}).waitFor();assert.equal(await mailPage.locator('#mailAddDomain').isDisabled(),true);
   mailOn=true;await mailPage.click('#mailRefresh');await mailPage.waitForFunction(()=>!document.getElementById('mailAddDomain').disabled);
+  await mailPage.getByRole('link',{name:'Pengaturan domain email',exact:true}).click();
+  await mailPage.locator('#emailDomainPanel').waitFor({state:'visible'});
+  assert.equal(await mailPage.locator('#shortlinkDomainPanel').isVisible(),false);
+  assert.equal(await mailPage.locator('#mailBoxForm').isVisible(),false);
   await mailPage.fill('#mailDomainInput','own.example');await mailPage.click('#mailAddDomain');await mailPage.locator('#mailDns').filter({hasText:'provider-real-value-example'}).waitFor();assert.equal(await mailPage.locator('#mailCreateBox').isDisabled(),true);assert.match(await mailPage.locator('#mailDns').textContent(),/CNAME/);
   await mailPage.locator('#mailDns').getByRole('button',{name:'Periksa DNS Email',exact:true}).click();await mailPage.waitForFunction(()=>!document.getElementById('mailCreateBox').disabled);
+  const mxRow=mailPage.locator('#mailDns .dns-record-row').nth(1);
+  assert.equal(await mxRow.locator('.dns-host-cell textarea').inputValue(),'@');
+  assert.equal(await mxRow.locator('.dns-status').textContent(),'Siap');
+  assert.equal(await mxRow.locator('.dns-priority-cell span').textContent(),'10');
+  assert.equal(await mxRow.locator('.dns-value-cell textarea').inputValue(),'provider-mx-example');
+  assert.equal(await mxRow.locator('.dns-value-cell textarea').getAttribute('readonly'),'');
+  await mailPage.evaluate(()=>{navigator.clipboard.writeText=async value=>{window.copiedDnsValue=value;};});
+  await mxRow.getByRole('button',{name:'Salin Nilai',exact:true}).click();assert.equal(await mailPage.evaluate(()=>window.copiedDnsValue),'provider-mx-example');
+  for(const width of [320,390,768,1440]){await mailPage.setViewportSize({width,height:1000});for(const theme of ['light','dark']){await mailPage.evaluate(t=>document.documentElement.dataset.theme=t,theme);assert.equal(await mailPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Email DNS overflow '+width);await mailPage.evaluate(()=>{document.activeElement?.blur();window.scrollTo(0,0);});await mailPage.screenshot({path:`test-results/email-dns-${width}-${theme}.png`,fullPage:true,animations:'disabled'});}}
+  await mailPage.reload();await mailPage.locator('#mailDns .dns-record-table').waitFor();
+  assert.equal(await mailPage.locator('#shortlinkDomainPanel').isVisible(),false);
+  await mailPage.getByRole('link',{name:'Shortlink',exact:true}).click();await mailPage.locator('#shortlinkDomainPanel').waitFor({state:'visible'});assert.equal(await mailPage.locator('#emailDomainPanel').isVisible(),false);
+  await mailPage.locator('.domain-tabs').getByRole('link',{name:'Email',exact:true}).click();await mailPage.locator('#emailDomainPanel').waitFor({state:'visible'});
+  await mailPage.getByRole('link',{name:'Buka Inbox',exact:true}).click();await mailPage.locator('#mailBoxForm').waitFor({state:'visible'});
+  await mailPage.waitForFunction(()=>!document.getElementById('mailCreateBox').disabled);
   await mailPage.locator('#mailDomainPicker summary').click();
   assert.equal(await mailPage.locator('#mailDomainOptions input').count(),2);
   assert.ok(!(await mailPage.locator('#mailDomainOptions').textContent()).includes('pending.example'));
@@ -392,6 +414,6 @@ try {
   assert.equal(await mailPage.evaluate(()=>Object.values(localStorage).some(v=>v.includes('Secret A'))),false);
   await mailPage.goto(base+'/#settings');await mailPage.click('#btnLogoutAdmin');await mailPage.locator('#viewAuth').waitFor({state:'visible'});assert.equal(await mailPage.locator('#mailThreads').textContent(),'');assert.equal(await mailPage.locator('#mailMessage').textContent(),'');
   mailUser={id:'mail-user-b',email:'b@example.test',isOperator:false};await mailPage.reload();await mailPage.locator('#cloudStatusText').filter({hasText:'Cloud Terhubung'}).waitFor({state:'attached'});await mailPage.goto(base+'/#mail');await mailPage.locator('#mailboxSelect').filter({hasText:'admin@other.example'}).waitFor();assert.ok(!(await mailPage.locator('#viewMail').textContent()).includes('Secret A'));assert.ok(!(await mailPage.locator('#mailThreads').textContent()).includes('Private A'));assert.deepEqual(errors,[]);await mailContext.close();
-  console.log('PASS: private email setup, ready-domain search and selection, DNS gating, automatic arrival refresh preserving messages, inbox/reply, idempotent retry, safe text rendering, pagination, logout isolation and responsive light/dark views.');
+  console.log('PASS: separate shortlink/email domain settings, real DNS value templates/copy, direct email-domain reload, private email setup, ready-domain search and selection, DNS gating, automatic arrival refresh preserving messages, inbox/reply, idempotent retry, safe text rendering, pagination, logout isolation and responsive light/dark views.');
 
 } finally { await browser?.close(); server.kill(); }

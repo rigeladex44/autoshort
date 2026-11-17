@@ -204,7 +204,6 @@ button:disabled { cursor: not-allowed; }
 .domain-settings details { background: var(--bg-card-subtle); backdrop-filter: var(--glass-blur-sm); -webkit-backdrop-filter: var(--glass-blur-sm); border: 1px solid var(--border-glass); border-radius: var(--radius-md); padding: 16px; margin: 20px 0 16px; }
 .domain-settings summary { font-size: .81rem; cursor: pointer; }
 
-.domain-settings details .input-control { max-width: 620px; }
 .domain-actions { gap: 8px; margin: 14px 0; }
 .domain-actions a { font-size: .76rem; color: var(--brand-primary); padding: 8px; font-weight: 600; }
 .domain-host-field { max-width: 620px; }
@@ -216,8 +215,6 @@ button:disabled { cursor: not-allowed; }
 .domain-details { background: var(--bg-card-subtle); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--border-glass); padding: 22px; border-radius: var(--radius-xl); box-shadow: var(--shadow-sm), var(--glass-highlight); }
 .domain-details > strong { font-size: .85rem; }
 .domain-details p { margin-top: 10px; }
-.domain-record { font-size: .77rem; border-bottom: 1px solid var(--border-light); }
-.domain-record code { padding: 10px 14px; border: 1px solid var(--border-glass); background: var(--bg-input); backdrop-filter: var(--glass-blur-sm); border-radius: var(--radius-sm); font-size: .76rem; box-shadow: var(--glass-highlight); }
 .active-domain-summary { display: flex; align-items: center; gap: 14px; padding: 20px 24px; background: var(--bg-card); backdrop-filter: var(--glass-blur); -webkit-backdrop-filter: var(--glass-blur); border: 1px solid var(--border-glass); border-radius: var(--radius-xl); box-shadow: var(--shadow-sm), var(--glass-highlight); margin-bottom: 22px; min-width: 0; }
 .summary-icon { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: var(--radius-md); color: var(--brand-primary); background: var(--brand-light); box-shadow: var(--glass-highlight); }
 .active-domain-summary > div { min-width: 0; }
@@ -309,7 +306,6 @@ body.menu-open { overflow: hidden; }
 
   .domain-actions > .btn { flex: 1 1 130px; min-height: 44px; }
   .domain-actions a { text-align: center; }
-  .domain-record .btn { min-height: 42px; }
   .domain-item { padding: 14px; }
   .domain-item .domain-actions { margin-bottom: 0; }
   .domain-details { padding: 16px; }
@@ -585,16 +581,11 @@ body[data-view="auth"] .sid-content-area {
 .domain-dns-help { padding: 14px 0; border-block: 1px solid var(--border-card); margin-bottom: 18px; font-size: .77rem; }
 .domain-dns-help summary { cursor: pointer; font-weight: 600; }
 .domain-dns-help p { line-height: 1.7; }
-.domain-record { padding: 14px 0; border-bottom: 1px solid var(--border-card); }
-.domain-record p { margin: 6px 0; overflow-wrap: anywhere; }
-.domain-record code { display: block; overflow-wrap: anywhere; margin: 8px 0; }
-.domain-record .btn { margin-right: 6px; }
-.domain-details > .btn { margin: 14px 6px 0 0; }
 
 /* Domain controls must fit long hostnames and narrow screens. */
 #viewDomains .settings-box, #viewDomains .domain-details, #viewDomains .domain-item { min-width: 0; overflow-wrap: anywhere; }
 #viewDomains .domain-actions { display: flex; flex-wrap: wrap; min-width: 0; }
-#viewDomains .domain-actions .btn, #viewDomains .domain-details > .btn { white-space: normal; max-width: 100%; min-width: 0; height: auto; }
+#viewDomains .domain-actions .btn { white-space: normal; max-width: 100%; min-width: 0; height: auto; }
 #viewDomains input { min-width: 0; max-width: 100%; }
 #viewDomains code { overflow-wrap: anywhere; }
 @media(max-width:768px){ #viewDomains .domain-actions .btn { flex: 1 1 130px; font-size: .73rem; padding: 10px 12px; } #viewDomains .domain-settings { padding: 16px; } }
@@ -609,17 +600,11 @@ body[data-view="auth"] .sid-content-area {
 .password-visibility-toggle:focus-visible { outline-offset: -3px; }
 
 .mail-setup { margin-bottom: 20px; }
-.mail-setup summary { cursor: pointer; font-weight: 600; margin-bottom: 14px; }
 .mail-inline-form, .mail-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin: 16px 0; }
 .mail-inline-form .form-group { flex: 1 1 150px; margin: 0; min-width: 0; }
 .mail-toolbar .input-control { width: auto; flex: 1 1 150px; min-width: 0; }
 .mail-layout { display: grid; grid-template-columns: minmax(230px, .8fr) minmax(0, 1.5fr); gap: 16px; }
-.mail-layout > *, .mail-domain-row, #mailDns { min-width: 0; overflow-wrap: anywhere; }
-.mail-domain-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; padding: 14px 0; border-bottom: 1px solid var(--border-card); }
-.mail-domain-row span { font-size: .75rem; grid-column: 1; }
-.mail-domain-row .btn { grid-column: 2; grid-row: 1 / 3; }
-.mail-dns-record { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; padding: 12px; border: 1px solid var(--border-card); border-radius: 10px; }
-.mail-dns-record strong, .mail-dns-record p, .mail-dns-record code, .mail-dns-record small { width: 100%; overflow-wrap: anywhere; }
+.mail-layout > *, #mailDns { min-width: 0; overflow-wrap: anywhere; }
 .mail-warning { color: var(--brand-primary); }
 .mail-thread { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 14px 8px; border: 0; border-bottom: 1px solid var(--border-card); background: transparent; color: var(--text-main); text-align: left; cursor: pointer; overflow-wrap: anywhere; }
 .mail-thread strong, .mail-thread span { max-width: 100%; }
@@ -631,7 +616,7 @@ body[data-view="auth"] .sid-content-area {
 .mail-compose-dialog { width: min(640px,calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow-y: auto; margin: auto; padding: 24px; background: var(--bg-card); color: var(--text-main); border: 1px solid var(--border-card); border-radius: 16px; }
 .mail-compose-dialog::backdrop { background: #11142c80; }
 #viewMail > .storage-notice { margin: 0 0 16px; }
-@media(max-width:768px){ .mail-layout { grid-template-columns: 1fr; } .mail-domain-row { grid-template-columns: 1fr; } .mail-domain-row .btn { grid-column: 1; grid-row: auto; } .mail-inline-form .btn, .mail-toolbar .btn { flex: 1 1 130px; white-space: normal; } .mail-compose-dialog { padding: 18px; } }
+@media(max-width:768px){ .mail-layout { grid-template-columns: 1fr; } .mail-inline-form .btn, .mail-toolbar .btn { flex: 1 1 130px; white-space: normal; } .mail-compose-dialog { padding: 18px; } }
 
 .mail-toolbar-field { display: grid; gap: 6px; flex: 1 1 170px; min-width: 0; }
 .mail-toolbar-field .input-control { width: 100%; }
@@ -653,3 +638,59 @@ body[data-view="auth"] .sid-content-area {
 .mail-generator #mailCreateBox { width: 100%; min-height: 44px; }
 .mail-receive-status { margin: 0 0 12px; color: var(--text-secondary); font-size: .77rem; line-height: 1.6; }
 @media(min-width:769px){ .mail-generator { max-width: 680px; } }
+
+/* Separate shortlink routing from email delivery settings. */
+.domain-tabs { display: flex; gap: 6px; padding: 5px; margin-bottom: 20px; width: fit-content; background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; }
+.domain-tabs a { display: flex; align-items: center; gap: 8px; padding: 10px 22px; border-radius: 8px; color: var(--text-secondary); font-size: .83rem; font-weight: 600; text-decoration: none; }
+.domain-tabs a[aria-current] { background: var(--brand-light); color: var(--brand-primary); }
+.shared-domain-setting { display: grid; gap: 6px; padding: 14px 16px; margin-bottom: 16px; background: var(--brand-light); border-radius: 10px; }
+.shared-domain-setting small { color: var(--text-secondary); font-size: .73rem; }
+.mail-domain-settings-link { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 20px; color: var(--brand-primary); font-size: .83rem; }
+.dns-help { margin-top: 14px; padding-top: 12px; font-size: .76rem; border-top: 1px solid var(--border-card); }
+.dns-help summary { cursor: pointer; color: var(--text-secondary); }
+.dns-help p { margin: 10px 0 0; }
+.domain-details .dns-zone { font-size: .73rem; }
+.dns-warning { font-size: .78rem; color: var(--brand-primary); }
+.dns-record-table { width: 100%; border-collapse: separate; border-spacing: 0; margin: 12px 0 16px; table-layout: fixed; font-size: .76rem; }
+.dns-record-table caption { text-align: left; color: var(--text-secondary); font-size: .74rem; margin-bottom: 12px; }
+.dns-record-table th { padding: 10px 8px; text-align: left; color: var(--text-secondary); border-bottom: 1px solid var(--border-card); font-weight: 600; }
+.dns-record-table th:nth-child(1) { width: 22%; }
+.dns-record-table th:nth-child(2) { width: 11%; }
+.dns-record-table th:nth-child(3) { width: 36%; }
+.dns-record-table th:nth-child(4) { width: 9%; }
+.dns-record-table th:nth-child(5) { width: 9%; }
+.dns-record-table th:nth-child(6) { width: 13%; }
+.dns-record-table td { padding: 12px 8px; border-bottom: 1px solid var(--border-card); vertical-align: middle; overflow-wrap: anywhere; }
+.dns-type-cell small { display: block; font-size: .67rem; color: var(--text-secondary); margin-top: 4px; }
+.dns-copy-field { display: flex; align-items: center; gap: 4px; padding: 4px; min-width: 0; background: var(--bg-input); border: 1px solid var(--border-card); border-radius: 8px; }
+.dns-copy-field textarea { display: block; min-width: 0; width: 100%; height: 34px; min-height: 34px; max-height: 140px; padding: 8px 6px; border: 0; background: transparent; color: var(--text-main); font: .74rem/1.5 ui-monospace, monospace; white-space: pre; resize: none; }
+.dns-copy-button { flex-shrink: 0; display: grid; place-items: center; width: 32px; height: 34px; border: 0; border-radius: 6px; background: transparent; color: var(--text-secondary); cursor: pointer; }
+.dns-copy-button:hover { background: var(--brand-light); color: var(--brand-primary); }
+.dns-status { display: inline-block; padding: 4px 7px; border-radius: 6px; background: var(--bg-hover); font-size: .68rem; }
+.dns-status[data-state=verified] { background: #10b98118; color: #059669; }
+.dns-status[data-state=failure], .dns-status[data-state=failed] { color: var(--danger); }
+#domainDetails .domain-actions { display: flex; flex-wrap: wrap; }
+#domainDetails .dns-record-table, #mailDns .dns-record-table { min-width: 0; }
+#domainStatus:empty, #mailSetupNotice:empty { display: none; }
+@media(max-width:1000px) {
+  .dns-record-table, .dns-record-table tbody { display: block; }
+  .dns-record-table caption { display: block; }
+  .dns-record-table thead { display: none; }
+  .dns-record-row { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border-card); }
+  .dns-record-table td { display: block; border: 0; padding: 0; min-width: 0; }
+  .dns-record-row td::before { content: attr(data-label); display: block; color: var(--text-secondary); font-size: .68rem; margin-bottom: 6px; }
+  .dns-record-row .dns-host-cell { grid-column: 1 / 3; }
+  .dns-record-row .dns-value-cell { grid-column: 1 / -1; grid-row: 2; }
+  .dns-copy-field textarea { height: 42px; }
+  .dns-empty { padding: 12px 0 !important; }
+}
+@media(max-width:768px) {
+  .domain-tabs { width: 100%; }
+  .domain-tabs a { flex: 1; justify-content: center; padding: 10px 14px; }
+  #mailSetup { padding: 16px; }
+  .domain-details { padding: 16px; }
+}
+
+#mailDomainList { margin: 16px 0; max-width: 620px; }
+#mailDns > .btn { margin-right: 8px; }
+#domainDetails { margin-top: 18px; }

@@ -488,44 +488,113 @@
       <!-- ======================================================== -->
       <!-- Domains and account settings -->
       <!-- ======================================================== -->
-      <main tabindex="-1" class="sid-content-area" id="viewDomains" style="display: none;">
-        <div class="page-heading"><span class="page-eyebrow">RUANG KERJA</span><h2>Domain Anda</h2><p>Domain pribadi untuk tautan Anda. Domain dan pengaturannya hanya dapat dikelola oleh akun Anda.</p></div>
-        <div class="active-domain-summary"><span class="summary-icon"><i class="fa-solid fa-globe" aria-hidden="true"></i></span><div><span class="summary-label">Domain untuk tautan baru</span><strong id="activeDomainText"></strong></div><span class="summary-note">Alamat tautan lama tetap sama</span></div>
-            <!-- Custom Domain Box -->
-            <div class="settings-box domain-settings">
-              <h3>Hubungkan domain Anda</h3>
-              <p>Atur alamat untuk tautan baru. Tambahkan domain, salin record DNS ke penyedia domain Anda, lalu periksa DNS dan HTTPS. Mengganti default tidak mengubah alamat tautan yang sudah dibuat.</p>
-              <details class="domain-dns-help"><summary>Cara memasang DNS</summary><p>Buka DNS Management di penyedia nameserver aktif Anda (misalnya Domainesia atau Cloudflare). Pasang Nama/Host dan Nilai yang muncul setelah domain ditambahkan. Subdomain go.domainanda.com biasanya memakai Host go; domain utama memakai @. Gunakan TTL Auto/default dan DNS only di Cloudflare. Jangan menghapus record email atau record hostname lain. Propagasi dapat memerlukan beberapa menit hingga 48 jam; setelah itu klik Periksa DNS &amp; HTTPS.</p></details>
-              <p id="vercelIntegrationStatus" role="status" aria-live="polite">Masuk untuk mengelola domain pribadi Anda.</p>
-              <div id="sharedDomainOwnerSection" class="settings-box" style="margin-top:16px;background:var(--bg-card-subtle,rgba(255,255,255,0.03));border:1px solid var(--border-color,#333);border-radius:8px;padding:14px;" hidden>
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
-                  <span class="badge" style="background:#5146cb;color:#fff;font-size:0.75rem;padding:2px 8px;border-radius:4px;">ADMIN</span>
-                  <strong>Domain Default AutoShort</strong>
-                </div>
-                <p style="font-size:0.88rem;margin-bottom:10px;">Domain utama yang dipakai oleh semua pengguna yang tidak memiliki domain pribadi aktif. Domain lama tetap melayani tautan saat domain utama diganti.</p>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px;">
-                  <span>Domain bersama saat ini:</span>
-                  <code id="currentSharedDomainDisplay" style="font-size:0.95rem;font-weight:600;">-</code>
-                </div>
-                <div class="domain-actions">
-                  <p>Untuk mengganti default, tambahkan atau periksa domain di bawah. Setelah DNS dan HTTPS siap, pilih Jadikan Default AutoShort. Domain bersama lama tetap aktif.</p>
-                </div>
-              </div>
-              <div class="form-group domain-host-field" style="margin-top:12px;">
-                <label for="inputSettingsDomain">Domain yang ingin dihubungkan</label>
-                <input type="text" id="inputSettingsDomain" class="input-control" placeholder="contoh: go.domainanda.com" autocomplete="off" autocapitalize="none" spellcheck="false" aria-describedby="domainStatus" />
-              </div>
-              <div class="domain-actions">
-              <button type="button" class="btn btn-primary btn-sm" id="btnAddDomain" disabled>Tambahkan Domain</button>
-              <button type="button" class="btn btn-outline btn-sm" id="btnRefreshDomains" disabled>Muat Ulang Domain</button>
-              <button class="btn btn-primary btn-sm" id="btnSaveSettingsDomain" disabled>Gunakan untuk Tautan Baru</button>
-              <button class="btn btn-outline btn-sm" id="btnResetSettingsDomain" disabled>Gunakan Domain Default AutoShort</button>
-              </div>
-              <div id="domainList" class="domain-list" aria-label="Domain terpasang"></div>
-              <div id="domainDetails" class="domain-details" hidden></div>
-              <p id="domainStatus" role="status" aria-live="polite" style="margin-top:12px;overflow-wrap:anywhere;">Memuat konfigurasi domain…</p>
+      <main tabindex="-1" class="sid-content-area" id="viewDomains" style="display: none">
+        <div class="page-heading">
+          <span class="page-eyebrow">PENGATURAN</span>
+          <h2>Domain</h2>
+        </div>
+        <nav class="domain-tabs" aria-label="Pengaturan domain">
+          <a href="#domains" id="tabShortlinkDomains" aria-current="page"
+            ><i class="fa-solid fa-link" aria-hidden="true"></i> Shortlink</a
+          >
+          <a href="#email-domains" id="tabEmailDomains"
+            ><i class="fa-solid fa-envelope" aria-hidden="true"></i> Email</a
+          >
+        </nav>
+        <section id="shortlinkDomainPanel" aria-labelledby="tabShortlinkDomains">
+          <div class="active-domain-summary">
+            <span class="summary-icon"><i class="fa-solid fa-link" aria-hidden="true"></i></span>
+            <div>
+              <span class="summary-label">Domain tautan baru</span><strong id="activeDomainText"></strong>
             </div>
-
+            <span class="summary-note">Tautan lama tetap aktif</span>
+          </div>
+          <div class="settings-box domain-settings">
+            <h3>Domain shortlink</h3>
+            <p id="vercelIntegrationStatus" role="status" aria-live="polite">
+              Masuk untuk mengelola domain.
+            </p>
+            <div id="sharedDomainOwnerSection" class="shared-domain-setting" hidden>
+              <span class="summary-label">Default semua pengguna</span>
+              <strong id="currentSharedDomainDisplay">—</strong>
+              <small>Pilih domain siap, lalu Jadikan Default AutoShort.</small>
+            </div>
+            <div class="form-group domain-host-field" style="margin-top: 12px">
+              <label for="inputSettingsDomain">Hostname domain</label>
+              <input
+                type="text"
+                id="inputSettingsDomain"
+                class="input-control"
+                placeholder="contoh: go.domainanda.com"
+                autocomplete="off"
+                autocapitalize="none"
+                spellcheck="false"
+                aria-describedby="domainStatus"
+              />
+            </div>
+            <div class="domain-actions">
+              <button type="button" class="btn btn-primary btn-sm" id="btnAddDomain" disabled>
+                Tambahkan Domain
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" id="btnRefreshDomains" disabled>
+                Segarkan
+              </button>
+              <button class="btn btn-primary btn-sm" id="btnSaveSettingsDomain" disabled>
+                Gunakan untuk Tautan Baru
+              </button>
+              <button class="btn btn-outline btn-sm" id="btnResetSettingsDomain" disabled>
+                Gunakan Domain Default AutoShort
+              </button>
+            </div>
+            <div id="domainDetails" class="domain-details" hidden></div>
+            <div id="domainList" class="domain-list" aria-label="Domain terpasang"></div>
+            <p id="domainStatus" role="status" aria-live="polite"></p>
+            <details class="domain-dns-help dns-help">
+              <summary>Bantuan DNS shortlink</summary>
+              <p>
+                Salin record ke pengelola DNS domain. TTL Auto/default; di Cloudflare gunakan DNS only.
+                Pertahankan record email dan hostname lain. Periksa kembali setelah propagasi DNS.
+              </p>
+            </details>
+          </div>
+        </section>
+        <section id="emailDomainPanel" aria-labelledby="tabEmailDomains" hidden>
+          <section id="mailSetup" class="settings-box mail-setup">
+            <h3>Domain email</h3>
+            <p id="mailSetupNotice" role="status" aria-live="polite"></p>
+            <form id="mailDomainForm" class="mail-inline-form">
+              <div class="form-group">
+                <label for="mailDomainInput">Domain email</label>
+                <input
+                  id="mailDomainInput"
+                  class="input-control"
+                  placeholder="domainanda.com"
+                  autocomplete="off"
+                  autocapitalize="none"
+                  required
+                  maxlength="253"
+                />
+              </div>
+              <button id="mailAddDomain" class="btn btn-primary" disabled>Tambahkan Domain Email</button>
+              <button id="mailRefreshDomains" type="button" class="btn btn-outline">Segarkan</button>
+            </form>
+            <div id="mailDomainList"></div>
+            <div id="mailDns" aria-live="polite"></div>
+            <details class="dns-help">
+              <summary>Bantuan DNS email</summary>
+              <p>
+                Salin record ke pengelola DNS domain. Mengganti MX memindahkan penerimaan email. Jangan
+                menambah SPF kedua pada hostname yang sama. CNAME dan MX tidak bisa dipakai pada hostname
+                yang sama.
+              </p>
+              <p>
+                Kuota: 3 domain, 10 alamat, 100 kiriman per hari. Lampiran belum dapat diunggah atau
+                diunduh.
+              </p>
+            </details>
+          </section>
+          <a href="#mail" class="btn btn-outline btn-sm">Buka Inbox</a>
+        </section>
       </main>
 
       <main tabindex="-1" class="sid-content-area" id="viewMail" style="display: none">
@@ -584,36 +653,7 @@
             <button id="mailCreateBox" class="btn btn-primary" disabled>Buat Email</button>
           </form>
         </section>
-        <details id="mailSetup" class="settings-box mail-setup" open>
-          <summary>Domain dan alamat email</summary>
-          <p>
-            Domain email diverifikasi terpisah dari domain shortlink. Website dan email bisa memakai
-            domain akar yang sama (A/AAAA dan MX). Hostname yang memakai CNAME tidak bisa sekaligus
-            memakai MX.
-          </p>
-          <form id="mailDomainForm" class="mail-inline-form">
-            <div class="form-group">
-              <label for="mailDomainInput">Domain email</label>
-              <input
-                id="mailDomainInput"
-                class="input-control"
-                placeholder="domainanda.com"
-                autocomplete="off"
-                autocapitalize="none"
-                required
-                maxlength="253"
-              />
-            </div>
-            <button id="mailAddDomain" class="btn btn-primary" disabled>Tambahkan Domain Email</button>
-          </form>
-          <div id="mailDomainList"></div>
-          <div id="mailDns" aria-live="polite"></div>
-          <p>
-            Maksimal 3 domain, 10 alamat, dan 100 permintaan kirim per 24 jam untuk setiap akun. Surat
-            disimpan oleh layanan email; isi pesan ditampilkan sebagai teks. Unggah dan unduh lampiran
-            belum tersedia.
-          </p>
-        </details>
+        <a href="#email-domains" class="mail-domain-settings-link"><i class="fa-solid fa-sliders" aria-hidden="true"></i> Pengaturan domain email</a>
         <p id="mailReceiveStatus" class="mail-receive-status" role="status" aria-live="polite"></p>
         <div class="mail-toolbar">
           <div class="mail-toolbar-field">

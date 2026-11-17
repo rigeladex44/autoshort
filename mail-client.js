@@ -1,10 +1,10 @@
+import { renderDnsRecords } from "./dns-records.js";
 // Email content stays in memory and is cleared on every account change.
 export function createMailUI({ api, getSession, notify }) {
   const el = (id) => document.getElementById(id);
   let generation = 0,
     busy = false,
     configured = false,
-    firstLoad = true,
     domains = [],
     boxes = [],
     messages = [],
@@ -24,6 +24,7 @@ export function createMailUI({ api, getSession, notify }) {
   function controls() {
     const enabled = configured && Boolean(getSession().user) && !busy;
     el("mailAddDomain").disabled = !enabled;
+    el("mailRefreshDomains").disabled = busy;
     el("mailLocalPart").disabled = !enabled;
     el("mailDomainSearch").disabled = !enabled;
     el("mailDomainOptions")
@@ -39,6 +40,7 @@ export function createMailUI({ api, getSession, notify }) {
     el("mailboxSelect").disabled = !enabled;
     el("mailFolder").disabled = !enabled;
     el("mailLoadMore").disabled = !enabled;
+    if (el("mailDomainSelect")) el("mailDomainSelect").disabled = !enabled;
   }
   async function call(query = {}, body) {
     const id = getSession().user?.id,
@@ -51,20 +53,23 @@ export function createMailUI({ api, getSession, notify }) {
       throw Object.assign(new Error("Sesi telah berubah."), { stale: true });
     return data;
   }
+  function notice(text) {
+    el("mailNotice").textContent = text;
+    el("mailSetupNotice").textContent = text === "Inbox pribadi." ? "" : text;
+  }
   async function run(work) {
     if (busy) return;
     const g = generation;
     busy = true;
     controls();
-    if (configured) el("mailNotice").textContent = "Memproses…";
+    if (configured) notice("Memproses…");
     try {
       await work();
       if (el("mailNotice").textContent === "Memproses…")
-        el("mailNotice").textContent =
-          "Inbox dan alamat email hanya dapat diakses oleh akun Anda.";
+        notice("Inbox pribadi.");
     } catch (error) {
       if (!error.stale && g === generation) {
-        el("mailNotice").textContent = error.message;
+        notice(error.message);
         if (el("mailComposeDialog").open)
           el("mailComposeNotice").textContent = error.message;
       }
@@ -79,7 +84,6 @@ export function createMailUI({ api, getSession, notify }) {
     generation++;
     busy = false;
     configured = false;
-    firstLoad = true;
     domains = [];
     boxes = [];
     messages = [];
@@ -98,6 +102,7 @@ export function createMailUI({ api, getSession, notify }) {
       "mailboxSelect",
       "mailDomainOptions",
     ].forEach((id) => el(id).replaceChildren());
+    delete el("mailDns").dataset.domain;
     el("mailCreateDomain").value = "";
     el("mailDomainSearch").value = "";
     el("mailDomainPicker").open = false;
@@ -110,8 +115,7 @@ export function createMailUI({ api, getSession, notify }) {
     el("mailComposeForm").reset();
     el("mailComposeDialog").close();
     el("mailLoadMore").hidden = true;
-    el("mailSetup").open = true;
-    el("mailNotice").textContent = "Masuk untuk memakai inbox pribadi.";
+    notice("Masuk untuk memakai inbox pribadi.");
     controls();
   }
   async function overview() {
@@ -120,58 +124,27 @@ export function createMailUI({ api, getSession, notify }) {
     configured = data.configured === true;
     domains = data.domains || [];
     boxes = data.mailboxes || [];
-    if (firstLoad && configured) {
-      firstLoad = false;
-      el("mailSetup").open = !boxes.some((b) => b.ready);
-    }
-    el("mailNotice").textContent =
+    notice(
       data.message ||
-      (configured
-        ? "Inbox dan alamat email hanya dapat diakses oleh akun Anda."
-        : "Layanan email belum diaktifkan.");
+        (configured ? "Inbox pribadi." : "Layanan email belum diaktifkan."),
+    );
     el("mailDomainList").replaceChildren();
-    for (const d of domains) {
-      const card = node("div", undefined, "mail-domain-row");
-      card.append(
-        node("strong", d.domain),
-        node(
-          "span",
-          (d.sending_ready ? "Kirim siap" : "Kirim menunggu DNS") +
-            " · " +
-            (d.receiving_ready ? "Terima siap" : "Terima menunggu DNS"),
-        ),
-      );
-      const inspect = node(
-        "button",
-        "Lihat DNS & Periksa",
-        "btn btn-outline btn-sm",
-      );
-      inspect.type = "button";
-      inspect.onclick = () => run(() => showDns(d.id, true));
-      card.append(inspect);
-      if (!d.sending_ready && !d.receiving_ready) {
-        const cancel = node(
-          "button",
-          "Batalkan Domain",
-          "btn btn-outline btn-sm",
-        );
-        cancel.type = "button";
-        cancel.onclick = () => {
-          if (
-            confirm(
-              "Batalkan domain email yang belum aktif ini? Record DNS eksternal tidak diubah.",
-            )
-          )
-            run(async () => {
-              await call({}, { action: "domain-remove", id: d.id });
-              el("mailDns").replaceChildren();
-              await overview();
-            });
-        };
-        card.append(cancel);
+    if (domains.length) {
+      const label = node("label", "Pilih domain email");
+      label.htmlFor = "mailDomainSelect";
+      const select = node("select", undefined, "input-control");
+      select.id = "mailDomainSelect";
+      for (const d of domains) {
+        const option = node("option", d.domain);
+        option.value = d.id;
+        select.append(option);
       }
-      el("mailDomainList").append(card);
-    }
+      select.value = domains.some((d) => d.id === el("mailDns").dataset.domain)
+        ? el("mailDns").dataset.domain
+        : domains[0].id;
+      select.onchange = () => run(() => showDns(select.value));
+      el("mailDomainList").append(label, select);
+    } else el("mailDns").replaceChildren();
     for (const box of boxes.filter((b) => !b.ready)) {
       el("mailDomainList").append(
         node(
@@ -305,8 +278,7 @@ export function createMailUI({ api, getSession, notify }) {
       el("mailDomainInput").value = session.domain || "";
     if (!getSession().cloud || !getSession().user) {
       reset();
-      el("mailNotice").textContent =
-        "Email tersedia setelah masuk pada mode cloud.";
+      notice("Email tersedia setelah masuk pada mode cloud.");
       return;
     }
     await run(async () => {
@@ -325,82 +297,83 @@ export function createMailUI({ api, getSession, notify }) {
     renderDns(result.domain);
     if (verify) await overview();
   }
+  async function openDomains() {
+    if (!getSession().cloud || !getSession().user) {
+      reset();
+      return;
+    }
+    await run(async () => {
+      await overview();
+      const selected = el("mailDns").dataset.domain;
+      const domain = domains.find((d) => d.id === selected) || domains[0];
+      if (configured && domain) await showDns(domain.id);
+    });
+  }
   function renderDns(d) {
     const root = el("mailDns");
-    root.replaceChildren(node("h3", "DNS email " + d.domain));
+    root.dataset.domain = d.id;
+    root.replaceChildren(node("h3", "DNS · " + d.domain));
     root.append(
       node(
         "p",
-        "Pasang record ini pada penyedia DNS. Jangan mengganti MX existing sebelum siap memindahkan penerimaan email; pesan baru akan dikirim ke layanan yang ditunjuk MX.",
+        (d.sendingReady ? "Kirim siap" : "Kirim menunggu DNS") +
+          " · " +
+          (d.receivingReady ? "Terima siap" : "Terima menunggu DNS"),
+        "dns-summary",
       ),
     );
     if (d.mxReady === false)
       root.append(
         node(
           "p",
-          "MX publik domain belum sesuai dengan layanan penerimaan. Periksa record MX dan tunggu propagasi DNS.",
-          "mail-warning",
+          "MX belum sesuai. Salin record penerimaan di bawah.",
+          "dns-warning",
         ),
       );
     if (d.cnameConflict)
       root.append(
         node(
           "p",
-          "Hostname ini memakai CNAME. CNAME tidak dapat digabung dengan MX pada hostname yang sama. Gunakan domain akar atau hostname email lain yang Anda kuasai; jangan menghapus routing shortlink tanpa pengganti yang valid.",
-          "mail-warning",
+          "CNAME bentrok dengan MX. Gunakan domain akar atau hostname email lain.",
+          "dns-warning",
         ),
       );
     root.append(
-      node(
-        "p",
-        (d.sendingReady ? "Kirim siap" : "Kirim belum siap") +
-          " · " +
-          (d.receivingReady ? "Terima siap" : "Terima belum siap"),
+      renderDnsRecords(
+        (d.records || []).map((r) => ({
+          ...r,
+          purpose: r.purpose === "Receiving" ? "Terima" : r.purpose,
+        })),
+        { zone: d.domain },
       ),
     );
-    for (const r of d.records || []) {
-      const row = node("div", undefined, "mail-dns-record");
-      const host =
-        r.name === d.domain
-          ? "@"
-          : r.name.endsWith("." + d.domain)
-            ? r.name.slice(0, -d.domain.length - 1)
-            : r.name;
-      row.append(
-        node("strong", r.type + " · " + r.purpose),
-        node("p", "Nama/Host: " + host),
-        node("code", r.value),
-        node(
-          "small",
-          "TTL: " +
-            r.ttl +
-            (r.priority !== undefined ? " · Prioritas: " + r.priority : "") +
-            " · " +
-            r.status,
-        ),
-      );
-      for (const [label, value] of [
-        ["Salin Nama", host],
-        ["Salin Nilai", r.value],
-      ]) {
-        const button = node("button", label, "btn btn-outline btn-sm");
-        button.type = "button";
-        button.onclick = async () => {
-          try {
-            await navigator.clipboard.writeText(value);
-            notify("Disalin.", "success");
-          } catch {
-            notify("Salin teks record secara manual.", "warning");
-          }
-        };
-        row.append(button);
-      }
-      root.append(row);
-    }
     const check = node("button", "Periksa DNS Email", "btn btn-outline btn-sm");
     check.type = "button";
     check.onclick = () => run(() => showDns(d.id, true));
     root.append(check);
+    if (!d.sendingReady && !d.receivingReady) {
+      const cancel = node(
+        "button",
+        "Batalkan Domain",
+        "btn btn-outline btn-sm",
+      );
+      cancel.type = "button";
+      cancel.onclick = () => {
+        if (
+          confirm(
+            "Batalkan domain email yang belum aktif ini? Record DNS eksternal tidak diubah.",
+          )
+        )
+          run(async () => {
+            await call({}, { action: "domain-remove", id: d.id });
+            el("mailDns").replaceChildren();
+            delete el("mailDns").dataset.domain;
+            await overview();
+            if (domains[0]) await showDns(domains[0].id);
+          });
+      };
+      root.append(cancel);
+    }
   }
   async function loadThreads(append = false, preserveMessage = false) {
     const box = el("mailboxSelect").value;
@@ -577,6 +550,7 @@ export function createMailUI({ api, getSession, notify }) {
     el(message ? "mailBody" : "mailTo").focus();
   }
   el("mailRefresh").onclick = open;
+  el("mailRefreshDomains").onclick = openDomains;
   el("mailboxSelect").onchange = () =>
     run(async () => {
       await checkMailbox();
@@ -634,7 +608,6 @@ export function createMailUI({ api, getSession, notify }) {
       );
       el("mailBoxForm").reset();
       await overview();
-      el("mailSetup").open = false;
       el("mailboxSelect").value = created.mailbox.id;
       await checkMailbox();
       await loadThreads();
@@ -679,5 +652,10 @@ export function createMailUI({ api, getSession, notify }) {
       run(() => loadThreads(false, true));
   }, 15000);
   reset();
-  return { open, reset, leave: () => el("mailComposeDialog").close() };
+  return {
+    open,
+    openDomains,
+    reset,
+    leave: () => el("mailComposeDialog").close(),
+  };
 }
