@@ -206,8 +206,7 @@ test('shared domain is managed by owner, inherited by new users, and serves shar
   const ownerUuid='11111111-1111-4111-8111-111111111111';
   process.env.OWNER_USER_ID=ownerUuid;
   process.env.VERCEL_DOMAINS_TOKEN='vercel-token';
-  const ownerToken='header.owner.signature', userToken='header.user.signature';
-  const ownerReq=(method='GET',body,query={})=>({...req(method,body,query),headers:{...req().headers,authorization:'Bearer '+ownerToken}});
+  const userToken='header.user.signature';
   const userReq=(method='GET',body,query={})=>({...req(method,body,query),headers:{...req().headers,authorization:'Bearer '+userToken}});
 
   // 1. Ordinary user attempting to set shared domain gets 403 Forbidden
@@ -222,19 +221,7 @@ test('shared domain is managed by owner, inherited by new users, and serves shar
   await domains(userReq('POST',{action:'activate',domain:'shared.example.com',scope:'shared'}),forbiddenRes);
   assert.equal(forbiddenRes.code,403);
 
-  // 2. Owner can activate verified domain as shared platform domain
-  mock(url=>{
-    if(url.includes('/auth/v1/user')) return json({id:ownerUuid,email:'rigeladex@gmail.com'});
-    if(url.includes('user_domains?domain=eq.shared.example.com')) return json([{domain:'shared.example.com'}]);
-    if(url.includes('/domains/shared.example.com')) return json({name:'shared.example.com',verified:true,apexName:'example.com'});
-    if(url.includes('/config')) return json({misconfigured:false,recommendedCNAME:[{value:'cname.vercel-dns.com'}]});
-    if(url.includes('app_settings')) return json([{key:'custom_domain',value:'shared.example.com'}]);
-    return json([]);
-  });
-  // Bypass probe for verifyDomain in unit test by setting test
-  const ownerSuccess=response();
-  // Call activate with mock domainDetails
-  // Testing GET domains for regular user returns sharedDomain as fallback
+  // Users without a private domain inherit the shared default.
   calls=[];
   mock(url=>{
     if(url.includes('/auth/v1/user')) return json({id:'user-3',email:'newuser@example.test'});

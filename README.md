@@ -65,17 +65,19 @@ npx playwright install chromium
 npm run test:browser
 ```
 
-Tes API memakai mock database untuk validasi, otorisasi, CRUD, proteksi redirect, pencatatan klik atomik, dan pagination. Tes Chromium menjalankan server lokal terisolasi, mencoba alur pengguna, mendekode QR hasil unduhan, serta memeriksa seluruh halaman pada lebar 320, 390, 768, dan 1440 px (28 kombinasi halaman/ukuran). Screenshot disimpan ke `test-results/`. Cloud diuji menggunakan respons API terkontrol; pengujian terhadap proyek Supabase/Vercel nyata memerlukan konfigurasi deployment Anda. Iklan pihak ketiga dikecualikan dari tes deterministik.
+Tes API memakai mock database untuk validasi, otorisasi, CRUD, proteksi redirect, pencatatan klik atomik, dan pagination. Tes Chromium menjalankan server lokal terisolasi, mencoba alur pengguna, mendekode QR hasil unduhan, serta memeriksa seluruh halaman pada lebar 320, 390, 768, dan 1440 px (28 kombinasi halaman/ukuran). Screenshot disimpan ke `test-results/`. Cloud diuji menggunakan respons API terkontrol; pengujian terhadap proyek Supabase/Vercel nyata memerlukan konfigurasi deployment Anda.
 
 ## Struktur
 
-- `app.js`, `index.html`, `styles.css`: dashboard
+- `app.js`, `index.html`, `styles.css`, `workspace.css`: dashboard dan penyesuaian responsif
 - `redirect.js`, `redirect.html`: gate password dan redirect lokal
 - `api/`: fungsi Vercel untuk CRUD, statistik, redirect publik, config, dan gambar
 - `lib/`: validasi bersama serta akses database server
 - `server.js`: server pengembangan tanpa dependency runtime
 - `supabase_schema.sql`: schema dan migrasi yang dapat dijalankan ulang
 - `test/`: tes API dan browser
+
+Logo master disimpan di `priabingung.png`; versi ringan yang dipakai dashboard, favicon, dan ikon perangkat tersedia di `assets/brand/`.
 
 QRCode.js © David Shim, MIT; lihat [`assets/QRCode-LICENSE.txt`](assets/QRCode-LICENSE.txt).
 

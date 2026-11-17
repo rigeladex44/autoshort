@@ -27,7 +27,6 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
-import { savedDomain } from '../lib/domains.js';
 import { configured, findLink, recordClick, fail, verifyPassword } from '../lib/db.js';
 import { normalizeSlug, normalizeUrl, linkState } from '../lib/validation.js';
 export default async function handler(req, res) {

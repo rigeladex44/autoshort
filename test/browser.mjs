@@ -14,8 +14,6 @@ await mkdir('test-results', { recursive: true });
 try {
   browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || (existsSync('/usr/bin/chromium') ? '/usr/bin/chromium' : undefined), args: ['--no-sandbox'], headless: true });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, reducedMotion: 'reduce' });
-  // Advertising is external to the app and is excluded from deterministic tests.
-  await context.route(/googlesyndication|doubleclick|googleads/, route => route.fulfill({ body: '' }));
   await context.route('https://example.com/**', route => route.fulfill({ contentType: 'text/html', body: '<h1>Destination reached</h1>' }));
   const page = await context.newPage();
   page.on('pageerror', e => errors.push(e.message));
@@ -182,7 +180,6 @@ try {
   await page.setViewportSize({width:1440,height:1000}); await page.screenshot({path:'test-results/domains-dark-1440.png',fullPage:true});
   // Cloud mode uses API results, honors empty arrays, and never reports success after failed saves.
   const cloudContext = await browser.newContext({viewport:{width:1440,height:1000},reducedMotion:'reduce'});
-  await cloudContext.route(/googlesyndication|doubleclick|googleads/, route => route.fulfill({body:''}));
   let cloudLinks = []; let failSave = false; let cloudDomain = 'short.example'; let sharedDomain='short.example'; let domainFailure = false; let failLogin = false; let vercelConnected = true; let dnsReady = false; let attachedDomains = []; let mockUser={id:'user-a',email:'a@example.test',isOperator:true};
   await cloudContext.route('**/api/**', async route => {
     const url = new URL(route.request().url());
@@ -195,9 +192,6 @@ try {
         mockUser={id:'user-a',email:'a@example.test',isOperator:true};return route.fulfill({json:{user:mockUser}});
       }
       return route.fulfill({json:{user:mockUser}});
-    }
-    if (url.pathname === '/api/domain-integration') {
-      vercelConnected=route.request().method() !== 'DELETE';return route.fulfill({json:{connected:vercelConnected}});
     }
     if (url.pathname === '/api/domains') {
       const method=route.request().method();

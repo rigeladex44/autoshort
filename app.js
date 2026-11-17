@@ -20,7 +20,6 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   let pollTimer = null;
   let domainsLoadedFor = null;
   let vercelConnected = false;
-  let vercelManagedByServer = false;
   let backendReady = Promise.resolve();
   let syncPromise = null;
   let saving = false;
@@ -204,16 +203,16 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
 
   function saveLocalLinks() {
     if (cloudMode) return;
-    try { localStorage.setItem(cloudMode ? 'autoshort_cloud_links' : 'autoshort_links', JSON.stringify(links)); } catch { showToast('Opslag browser penuh atau tidak tersedia. Unduh cadangan data.', 'warning'); }
+    try { localStorage.setItem('autoshort_links', JSON.stringify(links)); } catch { showToast('Opslag browser penuh atau tidak tersedia. Unduh cadangan data.', 'warning'); }
   }
 
   function saveLocalClicks() {
     if (cloudMode) return;
-    try { localStorage.setItem(cloudMode ? 'autoshort_cloud_clicks' : 'autoshort_clicks', JSON.stringify(clicksHistory)); } catch { showToast('Riwayat tidak dapat disimpan di browser.', 'warning'); }
+    try { localStorage.setItem('autoshort_clicks', JSON.stringify(clicksHistory)); } catch { showToast('Riwayat tidak dapat disimpan di browser.', 'warning'); }
   }
 
-  // --- REAL-TIME LISTENERS (CROSS-TAB & WEBSOCKET) ---
-  // 1. Cross-tab real-time listener (fires instantly when someone visits link in another tab)
+  // --- CROSS-TAB UPDATES ---
+  // Refresh local data or reload the cloud session after a change in another tab.
   window.addEventListener('storage', (e) => {
     if (cloudMode && e.key === 'autoshort_auth_event') { clearAccountData(); location.reload(); return; }
     if (cloudMode) return;
@@ -891,7 +890,6 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
   function populateLinkFilterDropdown() {
     const select = document.getElementById('selectLinkFilter');
     if (!select) return;
-    const currentVal = select.value;
     select.innerHTML = '<option value="all">Semua link</option>';
 
     links.forEach(l => {
@@ -1167,7 +1165,6 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       });
     }
 
-    // Header Quick Test Buttons
     // Refresh Analytics
     const btnRefresh = document.getElementById('btnRefreshAnalytics');
     if (btnRefresh) {
@@ -1493,7 +1490,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     document.getElementById('btnExportJsonBackup').disabled=cloudMode&&!adminConnected;
   }
   function clearAccountData() {
-    syncPromise=null;domainsLoadedFor=null;currentUser=null;adminConnected=false;links=[];clicksHistory=[];selectedLinkId=null;searchTerm='';activeLinkFilter='all';vercelConnected=false;vercelManagedByServer=false;customDomain=platformDomain;
+    syncPromise=null;domainsLoadedFor=null;currentUser=null;adminConnected=false;links=[];clicksHistory=[];selectedLinkId=null;searchTerm='';activeLinkFilter='all';vercelConnected=false;customDomain=platformDomain;
     document.getElementById('searchInput').value='';document.getElementById('domainList').replaceChildren();document.getElementById('domainDetails').hidden=true;
     document.getElementById('linkDetailsModal').style.display='none';document.getElementById('modalLink').style.display='none';document.body.classList.remove('modal-open');
     updateDomainDisplays();updateAdminUI();updateDomainControls();renderAll();
@@ -1537,7 +1534,6 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     catch (error) { document.getElementById('vercelIntegrationStatus').textContent = error.message; throw error; }
     if(currentUser?.id!==accountId)return;
     vercelConnected = result.connected === true;
-    vercelManagedByServer = result.managedByServer === true;
     currentSharedDomain = result.sharedDomain || '';
     const sharedSection = document.getElementById('sharedDomainOwnerSection');
     if (sharedSection) {
