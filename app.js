@@ -14,6 +14,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
 
   // --- CONFIGURATION & STATE ---
   let cloudMode = false;
+  let configState = 'loading';
   let mailUI;
   let adminConnected = false;
   let currentUser = null;
@@ -131,7 +132,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     await consumeAuthCallback();
     initTheme();
     initCalendar();
-    mailUI=createMailUI({api,getSession:()=>({cloud:cloudMode,user:currentUser,domain:customDomain,shared:platformDomain}),notify:showToast});
+    mailUI=createMailUI({api,getSession:()=>({cloud:cloudMode,user:currentUser,domain:customDomain,shared:platformDomain,state:configState}),notify:showToast});
     initEventListeners();
     initExtraControls();
     setupRouting();
@@ -236,7 +237,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
 
   async function fetchBackendConfig() {
     try {
-      const config=await api('/api/config');cloudMode=config.configured;
+      const config=await api('/api/config');cloudMode=config.configured;configState='ready';
       googleEnabled=config.googleEnabled===true;platformDomain=config.platformDomain||location.host;
       if(cloudMode){links=[];clicksHistory=[];currentUser=config.user||null;adminConnected=Boolean(currentUser);}
       else{currentUser=null;adminConnected=false;loadStoredData();}
@@ -245,14 +246,13 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       if(cloudMode&&!currentUser&&!['login','signup','recover','reset'].includes(location.hash.replace('#',''))) {
         location.hash='#login';
       }
+      // Email needs the account session, not link analytics or hosting-domain access.
+      if(currentView==='mail')mailUI?.open();
+      if(currentView==='domains' && location.hash==='#email-domains')mailUI?.openDomains();
       if(cloudMode&&currentUser)await syncWithBackend().catch(error=>showToast(error.message,'warning'));
       else status(cloudMode?'Belum masuk':'Mode Lokal');
-      if(currentView==='mail')mailUI?.open();
-      if(currentView==='domains') {
-        if(location.hash==='#email-domains')mailUI?.openDomains();
-        else openShortlinkDomains().catch(error=>{document.getElementById('domainStatus').textContent=error.message;});
-      }
-    }catch(error){status('Server tidak terhubung');const notice=document.getElementById('storageNotice');notice.hidden=false;notice.textContent='Server tidak dapat dimuat. Periksa koneksi dan muat ulang.';throw error;}
+      if(currentView==='domains' && location.hash!=='#email-domains')openShortlinkDomains().catch(error=>{document.getElementById('domainStatus').textContent=error.message;});
+    }catch(error){configState='error';mailUI?.reset();status('Server tidak terhubung');const notice=document.getElementById('storageNotice');notice.hidden=false;notice.textContent='Server tidak dapat dimuat. Periksa koneksi dan muat ulang.';throw error;}
     if(!pollTimer)pollTimer=setInterval(()=>{if(cloudMode&&currentUser&&!document.hidden&&!saving)syncWithBackend().catch(()=>{});},15000);
   }
   async function syncWithBackend() {

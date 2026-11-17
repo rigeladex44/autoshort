@@ -116,7 +116,13 @@ export function createMailUI({ api, getSession, notify }) {
     el("mailComposeDialog").close();
     el("mailLoadMore").hidden = true;
     emptyDns();
-    notice("Masuk untuk memakai inbox pribadi.");
+    notice(
+      getSession().state === "loading"
+        ? "Memuat sesi akun…"
+        : getSession().state === "error"
+          ? "Koneksi server gagal. Muat ulang halaman."
+          : "Masuk untuk memakai inbox pribadi.",
+    );
     controls();
   }
   async function overview() {
@@ -279,7 +285,8 @@ export function createMailUI({ api, getSession, notify }) {
       el("mailDomainInput").value = session.domain || "";
     if (!getSession().cloud || !getSession().user) {
       reset();
-      notice("Email tersedia setelah masuk pada mode cloud.");
+      if (getSession().state === "ready" && !getSession().cloud)
+        notice("Email tersedia dalam mode cloud.");
       return;
     }
     await run(async () => {
@@ -314,7 +321,13 @@ export function createMailUI({ api, getSession, notify }) {
     el("mailDns").replaceChildren(
       renderDnsRecords([], {
         empty:
-          "Record DNS belum tersedia. Tambahkan domain setelah koneksi layanan email siap.",
+          getSession().state === "loading"
+            ? "Memuat koneksi akun…"
+            : getSession().state === "error"
+              ? "Koneksi server gagal. Record DNS belum dapat dimuat."
+              : !getSession().user
+                ? "Masuk untuk memuat domain email Anda."
+                : "Record DNS belum tersedia. Tambahkan domain setelah koneksi layanan email siap.",
       }),
     );
     el("mailDnsGuide").open = true;

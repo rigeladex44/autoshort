@@ -346,6 +346,31 @@ try {
   console.log('PASS: chart summary follows date/link filters and deduplicates visitors across hours.');
   await listContext.close();console.log('PASS: stacked cards, detail isolation, copy URL, home totals, empty activity, home create action and focus restoration.');
 
+  // Email DNS loads independently while the link/hosting synchronization is still pending.
+  const slowContext=await browser.newContext({viewport:{width:390,height:900}});
+  let releaseConfig,releaseLinks;
+  const configGate=new Promise(resolve=>{releaseConfig=resolve;});
+  const linksGate=new Promise(resolve=>{releaseLinks=resolve;});
+  await slowContext.route('**/api/**',async route=>{
+    const url=new URL(route.request().url());
+    if(url.pathname==='/api/config'){await configGate;return route.fulfill({json:{configured:true,user:{id:'slow-user',email:'slow@example.test',isOperator:false},platformDomain:'short.example'}});}
+    if(url.pathname==='/api/links'){await linksGate;return route.fulfill({json:{links:[]}});}
+    if(url.pathname==='/api/analytics')return route.fulfill({json:{recentClicks:[]}});
+    if(url.pathname==='/api/domains')return route.fulfill({status:502,json:{error:'Hosting belum dapat dihubungi'}});
+    if(url.pathname==='/api/mail')return route.fulfill({json:{userId:'slow-user',...(url.searchParams.get('action')==='domain-details'?{domain:{id:'slow-domain',domain:'own.example',records:[{type:'MX',name:'@',value:'actual-provider-mx.example',priority:10,status:'pending',purpose:'Receiving'}]}}:{configured:true,domains:[{id:'slow-domain',domain:'own.example',sending_ready:false,receiving_ready:false}],mailboxes:[]})}});
+    return route.continue();
+  });
+  const slowPage=await slowContext.newPage();slowPage.on('pageerror',e=>errors.push(e.message));
+  try{
+    await slowPage.goto(base+'/#email-domains');
+    await slowPage.locator('#mailSetupNotice').filter({hasText:'Memuat sesi akun'}).waitFor();
+    releaseConfig();
+    await slowPage.locator('#mailDns .dns-value-cell textarea').filter({hasText:'actual-provider-mx.example'}).waitFor();
+    assert.equal(await slowPage.locator('#mailAddDomain').isDisabled(),false);
+    assert.ok(!(await slowPage.locator('#mailSetupNotice').textContent()).includes('Masuk untuk'));
+  }finally{releaseConfig();releaseLinks();await slowContext.close();}
+  console.log('PASS: email DNS resolves before link/hosting synchronization; loading is distinct from signed-out state.');
+
   const mailContext=await browser.newContext({viewport:{width:390,height:900},reducedMotion:'reduce'});
   let mailUser={id:'mail-user-a',email:'a@example.test',isOperator:false},mailOn=false,domainAdded=false,mailReady=false,boxCreated=false,sendFailure=true,loadOlder=false,newMail=false,domainDenied=true;
   const sentPayloads=[];
