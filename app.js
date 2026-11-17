@@ -1119,6 +1119,14 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
 
   // --- EVENT LISTENERS INITIALIZATION ---
   function initEventListeners() {
+    document.querySelectorAll('[data-toggle-password]').forEach(button=>{
+      button.addEventListener('click',()=>{
+        const input=document.getElementById(button.dataset.togglePassword);
+        const visible=input.type==='password';
+        input.type=visible?'text':'password';
+        updatePasswordVisibilityButton(button,visible);
+      });
+    });
     // Modal Link save
     const formModalLink = document.getElementById('formLinkModal');
     if (formModalLink) {
@@ -1299,7 +1307,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
         else if(authMode==='reset'){message.textContent='Password berhasil diperbarui.';showToast('Password berhasil diperbarui.','success');location.hash='#settings';}
         else message.textContent=result.message||'Periksa email Anda untuk melanjutkan.';
       }catch(error){message.textContent=error.message;}
-      finally{password.value='';confirmation.value='';button.disabled=false;}
+      finally{password.value='';confirmation.value='';resetPasswordVisibility();button.disabled=false;}
     };
 
     // Settings: Backup JSON
@@ -1504,7 +1512,20 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     try{await api('/api/auth?action=session',{method:'POST',body:JSON.stringify({refresh_token:refresh})});notifyAuthChange();}
     catch{history.replaceState(null,'',location.pathname+'?auth_error=session#login');}
   }
+  function updatePasswordVisibilityButton(button,visible) {
+    const label=button.dataset.togglePassword==='authConfirmInput'?'konfirmasi password':'password';
+    button.setAttribute('aria-pressed',String(visible));
+    button.setAttribute('aria-label',(visible?'Sembunyikan ':'Tampilkan ')+label);
+    button.querySelector('i').className='fa-solid '+(visible?'fa-eye-slash':'fa-eye');
+  }
+  function resetPasswordVisibility() {
+    document.querySelectorAll('[data-toggle-password]').forEach(button=>{
+      document.getElementById(button.dataset.togglePassword).type='password';
+      updatePasswordVisibilityButton(button,false);
+    });
+  }
   function renderAuthForm() {
+    resetPasswordVisibility();
     const modes={login:['Masuk','Masuk untuk mengelola tautan dan statistik pribadi Anda.','Masuk'],signup:['Buat akun','Daftar untuk menyimpan tautan dan statistik di akun Anda sendiri.','Daftar akun'],recover:['Lupa password','Kami akan mengirim tautan pemulihan ke email akun Anda.','Kirim tautan reset'],reset:['Ubah password','Gunakan password baru minimal 8 karakter.','Simpan password']};
     const [title,description,submit]=modes[authMode];
     document.getElementById('authTitle').textContent=title;document.getElementById('authDescription').textContent=description;document.getElementById('btnAuthSubmit').textContent=submit;

@@ -271,9 +271,17 @@ try {
   await cloudPage.goto(base+'/#settings');
   assert.equal(await cloudPage.locator('#viewDomains').isVisible(),false);
   await cloudPage.goto(base+'/#login');
+  const passwordToggle=cloudPage.locator('[data-toggle-password="authPasswordInput"]');
+  await cloudPage.fill('#authPasswordInput','visibility-test');
+  await passwordToggle.click();assert.equal(await cloudPage.locator('#authPasswordInput').getAttribute('type'),'text');assert.equal(await passwordToggle.getAttribute('aria-pressed'),'true');assert.equal(await cloudPage.locator('#authPasswordInput').inputValue(),'visibility-test');
+  await passwordToggle.focus();await cloudPage.keyboard.press('Enter');assert.equal(await cloudPage.locator('#authPasswordInput').getAttribute('type'),'password');assert.equal(await passwordToggle.getAttribute('aria-label'),'Tampilkan password');
+  await cloudPage.goto(base+'/#signup');await cloudPage.fill('#authConfirmInput','confirmation-test');await cloudPage.locator('[data-toggle-password="authConfirmInput"]').click();assert.equal(await cloudPage.locator('#authConfirmInput').getAttribute('type'),'text');assert.equal(await cloudPage.locator('#authPasswordInput').getAttribute('type'),'password');
+  await passwordToggle.click();
+  await cloudPage.goto(base+'/#login');assert.equal(await cloudPage.locator('#authConfirmInput').getAttribute('type'),'password');assert.equal(await cloudPage.locator('#authPasswordInput').getAttribute('type'),'password');
+  for(const width of [320,390,768,1440]){await cloudPage.setViewportSize({width,height:1000});assert.equal(await cloudPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Password field overflow '+width);const box=await passwordToggle.boundingBox();assert.ok(box.width>=44&&box.height>=44);}
   failLogin=true;await cloudPage.fill('#authEmailInput','a@example.test');await cloudPage.fill('#authPasswordInput','wrong-password');await cloudPage.click('#btnAuthSubmit');await cloudPage.locator('#authMessage').filter({hasText:'Email atau password salah'}).waitFor();
   failLogin=false;await cloudPage.fill('#authPasswordInput','correct-password');await cloudPage.click('#btnAuthSubmit');await cloudPage.waitForFunction(()=>document.body.dataset.view==='home');
-  assert.equal(await cloudPage.locator('#authPasswordInput').inputValue(),'');
+  assert.equal(await cloudPage.locator('#authPasswordInput').inputValue(),'');assert.equal(await cloudPage.locator('#authPasswordInput').getAttribute('type'),'password');
   await cloudPage.goto(base+'/#settings');await cloudPage.click('#btnLogoutAdmin');await cloudPage.locator('#viewAuth').waitFor({state:'visible'});
   assert.equal(await cloudPage.evaluate(()=>sessionStorage.getItem('autoshort_admin_token')),null);assert.equal(await cloudPage.locator('#homeTotalLinks').textContent(),'—');
   assert.deepEqual(errors,[]);

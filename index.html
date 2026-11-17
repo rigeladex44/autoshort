@@ -162,8 +162,8 @@
           <p id="authDivider" class="auth-divider" hidden>atau gunakan email</p>
           <form id="authForm">
             <div class="form-group" id="authEmailGroup"><label for="authEmailInput">Email</label><input id="authEmailInput" class="input-control" type="email" autocomplete="email" maxlength="254" required /></div>
-            <div class="form-group" id="authPasswordGroup"><label for="authPasswordInput">Password</label><input id="authPasswordInput" class="input-control" type="password" autocomplete="current-password" minlength="8" maxlength="128" required /></div>
-            <div class="form-group" id="authConfirmGroup" hidden><label for="authConfirmInput">Ulangi password</label><input id="authConfirmInput" class="input-control" type="password" autocomplete="new-password" minlength="8" maxlength="128" /></div>
+            <div class="form-group" id="authPasswordGroup"><label for="authPasswordInput">Password</label><div class="password-field"><input id="authPasswordInput" class="input-control" type="password" autocomplete="current-password" minlength="8" maxlength="128" required /><button type="button" class="password-visibility-toggle" data-toggle-password="authPasswordInput" aria-controls="authPasswordInput" aria-label="Tampilkan password" aria-pressed="false"><i class="fa-solid fa-eye" aria-hidden="true"></i></button></div></div>
+            <div class="form-group" id="authConfirmGroup" hidden><label for="authConfirmInput">Ulangi password</label><div class="password-field"><input id="authConfirmInput" class="input-control" type="password" autocomplete="new-password" minlength="8" maxlength="128" /><button type="button" class="password-visibility-toggle" data-toggle-password="authConfirmInput" aria-controls="authConfirmInput" aria-label="Tampilkan konfirmasi password" aria-pressed="false"><i class="fa-solid fa-eye" aria-hidden="true"></i></button></div></div>
             <p id="authMessage" role="status" aria-live="polite"></p>
             <button type="submit" id="btnAuthSubmit" class="btn btn-primary">Masuk</button>
           </form>
