@@ -535,6 +535,55 @@
           <p>Kirim dan terima email dengan domain pribadi Anda.</p>
         </div>
         <p id="mailNotice" class="storage-notice" role="status">Memuat layanan email…</p>
+        <section class="settings-box mail-generator" aria-labelledby="mailGeneratorTitle">
+          <h3 id="mailGeneratorTitle">Buat alamat email</h3>
+          <form id="mailBoxForm">
+            <label class="sr-only" for="mailLocalPart">Nama email</label>
+            <input
+              id="mailLocalPart"
+              class="input-control mail-name-input"
+              placeholder="Masukkan nama akun yang diinginkan"
+              maxlength="64"
+              pattern="[a-zA-Z0-9](?:[a-zA-Z0-9._-]{0,62}[a-zA-Z0-9])?"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+              required
+            />
+            <input id="mailCreateDomain" type="hidden" />
+            <details id="mailDomainPicker" class="mail-domain-picker">
+              <summary>
+                <span id="mailSelectedDomain">Pilih domain aktif</span
+                ><i class="fa-solid fa-chevron-down" aria-hidden="true"></i>
+              </summary>
+              <div class="mail-domain-menu">
+                <label class="mail-domain-search"
+                  ><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i
+                  ><input
+                    id="mailDomainSearch"
+                    type="search"
+                    placeholder="Cari domain"
+                    aria-label="Cari domain aktif"
+                    autocomplete="off"
+                /></label>
+                <div
+                  id="mailDomainOptions"
+                  class="mail-domain-options"
+                  role="radiogroup"
+                  aria-label="Domain email siap digunakan"
+                ></div>
+                <p id="mailDomainEmpty">Belum ada domain siap. Verifikasi DNS email terlebih dahulu.</p>
+              </div>
+            </details>
+            <output
+              id="mailAddressPreview"
+              class="mail-address-preview"
+              for="mailLocalPart mailCreateDomain"
+              aria-live="polite"
+            ></output>
+            <button id="mailCreateBox" class="btn btn-primary" disabled>Buat Email</button>
+          </form>
+        </section>
         <details id="mailSetup" class="settings-box mail-setup" open>
           <summary>Domain dan alamat email</summary>
           <p>
@@ -559,34 +608,13 @@
           </form>
           <div id="mailDomainList"></div>
           <div id="mailDns" aria-live="polite"></div>
-          <form id="mailBoxForm" class="mail-inline-form">
-            <div class="form-group">
-              <label for="mailLocalPart">Nama alamat</label>
-              <input
-                id="mailLocalPart"
-                class="input-control"
-                placeholder="admin"
-                maxlength="64"
-                required
-                autocapitalize="none"
-              />
-            </div>
-            <div class="form-group">
-              <label for="mailCreateDomain">Domain terverifikasi</label>
-              <select id="mailCreateDomain" class="input-control" required></select>
-            </div>
-            <div class="form-group">
-              <label for="mailDisplayName">Nama pengirim</label>
-              <input id="mailDisplayName" class="input-control" maxlength="100" placeholder="Nama Anda" />
-            </div>
-            <button id="mailCreateBox" class="btn btn-outline" disabled>Buat Alamat Email</button>
-          </form>
           <p>
             Maksimal 3 domain, 10 alamat, dan 100 permintaan kirim per 24 jam untuk setiap akun. Surat
             disimpan oleh layanan email; isi pesan ditampilkan sebagai teks. Unggah dan unduh lampiran
             belum tersedia.
           </p>
         </details>
+        <p id="mailReceiveStatus" class="mail-receive-status" role="status" aria-live="polite"></p>
         <div class="mail-toolbar">
           <div class="mail-toolbar-field">
             <label for="mailboxSelect">Alamat email</label>

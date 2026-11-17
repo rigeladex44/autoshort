@@ -12,7 +12,9 @@ export function createMailUI({ api, getSession, notify }) {
     requestId = null,
     reply = null,
     next = null,
-    messageNext = null;
+    messageNext = null,
+    canSend = false,
+    receiveReady = false;
   function node(tag, text, cls) {
     const n = document.createElement(tag);
     if (text !== undefined) n.textContent = text;
@@ -22,9 +24,18 @@ export function createMailUI({ api, getSession, notify }) {
   function controls() {
     const enabled = configured && Boolean(getSession().user) && !busy;
     el("mailAddDomain").disabled = !enabled;
+    el("mailLocalPart").disabled = !enabled;
+    el("mailDomainSearch").disabled = !enabled;
+    el("mailDomainOptions")
+      .querySelectorAll("input")
+      .forEach((radio) => {
+        radio.disabled = !enabled;
+      });
     el("mailCreateBox").disabled = !enabled || !el("mailCreateDomain").value;
-    el("mailCompose").disabled = !enabled || !el("mailboxSelect").value;
-    el("mailSend").disabled = !enabled || !el("mailboxSelect").value;
+    el("mailCompose").disabled =
+      !enabled || !el("mailboxSelect").value || !canSend;
+    el("mailSend").disabled =
+      !enabled || !el("mailboxSelect").value || !canSend;
     el("mailboxSelect").disabled = !enabled;
     el("mailFolder").disabled = !enabled;
     el("mailLoadMore").disabled = !enabled;
@@ -77,14 +88,23 @@ export function createMailUI({ api, getSession, notify }) {
     reply = null;
     next = null;
     messageNext = null;
+    canSend = false;
+    receiveReady = false;
     [
       "mailDomainList",
       "mailDns",
       "mailThreads",
       "mailMessage",
       "mailboxSelect",
-      "mailCreateDomain",
+      "mailDomainOptions",
     ].forEach((id) => el(id).replaceChildren());
+    el("mailCreateDomain").value = "";
+    el("mailDomainSearch").value = "";
+    el("mailDomainPicker").open = false;
+    el("mailSelectedDomain").textContent = "Pilih domain aktif";
+    el("mailAddressPreview").textContent = "";
+    el("mailReceiveStatus").textContent = "";
+    el("mailDomainEmpty").hidden = false;
     el("mailDomainForm").reset();
     el("mailBoxForm").reset();
     el("mailComposeForm").reset();
@@ -162,13 +182,7 @@ export function createMailUI({ api, getSession, notify }) {
         ),
       );
     }
-    el("mailCreateDomain").replaceChildren();
-    const ready = domains.filter((d) => d.sending_ready && d.receiving_ready);
-    for (const d of ready) {
-      const option = node("option", d.domain);
-      option.value = d.id;
-      el("mailCreateDomain").append(option);
-    }
+    renderReadyDomains();
     el("mailboxSelect").replaceChildren(
       node(
         "option",
@@ -188,6 +202,99 @@ export function createMailUI({ api, getSession, notify }) {
       : boxes.find((b) => b.ready)?.id || "";
     controls();
   }
+  function previewAddress() {
+    const selected = domains.find((d) => d.id === el("mailCreateDomain").value);
+    const local = el("mailLocalPart").value.trim().toLowerCase();
+    el("mailAddressPreview").textContent =
+      selected && local ? local + "@" + selected.domain : "";
+  }
+  function chooseDomain(id) {
+    const selected = domains.find(
+      (d) => d.id === id && d.sending_ready && d.receiving_ready,
+    );
+    el("mailCreateDomain").value = selected?.id || "";
+    el("mailSelectedDomain").textContent = selected
+      ? "@" + selected.domain
+      : "Belum ada domain siap";
+    for (const radio of el("mailDomainOptions").querySelectorAll(
+      'input[type="radio"]',
+    ))
+      radio.checked = radio.value === selected?.id;
+    previewAddress();
+    controls();
+  }
+  function filterDomains() {
+    const term = el("mailDomainSearch")
+      .value.trim()
+      .toLowerCase()
+      .replace(/^@/, "");
+    let visible = 0;
+    for (const row of el("mailDomainOptions").children) {
+      row.hidden = !row.dataset.domain.includes(term);
+      if (!row.hidden) visible++;
+    }
+    el("mailDomainEmpty").hidden = visible > 0;
+    el("mailDomainEmpty").textContent = domains.some(
+      (d) => d.sending_ready && d.receiving_ready,
+    )
+      ? "Tidak ada domain yang cocok."
+      : "Belum ada domain siap. Verifikasi DNS email terlebih dahulu.";
+  }
+  function renderReadyDomains() {
+    const previous = el("mailCreateDomain").value;
+    const ready = domains.filter((d) => d.sending_ready && d.receiving_ready);
+    el("mailDomainOptions").replaceChildren();
+    for (const domain of ready) {
+      const row = node("label", undefined, "mail-domain-option");
+      row.dataset.domain = domain.domain.toLowerCase();
+      const radio = node("input");
+      radio.type = "radio";
+      radio.name = "mailReadyDomain";
+      radio.value = domain.id;
+      radio.onchange = () => {
+        chooseDomain(domain.id);
+        el("mailDomainPicker").open = false;
+        el("mailDomainPicker").querySelector("summary").focus();
+      };
+      row.append(radio, node("span", "@" + domain.domain));
+      el("mailDomainOptions").append(row);
+    }
+    chooseDomain(
+      ready.some((d) => d.id === previous) ? previous : ready[0]?.id || "",
+    );
+    filterDomains();
+  }
+  async function checkMailbox() {
+    const g = generation;
+    canSend = false;
+    receiveReady = false;
+    controls();
+    const id = el("mailboxSelect").value;
+    if (!id) {
+      el("mailReceiveStatus").textContent = "";
+      return;
+    }
+    el("mailReceiveStatus").textContent = "Memeriksa kesiapan alamat email…";
+    let data;
+    try {
+      data = await call({ action: "mailbox-check", mailbox_id: id });
+    } catch (error) {
+      if (!error.stale && g === generation)
+        el("mailReceiveStatus").textContent =
+          "Status penerimaan belum dapat dipastikan. Coba Segarkan.";
+      throw error;
+    }
+    canSend = data.mailbox.sendingReady;
+    receiveReady = data.mailbox.active;
+    el("mailReceiveStatus").textContent = data.mailbox.active
+      ? "Inbox dan MX terverifikasi. " +
+        (data.mailbox.lastReceived
+          ? "Terakhir menerima: " +
+            new Date(data.mailbox.lastReceived).toLocaleString("id-ID")
+          : "Belum ada email masuk yang tercatat.")
+      : "Penerimaan belum siap. Periksa DNS email domain ini.";
+    controls();
+  }
   async function open() {
     const session = getSession();
     if (
@@ -204,7 +311,10 @@ export function createMailUI({ api, getSession, notify }) {
     }
     await run(async () => {
       await overview();
-      if (el("mailboxSelect").value) await loadThreads();
+      if (el("mailboxSelect").value) {
+        await checkMailbox();
+        await loadThreads();
+      }
     });
   }
   async function showDns(id, verify = false) {
@@ -224,6 +334,14 @@ export function createMailUI({ api, getSession, notify }) {
         "Pasang record ini pada penyedia DNS. Jangan mengganti MX existing sebelum siap memindahkan penerimaan email; pesan baru akan dikirim ke layanan yang ditunjuk MX.",
       ),
     );
+    if (d.mxReady === false)
+      root.append(
+        node(
+          "p",
+          "MX publik domain belum sesuai dengan layanan penerimaan. Periksa record MX dan tunggu propagasi DNS.",
+          "mail-warning",
+        ),
+      );
     if (d.cnameConflict)
       root.append(
         node(
@@ -284,7 +402,7 @@ export function createMailUI({ api, getSession, notify }) {
     check.onclick = () => run(() => showDns(d.id, true));
     root.append(check);
   }
-  async function loadThreads(append = false) {
+  async function loadThreads(append = false, preserveMessage = false) {
     const box = el("mailboxSelect").value;
     if (!box) {
       el("mailThreads").replaceChildren(
@@ -300,11 +418,29 @@ export function createMailUI({ api, getSession, notify }) {
     });
     if (!append) {
       el("mailThreads").replaceChildren();
-      el("mailMessage").replaceChildren(
-        node("p", "Pilih pesan untuk membacanya."),
+      if (!preserveMessage) {
+        el("mailMessage").replaceChildren(
+          node("p", "Pilih pesan untuk membacanya."),
+        );
+        thread = null;
+        messages = [];
+      }
+    }
+    if (
+      receiveReady &&
+      !append &&
+      el("mailFolder").value === "inbox" &&
+      data.threads?.length
+    ) {
+      const latest = Math.max(
+        ...data.threads
+          .map((t) => new Date(t.received_at).getTime())
+          .filter(Number.isFinite),
       );
-      thread = null;
-      messages = [];
+      if (Number.isFinite(latest))
+        el("mailReceiveStatus").textContent =
+          "Inbox dan MX terverifikasi. Pesan masuk terakhir: " +
+          new Date(latest).toLocaleString("id-ID");
     }
     next = data.next;
     el("mailLoadMore").hidden = !data.hasMore;
@@ -441,9 +577,28 @@ export function createMailUI({ api, getSession, notify }) {
     el(message ? "mailBody" : "mailTo").focus();
   }
   el("mailRefresh").onclick = open;
-  el("mailboxSelect").onchange = () => run(() => loadThreads());
+  el("mailboxSelect").onchange = () =>
+    run(async () => {
+      await checkMailbox();
+      await loadThreads();
+    });
   el("mailFolder").onchange = () => run(() => loadThreads());
-  el("mailCreateDomain").onchange = controls;
+  el("mailDomainSearch").oninput = filterDomains;
+  el("mailDomainSearch").onkeydown = (event) => {
+    if (event.key === "Enter") event.preventDefault();
+    if (event.key === "Escape") {
+      el("mailDomainPicker").open = false;
+      el("mailDomainPicker").querySelector("summary").focus();
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      [...el("mailDomainOptions").children]
+        .find((row) => !row.hidden)
+        ?.querySelector("input")
+        .focus();
+    }
+  };
+  el("mailLocalPart").oninput = previewAddress;
   el("mailLoadMore").onclick = () => run(() => loadThreads(true));
   el("mailCompose").onclick = () => compose();
   el("mailCancelCompose").onclick = () => el("mailComposeDialog").close();
@@ -469,19 +624,21 @@ export function createMailUI({ api, getSession, notify }) {
   el("mailBoxForm").onsubmit = (event) => {
     event.preventDefault();
     run(async () => {
-      await call(
+      const created = await call(
         {},
         {
           action: "mailbox-create",
           domain_id: el("mailCreateDomain").value,
           local_part: el("mailLocalPart").value,
-          display_name: el("mailDisplayName").value,
         },
       );
       el("mailBoxForm").reset();
       await overview();
       el("mailSetup").open = false;
+      el("mailboxSelect").value = created.mailbox.id;
+      await checkMailbox();
       await loadThreads();
+      previewAddress();
       notify("Alamat email dibuat.", "success");
     });
   };
@@ -509,6 +666,18 @@ export function createMailUI({ api, getSession, notify }) {
       }
     });
   };
+  setInterval(() => {
+    if (
+      configured &&
+      getSession().user &&
+      !document.hidden &&
+      !busy &&
+      !el("mailComposeDialog").open &&
+      el("viewMail").style.display !== "none" &&
+      el("mailboxSelect").value
+    )
+      run(() => loadThreads(false, true));
+  }, 15000);
   reset();
   return { open, reset, leave: () => el("mailComposeDialog").close() };
 }

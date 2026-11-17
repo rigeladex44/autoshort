@@ -635,3 +635,21 @@ body[data-view="auth"] .sid-content-area {
 
 .mail-toolbar-field { display: grid; gap: 6px; flex: 1 1 170px; min-width: 0; }
 .mail-toolbar-field .input-control { width: 100%; }
+.mail-generator { margin-bottom: 20px; }
+.mail-generator h3 { margin-bottom: 16px; }
+.mail-name-input { min-height: 54px; font-size: 1rem; }
+.mail-domain-picker { margin-top: 14px; border: 1px solid var(--border-card); border-radius: 12px; overflow: hidden; }
+.mail-domain-picker > summary { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px; min-height: 54px; background: var(--brand-light); color: var(--text-main); font-weight: 650; cursor: pointer; list-style: none; }
+.mail-domain-picker > summary::-webkit-details-marker { display: none; }
+.mail-domain-picker > summary i { color: var(--text-secondary); font-size: .8rem; }
+.mail-domain-menu { padding: 10px; background: var(--bg-hover); }
+.mail-generator .mail-domain-search { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-card); border-radius: 8px; background: var(--bg-input); }
+.mail-domain-search input { width: 100%; min-width: 0; min-height: 30px; border: 0; background: transparent; color: var(--text-main); font: inherit; }
+.mail-domain-options { max-height: 280px; overflow-y: auto; }
+.mail-generator .mail-domain-option { display: flex; align-items: center; gap: 12px; margin-top: 6px; padding: 14px; min-height: 50px; border-radius: 8px; background: var(--bg-card); cursor: pointer; overflow-wrap: anywhere; font-weight: 600; font-size: .9rem; margin-bottom: 0; }
+.mail-domain-option input { accent-color: var(--brand-primary); width: 20px; height: 20px; flex-shrink: 0; }
+.mail-domain-option:has(input:checked) { background: var(--brand-light); }
+.mail-address-preview { display: block; margin: 12px 0; color: var(--text-secondary); font-size: .84rem; overflow-wrap: anywhere; }
+.mail-generator #mailCreateBox { width: 100%; min-height: 44px; }
+.mail-receive-status { margin: 0 0 12px; color: var(--text-secondary); font-size: .77rem; line-height: 1.6; }
+@media(min-width:769px){ .mail-generator { max-width: 680px; } }

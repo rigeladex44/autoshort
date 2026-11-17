@@ -12,6 +12,7 @@ import {
   identifier,
   plainMessage,
   contentHash,
+  inspectProviderMailbox,
 } from "../lib/mail.js";
 async function protectSharedDomain(domain, user) {
   const current = (
@@ -253,6 +254,7 @@ export function createMailHandler({ refreshDomain = refreshMailDomain } = {}) {
           );
           box.provider_id = result.id;
         }
+        await inspectProviderMailbox(box);
         return send(201, {
           mailbox: {
             id: box.id,
@@ -269,6 +271,22 @@ export function createMailHandler({ refreshDomain = refreshMailDomain } = {}) {
           409,
         );
       const base = "/inboxes/" + identifier(box.provider_id);
+      if (req.method === "GET" && action === "mailbox-check") {
+        const inbox = await inspectProviderMailbox(box);
+        const domain = await ownedRow("email_domains", box.domain_id, user);
+        const status = await refreshDomain(domain);
+        return send(200, {
+          mailbox: {
+            id: box.id,
+            address: box.address,
+            active: status.sendingReady && status.receivingReady,
+            sendingReady: status.sendingReady,
+            receivingReady: status.receivingReady,
+            lastReceived: inbox.last_received || null,
+          },
+        });
+      }
+
       if (req.method === "GET" && action === "threads") {
         const folder = ["inbox", "sent", "archive", "spam", "trash"].includes(
           input.folder,
@@ -366,6 +384,7 @@ export function createMailHandler({ refreshDomain = refreshMailDomain } = {}) {
         const status = await refreshDomain(domain);
         if (!status.sendingReady)
           throw mailError("DNS pengiriman domain belum terverifikasi.", 422);
+        await inspectProviderMailbox(box);
         const draft = await provider(base + "/drafts", {
           method: "POST",
           body: content,
