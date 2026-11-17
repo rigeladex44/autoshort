@@ -49,15 +49,19 @@ export function createMailUI({ api, getSession, notify }) {
       "/api/mail" + (body ? "" : "?" + new URLSearchParams(query)),
       body ? { method: "POST", body: JSON.stringify(body) } : {},
     );
-    if (g !== generation || id !== getSession().user?.id || data.userId !== id)
+    if (g !== generation || id !== getSession().user?.id)
       throw Object.assign(new Error("Sesi telah berubah."), { stale: true });
+    if (data.userId !== id)
+      throw new Error(
+        "Sesi layanan email tidak sesuai. Muat ulang halaman dan masuk kembali sebelum mencoba lagi.",
+      );
     return data;
   }
   function notice(text) {
     el("mailNotice").textContent = text;
     el("mailSetupNotice").textContent = text === "Inbox pribadi." ? "" : text;
   }
-  async function run(work) {
+  async function run(work, { reportError = false } = {}) {
     if (busy) return;
     const g = generation;
     busy = true;
@@ -70,6 +74,7 @@ export function createMailUI({ api, getSession, notify }) {
     } catch (error) {
       if (!error.stale && g === generation) {
         notice(error.message);
+        if (reportError) notify(error.message, "warning");
         if (el("mailComposeDialog").open)
           el("mailComposeNotice").textContent = error.message;
       }
@@ -608,16 +613,37 @@ export function createMailUI({ api, getSession, notify }) {
   el("mailComposeForm").addEventListener("input", () => {
     requestId = null;
   });
+  el("mailDomainForm").noValidate = true;
   el("mailDomainForm").onsubmit = (event) => {
     event.preventDefault();
-    run(async () => {
-      const data = await call(
-        {},
-        { action: "domain-add", domain: el("mailDomainInput").value },
-      );
-      renderDns(data.domain);
-      await overview();
-    });
+    const domain = el("mailDomainInput").value.trim();
+    if (!domain) {
+      notice("Isi nama domain email terlebih dahulu, misalnya domainanda.com.");
+      el("mailDomainInput").focus();
+      return;
+    }
+    run(
+      async () => {
+        notice("Mengambil record DNS dari Resend…");
+        const data = await call({}, { action: "domain-add", domain });
+        if (!data.domain || !Array.isArray(data.domain.records))
+          throw new Error(
+            "Respons record DNS tidak lengkap. Klik Segarkan untuk memeriksa status domain.",
+          );
+        // Keep provider records visible even if refreshing the domain list fails.
+        renderDns(data.domain);
+        await overview();
+        renderDns(data.domain);
+        if (!data.domain.records.length)
+          throw new Error(
+            "Domain terdaftar, tetapi Resend belum mengembalikan record DNS. Klik Segarkan untuk memeriksa kembali.",
+          );
+        notice("Record DNS untuk " + data.domain.domain + " berhasil dimuat.");
+        el("mailDns").scrollIntoView({ behavior: "smooth", block: "nearest" });
+        notify("Record DNS berhasil dimuat.", "success");
+      },
+      { reportError: true },
+    );
   };
   el("mailBoxForm").onsubmit = (event) => {
     event.preventDefault();
