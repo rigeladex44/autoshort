@@ -8,7 +8,8 @@
     "start": "node --env-file-if-exists=.env server.js",
     "test": "node --test --test-isolation=none test/api.test.js",
     "test:browser": "node test/browser.mjs",
-    "test:mail-db": "node test/mail-sql.mjs"
+    "test:mail-db": "node test/mail-sql.mjs",
+    "test:sessions": "node test/session-browser.mjs"
   },
   "keywords": [
     "shortlink",

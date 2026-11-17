@@ -1,3 +1,4 @@
+import { refreshCookieAge } from '../lib/auth.js';
 import mail, { createMailHandler } from '../api/mail.js';
 import { plainMessage, refreshMailDomain, provider } from '../lib/mail.js';
 import auth from '../api/auth.js';
@@ -392,4 +393,43 @@ test('email provider errors distinguish key validity, domain permissions and inb
   mock(()=>json({message:'untrusted-provider-text-test-secret'},status));
   await assert.rejects(()=>provider(path),error=>{assert.equal(error.status,status===404?404:502);assert.match(error.message,expected);assert.ok(!error.message.includes('untrusted-provider-text'));assert.ok(!error.message.includes('test-resend-secret'));return true;});
  }
+});
+
+test('expired access refreshes into persistent device cookies without exposing credentials',async()=>{
+ const request=req('GET',null,{action:'me'});delete request.headers.authorization;request.headers.cookie='as_access=expired.access.signature; as_refresh=device-refresh';
+ mock(url=>url.endsWith('/user')?json({error_code:'bad_jwt'},401):json({user:{id:'user-a'},access_token:'new.access.signature',refresh_token:'new-device-refresh',expires_in:3600}));
+ const out=response();await auth(request,out);assert.equal(out.code,200);assert.equal(out.body.user.id,'user-a');
+ const cookie=out.headers['set-cookie'].find(c=>c.startsWith('as_refresh='));assert.match(cookie,new RegExp('Max-Age='+refreshCookieAge));assert.match(cookie,/HttpOnly; SameSite=Lax/);assert.ok(refreshCookieAge>=60*60*24*365);assert.ok(!JSON.stringify(out.body).includes('new-device-refresh'));
+});
+test('temporary refresh failures preserve persistent cookies instead of logging the device out',async()=>{
+ for(const [status,code,expected] of [[429,'over_request_rate_limit',429],[503,'unexpected_failure',503],[503,'refresh_token_not_found',503],[400,'temporary_unknown_error',503],[401,'invalid_api_key',503]]){
+  const request=req('GET',null,{action:'me'});delete request.headers.authorization;request.headers.cookie='as_refresh=preserve-device-refresh';
+  mock(()=>json({error_code:code},status));const out=response();await auth(request,out);assert.equal(out.code,expected);assert.equal(out.headers['set-cookie'],undefined);
+ }
+});
+test('revoked refresh sessions clear only the current browser cookies',async()=>{
+ const request=req('GET',null,{action:'me'});delete request.headers.authorization;request.headers.cookie='as_refresh=revoked-device';mock(()=>json({error_code:'refresh_token_not_found'},400));
+ const out=response();await auth(request,out);assert.equal(out.code,200);assert.equal(out.body.user,null);assert.equal(out.headers['set-cookie'].length,2);assert.ok(out.headers['set-cookie'].every(c=>c.includes('Max-Age=0')));
+});
+test('an incomplete refresh response never overwrites a recoverable device session',async()=>{
+ const request=req('GET',null,{action:'me'});delete request.headers.authorization;request.headers.cookie='as_refresh=device-refresh';mock(()=>json({access_token:'new.access.signature',user:{id:'user-a'}}));
+ const out=response();await auth(request,out);assert.equal(out.code,503);assert.equal(out.headers['set-cookie'],undefined);
+});
+test('two devices keep independent sessions and logging out one leaves the other active',async()=>{
+ const sessions=new Map();let serial=0;
+ mock((url,options)=>{
+  if(url.includes('grant_type=password')){const id=++serial,access='device'+id+'.access.signature',refresh='refresh-device-'+id;sessions.set(access,{refresh,active:true});return json({user:{id:'same-user'},access_token:access,refresh_token:refresh,expires_in:3600});}
+  const token=options?.headers?.Authorization?.replace('Bearer ','');
+  if(url.endsWith('/user'))return sessions.get(token)?.active?json({id:'same-user'}):json({error_code:'bad_jwt'},401);
+  if(url.includes('logout?scope=local')){sessions.get(token).active=false;return json({});}
+  if(url.includes('grant_type=refresh_token')){const refresh=JSON.parse(options.body).refresh_token,entry=[...sessions.entries()].find(([,s])=>s.refresh===refresh&&s.active);return entry?json({user:{id:'same-user'},access_token:entry[0],refresh_token:refresh,expires_in:3600}):json({error_code:'refresh_token_not_found'},400);}
+  throw new Error('Unexpected auth endpoint');
+ });
+ const login=async()=>{const out=response();await auth(req('POST',{email:'same@example.test',password:'correct-password'},{action:'login'}),out);assert.equal(out.code,200);return out.headers['set-cookie'].map(c=>c.split(';')[0]).join('; ');};
+ const cookieA=await login(),cookieB=await login();assert.notEqual(cookieA,cookieB);
+ const check=async cookie=>{const request=req('GET',null,{action:'me'});delete request.headers.authorization;request.headers.cookie=cookie;const out=response();await auth(request,out);return out;};
+ assert.equal((await check(cookieA)).body.user.id,'same-user');assert.equal((await check(cookieB)).body.user.id,'same-user');
+ const logout=req('POST',{}, {action:'logout'});delete logout.headers.authorization;logout.headers.cookie=cookieA;const out=response();await auth(logout,out);assert.equal(out.code,200);assert.ok(out.headers['set-cookie'].every(c=>c.includes('Max-Age=0')));
+ assert.equal((await check(cookieA)).body.user,null);assert.equal((await check(cookieB)).body.user.id,'same-user');
+ assert.ok(calls.filter(c=>c.url.includes('/logout')).every(c=>c.url.includes('scope=local')));
 });
