@@ -1,5 +1,5 @@
 import mail, { createMailHandler } from '../api/mail.js';
-import { plainMessage, refreshMailDomain } from '../lib/mail.js';
+import { plainMessage, refreshMailDomain, provider } from '../lib/mail.js';
 import auth from '../api/auth.js';
 import { buildAnalyticsBuckets } from '../lib/analytics.js';
 import { test, beforeEach, afterEach } from 'node:test';
@@ -384,4 +384,12 @@ test('mailbox readiness checks real provider address rather than trusting the st
  mock(url=>json(url.includes('/auth/v1/user')?{id:'user-a'}:url.includes('email_mailboxes')?[box]:url.includes('email_domains')?[{id:box.domain_id,domain:'own.example',user_id:'user-a',provider_id:'remote-domain'}]:{id:'remote-box',email_address:mismatch?'foreign@other.example':'admin@own.example',last_received:'2026-11-17T08:00:00Z'}));
  const handler=createMailHandler({refreshDomain:async()=>({sendingReady:true,receivingReady:true})});const out=response();await handler(mailReq('GET',null,{action:'mailbox-check',mailbox_id:box.id}),out);assert.equal(out.code,502);
  mismatch=false;const ready=response();await handler(mailReq('GET',null,{action:'mailbox-check',mailbox_id:box.id}),ready);assert.equal(ready.code,200);assert.equal(ready.body.mailbox.active,true);assert.equal(ready.body.mailbox.lastReceived,'2026-11-17T08:00:00Z');
+});
+
+test('email provider errors distinguish key validity, domain permissions and inbox access without leaking provider text',async()=>{
+ process.env.RESEND_API_KEY='test-resend-secret';
+ for(const [path,status,expected] of [['/domains?limit=100',401,/API key tidak valid/],['/domains?limit=100',403,/pengelolaan domain Resend ditolak/],['/domains/domain-id',404,/Domain email tidak ditemukan/],['/inboxes/inbox-id',403,/Akses Resend Inboxes ditolak/]]){
+  mock(()=>json({message:'untrusted-provider-text-test-secret'},status));
+  await assert.rejects(()=>provider(path),error=>{assert.equal(error.status,status===404?404:502);assert.match(error.message,expected);assert.ok(!error.message.includes('untrusted-provider-text'));assert.ok(!error.message.includes('test-resend-secret'));return true;});
+ }
 });

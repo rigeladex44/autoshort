@@ -549,6 +549,15 @@
             <div id="domainDetails" class="domain-details" hidden></div>
             <div id="domainList" class="domain-list" aria-label="Domain terpasang"></div>
             <p id="domainStatus" role="status" aria-live="polite"></p>
+            <details class="dns-provider-guide dns-help">
+              <summary>Cara membuka DNS Management</summary>
+              <ol>
+                <li>Buka panel DNS: <a href="https://my.domainesia.com/" target="_blank" rel="noopener noreferrer">Domainesia</a> atau <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer">Cloudflare</a>.</li>
+                <li>Pilih domain → DNS Management / DNS Records → Tambah record.</li>
+                <li>Salin Host, Tipe, Nilai dan Prioritas dari template, lalu simpan.</li>
+              </ol>
+              <p>DNS di hosting? Buka cPanel → Zone Editor. Setelah disimpan, klik Periksa DNS di AutoShort.</p>
+            </details>
             <details class="domain-dns-help dns-help">
               <summary>Bantuan DNS shortlink</summary>
               <p>
@@ -578,6 +587,15 @@
               <button id="mailAddDomain" class="btn btn-primary" disabled>Tambahkan Domain Email</button>
               <button id="mailRefreshDomains" type="button" class="btn btn-outline">Segarkan</button>
             </form>
+            <details class="dns-provider-guide dns-help" id="mailDnsGuide" open>
+              <summary>Cara membuka DNS Management</summary>
+              <ol>
+                <li>Buka panel DNS: <a href="https://my.domainesia.com/" target="_blank" rel="noopener noreferrer">Domainesia</a> atau <a href="https://dash.cloudflare.com/" target="_blank" rel="noopener noreferrer">Cloudflare</a>.</li>
+                <li>Pilih domain → DNS Management / DNS Records → Tambah record.</li>
+                <li>Salin Host, Tipe, Nilai dan Prioritas dari template, lalu simpan.</li>
+              </ol>
+              <p>DNS di hosting? Buka cPanel → Zone Editor. Setelah disimpan, klik Periksa DNS di AutoShort.</p>
+            </details>
             <div id="mailDomainList"></div>
             <div id="mailDns" aria-live="polite"></div>
             <details class="dns-help">

@@ -115,6 +115,7 @@ export function createMailUI({ api, getSession, notify }) {
     el("mailComposeForm").reset();
     el("mailComposeDialog").close();
     el("mailLoadMore").hidden = true;
+    emptyDns();
     notice("Masuk untuk memakai inbox pribadi.");
     controls();
   }
@@ -144,7 +145,7 @@ export function createMailUI({ api, getSession, notify }) {
         : domains[0].id;
       select.onchange = () => run(() => showDns(select.value));
       el("mailDomainList").append(label, select);
-    } else el("mailDns").replaceChildren();
+    } else emptyDns();
     for (const box of boxes.filter((b) => !b.ready)) {
       el("mailDomainList").append(
         node(
@@ -309,9 +310,19 @@ export function createMailUI({ api, getSession, notify }) {
       if (configured && domain) await showDns(domain.id);
     });
   }
+  function emptyDns() {
+    el("mailDns").replaceChildren(
+      renderDnsRecords([], {
+        empty:
+          "Record DNS belum tersedia. Tambahkan domain setelah koneksi layanan email siap.",
+      }),
+    );
+    el("mailDnsGuide").open = true;
+  }
   function renderDns(d) {
     const root = el("mailDns");
     root.dataset.domain = d.id;
+    el("mailDnsGuide").open = false;
     root.replaceChildren(node("h3", "DNS · " + d.domain));
     root.append(
       node(

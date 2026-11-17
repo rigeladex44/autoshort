@@ -347,7 +347,7 @@ try {
   await listContext.close();console.log('PASS: stacked cards, detail isolation, copy URL, home totals, empty activity, home create action and focus restoration.');
 
   const mailContext=await browser.newContext({viewport:{width:390,height:900},reducedMotion:'reduce'});
-  let mailUser={id:'mail-user-a',email:'a@example.test',isOperator:false},mailOn=false,domainAdded=false,mailReady=false,boxCreated=false,sendFailure=true,loadOlder=false,newMail=false;
+  let mailUser={id:'mail-user-a',email:'a@example.test',isOperator:false},mailOn=false,domainAdded=false,mailReady=false,boxCreated=false,sendFailure=true,loadOlder=false,newMail=false,domainDenied=true;
   const sentPayloads=[];
   await mailContext.route('**/api/**',async route=>{
     const url=new URL(route.request().url());const method=route.request().method();const payload=method==='POST'?route.request().postDataJSON():Object.fromEntries(url.searchParams);
@@ -360,7 +360,7 @@ try {
     const userId=mailUser?.id;const isA=userId==='mail-user-a';const domain={id:'mail-domain',domain:'own.example',sendingReady:mailReady,receivingReady:mailReady,cnameConflict:!mailReady,records:[{type:'TXT',name:'resend._domainkey',value:'provider-real-value-example',purpose:'DKIM',status:mailReady?'verified':'pending',ttl:'Auto'},{type:'MX',name:'@',value:'provider-mx-example',purpose:'Receiving',priority:10,status:mailReady?'verified':'pending',ttl:'Auto'}]};
     const action=payload.action||'overview';let data;
     if(action==='overview')data={configured:mailOn,domains:isA&&domainAdded?[{id:domain.id,domain:domain.domain,sending_ready:mailReady,receiving_ready:mailReady},...(mailReady?[{id:'mail-domain-2',domain:'second.example',sending_ready:true,receiving_ready:true},{id:'mail-pending',domain:'pending.example',sending_ready:true,receiving_ready:false}]:[])]:[],mailboxes:boxCreated?[{id:isA?'mail-box-a':'mail-box-b',address:isA?'admin@own.example':'admin@other.example',display_name:'Admin',ready:true}]:[],message:mailOn?'Inbox siap':'Layanan email belum aktif.'};
-    else if(action==='domain-add'){domainAdded=true;data={domain};}
+    else if(action==='domain-add'){if(domainDenied)return route.fulfill({status:502,json:{error:'Akses pengelolaan domain Resend ditolak. Pengelola perlu memasang API key Full access pada Secret RESEND_API_KEY lalu redeploy.'}});domainAdded=true;data={domain};}
     else if(action==='domain-details')data={domain};
     else if(action==='domain-check'){mailReady=true;data={domain:{...domain,sendingReady:true,receivingReady:true,cnameConflict:false,records:domain.records.map(record=>({...record,status:'verified'}))}};}
     else if(action==='mailbox-create'){boxCreated=true;data={mailbox:{id:'mail-box-a',address:'admin@own.example',ready:true}};}
@@ -377,7 +377,16 @@ try {
   await mailPage.locator('#emailDomainPanel').waitFor({state:'visible'});
   assert.equal(await mailPage.locator('#shortlinkDomainPanel').isVisible(),false);
   assert.equal(await mailPage.locator('#mailBoxForm').isVisible(),false);
-  await mailPage.fill('#mailDomainInput','own.example');await mailPage.click('#mailAddDomain');await mailPage.locator('#mailDns').filter({hasText:'provider-real-value-example'}).waitFor();assert.equal(await mailPage.locator('#mailCreateBox').isDisabled(),true);assert.match(await mailPage.locator('#mailDns').textContent(),/CNAME/);
+  await mailPage.locator('#mailDnsGuide').waitFor({state:'visible'});
+  assert.equal(await mailPage.locator('#mailDnsGuide').getByRole('link',{name:'Domainesia',exact:true}).getAttribute('href'),'https://my.domainesia.com/');
+  assert.match(await mailPage.locator('#mailDnsGuide').textContent(),/Zone Editor/);
+  await mailPage.fill('#mailDomainInput','own.example');await mailPage.click('#mailAddDomain');
+  await mailPage.locator('#mailSetupNotice').filter({hasText:'pengelolaan domain Resend ditolak'}).waitFor();
+  assert.equal(await mailPage.locator('#mailDnsGuide').getAttribute('open'),'');
+  assert.equal(await mailPage.locator('#mailDns .dns-record-row').count(),0);
+  assert.equal(await mailPage.locator('#mailDns button').count(),0);
+  assert.match(await mailPage.locator('#mailDns').textContent(),/Record DNS belum tersedia/);
+  domainDenied=false;await mailPage.click('#mailAddDomain');await mailPage.locator('#mailDns').filter({hasText:'provider-real-value-example'}).waitFor();assert.equal(await mailPage.locator('#mailCreateBox').isDisabled(),true);assert.match(await mailPage.locator('#mailDns').textContent(),/CNAME/);
   await mailPage.locator('#mailDns').getByRole('button',{name:'Periksa DNS Email',exact:true}).click();await mailPage.waitForFunction(()=>!document.getElementById('mailCreateBox').disabled);
   const mxRow=mailPage.locator('#mailDns .dns-record-row').nth(1);
   assert.equal(await mxRow.locator('.dns-host-cell textarea').inputValue(),'@');
@@ -414,6 +423,6 @@ try {
   assert.equal(await mailPage.evaluate(()=>Object.values(localStorage).some(v=>v.includes('Secret A'))),false);
   await mailPage.goto(base+'/#settings');await mailPage.click('#btnLogoutAdmin');await mailPage.locator('#viewAuth').waitFor({state:'visible'});assert.equal(await mailPage.locator('#mailThreads').textContent(),'');assert.equal(await mailPage.locator('#mailMessage').textContent(),'');
   mailUser={id:'mail-user-b',email:'b@example.test',isOperator:false};await mailPage.reload();await mailPage.locator('#cloudStatusText').filter({hasText:'Cloud Terhubung'}).waitFor({state:'attached'});await mailPage.goto(base+'/#mail');await mailPage.locator('#mailboxSelect').filter({hasText:'admin@other.example'}).waitFor();assert.ok(!(await mailPage.locator('#viewMail').textContent()).includes('Secret A'));assert.ok(!(await mailPage.locator('#mailThreads').textContent()).includes('Private A'));assert.deepEqual(errors,[]);await mailContext.close();
-  console.log('PASS: separate shortlink/email domain settings, real DNS value templates/copy, direct email-domain reload, private email setup, ready-domain search and selection, DNS gating, automatic arrival refresh preserving messages, inbox/reply, idempotent retry, safe text rendering, pagination, logout isolation and responsive light/dark views.');
+  console.log('PASS: DNS Management guidance survives denied domain access, separate shortlink/email domain settings, real DNS value templates/copy, direct email-domain reload, private email setup, ready-domain search and selection, DNS gating, automatic arrival refresh preserving messages, inbox/reply, idempotent retry, safe text rendering, pagination, logout isolation and responsive light/dark views.');
 
 } finally { await browser?.close(); server.kill(); }

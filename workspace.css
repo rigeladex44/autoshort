@@ -694,3 +694,9 @@ body[data-view="auth"] .sid-content-area {
 #mailDomainList { margin: 16px 0; max-width: 620px; }
 #mailDns > .btn { margin-right: 8px; }
 #domainDetails { margin-top: 18px; }
+
+.dns-provider-guide { margin: 16px 0; padding: 12px 14px; border: 1px solid var(--border-card); border-radius: 10px; background: var(--bg-hover); }
+.dns-provider-guide summary { color: var(--text-main); font-weight: 600; }
+.dns-provider-guide ol { margin: 12px 0 0; padding-left: 20px; font-size: .76rem; line-height: 1.7; color: var(--text-secondary); }
+.dns-provider-guide li + li { margin-top: 5px; }
+.dns-provider-guide a { color: var(--brand-primary); }
