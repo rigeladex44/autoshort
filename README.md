@@ -70,6 +70,7 @@ Tes API memakai mock database untuk validasi, otorisasi, CRUD, proteksi redirect
 ## Struktur
 
 - `app.js`, `index.html`, `styles.css`, `workspace.css`: dashboard dan penyesuaian responsif
+- `mail-client.js`, `api/mail.js`, `lib/mail.js`: inbox pribadi dan adapter layanan email
 - `redirect.js`, `redirect.html`: gate password dan redirect lokal
 - `api/`: fungsi Vercel untuk CRUD, statistik, redirect publik, config, dan gambar
 - `lib/`: validasi bersama serta akses database server
@@ -114,3 +115,26 @@ Ringkasan di bawah grafik mengikuti filter aktif: Total Link menghitung link dal
 `https://rigeel.id` adalah origin login dan dashboard. Atur `AUTH_SITE_URL=https://rigeel.id` pada server dan pertahankan allowlist callback Supabase untuk domain existing. Rules host di `vercel.json` mengalihkan alamat produksi Vercel dan `www.rigeel.id` ke root `rigeel.id` dengan HTTP 308, sambil mempertahankan path dan query string. Domain pribadi pengguna tidak terkena aturan ini. Alamat teknis deployment Vercel tetap ada.
 
 Migrasi origin dilakukan terpisah dari perubahan default shortlink: backup dulu, kemudian pengelola dapat mengganti `short_domain` khusus alias bersama lama ke origin canonical melalui service role. HTTP redirect menjaga alamat yang sudah dibagikan tetap bekerja. Pilihan domain pribadi, slug, tujuan, klik, serta pemilik tautan tidak diubah. Sesi cookie host lama tidak dipindahkan; pengguna masuk kembali pada origin baru.
+
+## Inbox email per pengguna
+
+Menu **Email** menyediakan pengaturan domain, pembuatan alamat, folder Inbox/Terkirim/Arsip/Spam/Sampah, baca dan balas, komposisi pesan teks, pagination, serta pemindahan folder. Data pemetaan domain/alamat disimpan di Supabase dengan RLS pengguna; isi email disimpan di Resend Inboxes dan dimuat hanya melalui API server yang memeriksa pemilik inbox. Email tidak disimpan di localStorage. Perubahan akun/logout menghapus seluruh state dan form email. HTML email ditampilkan sebagai teks untuk mencegah script maupun gambar pelacak. Versi awal menampilkan nama lampiran, tetapi belum mendukung unggah/unduh lampiran atau koneksi klien IMAP/SMTP.
+
+### Setup pemilik
+
+1. Gunakan akun Resend yang mendukung **Domains + Inboxes API**. Buat API key **Full access** dan simpan sebagai encrypted Secret `RESEND_API_KEY` di Vercel → proyek AutoShort → Settings → Environments → Production → Environment Variables. Key bukan diisi oleh pengguna dan tidak dikirim ke browser. Jangan commit atau menyalin nilainya ke chat.
+2. Backup database, lalu jalankan `migrations/20261117_private_email.sql` di Supabase SQL Editor pada proyek existing. Skrip menambahkan tabel metadata dan fungsi kuota tanpa mengubah tautan, akun, atau pesan existing. Skrip aman dijalankan ulang. Untuk instalasi baru, schema lengkap sudah mencakup migrasi ini.
+3. Deploy kode ini dan buka **Email** setelah masuk. Bila key belum terpasang atau migrasi belum dijalankan, dashboard menampilkan kendala sebenarnya dan tidak mengklaim email sudah aktif. Jika provider mengembalikan 403/404 pada endpoint Inboxes, periksa akses produk/izin akun Resend; key sending-only tidak cukup.
+4. Jangan mendaftarkan/mengambil alih domain atau inbox existing secara manual untuk memaksa setup. Adapter menolak adopsi domain/alamat provider yang sudah ada tanpa pemetaan AutoShort. Migrasi mailbox existing membutuhkan pemeriksaan pemilik terpisah agar pesan lama tidak bocor ke pengguna baru.
+
+### Alur pengguna
+
+- Tambahkan domain email yang Anda kuasai. Domain bisa sama dengan domain akar shortlink/website; domain bersama AutoShort (termasuk `rigeel.id`) hanya boleh didaftarkan untuk email oleh pemilik platform. Pengguna lain memakai domain pribadinya. Verifikasi email terpisah dari verifikasi hosting.
+- Dashboard menampilkan MX, SPF, DKIM dan record lain yang benar-benar diberikan provider, beserta Nama/Host, Nilai, prioritas, TTL, status, dan tombol salin. Tidak ada pengubahan DNS otomatis. Pasang record di penyedia DNS aktif. **Mengganti MX mengalihkan pesan masuk:** pertahankan layanan email existing sampai migrasi penerimaan direncanakan. Jangan menambah SPF kedua pada hostname yang sama; sesuaikan dengan konfigurasi penyedia. CNAME tidak dapat digabung dengan MX pada hostname yang sama. Jika shortlink memakai `go.domain.com` dengan CNAME, email dapat memakai `domain.com` setelah verifikasi DNS emailnya sendiri, tanpa memindahkan website.
+- Klik **Periksa DNS Email**. Alamat baru hanya dapat dibuat setelah record pengiriman dan penerimaan sama-sama terverifikasi. Setelah itu buat nama seperti `admin`, lalu gunakan inbox di dashboard. Domain yang belum aktif dan belum memiliki alamat dapat dibatalkan; domain aktif memerlukan penanganan pengelola agar email tidak terputus.
+- Pengiriman memakai inbox milik sesi pengguna, bukan alamat From dari request. Tombol kirim melaporkan penerimaan oleh provider, bukan jaminan email sudah diterima penerima. Kegagalan tidak menghapus teks komposisi. Retry dengan isi sama memakai idempotency key yang sama; permintaan pending lebih dari 23 jam dihentikan untuk mencegah duplikasi setelah jendela idempotency provider berakhir.
+- Batas awal: 3 domain, 10 alamat, dan 100 permintaan kirim per 24 jam per akun, maksimal 5 penerima per pesan. Kuota domain/inbox/pengiriman akun Resend milik pengelola tetap berlaku. Kuota dan konflik request diamankan dengan fungsi database serta advisory transaction lock, tidak hanya tombol UI. Token operator lama tidak bisa membuka inbox; email wajib memakai sesi akun individual.
+
+Kontrak adapter merujuk endpoint dan tipe resmi SDK Resend 6.38.1 (`/domains`, `/inboxes`, threads, dan drafts). Pengujian API/provider memakai respons terkontrol; tes SQL dapat dijalankan pada PostgreSQL terisolasi. Pengiriman dan penerimaan email Internet tetap harus diuji dengan akun Resend nyata, MX/SPF/DKIM nyata, dan alamat luar setelah setup selesai. Jangan menganggap fixture sebagai hasil pengiriman nyata.
+
+Pengujian metadata email: `npm run test:mail-db` menjalankan migrasi pada PostgreSQL terisolasi (PGlite), lalu memeriksa RLS, izin tulis/RPC, verifikasi domain, idempotensi, kuota, dan retry kedaluwarsa. Tes ini tidak memakai database produksi.

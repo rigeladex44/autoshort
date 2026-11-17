@@ -1,3 +1,5 @@
+import mail, { createMailHandler } from '../api/mail.js';
+import { plainMessage, refreshMailDomain } from '../lib/mail.js';
 import auth from '../api/auth.js';
 import { buildAnalyticsBuckets } from '../lib/analytics.js';
 import { test, beforeEach, afterEach } from 'node:test';
@@ -19,7 +21,7 @@ function response() { return { code: 200, headers: {}, setHeader(k,v) { this.hea
 const record = { id: 'one', slug: 'hello', destination_url: 'https://example.com/', is_active: true, clicks: 0 };
 let calls;
 beforeEach(() => { process.env.SUPABASE_URL = 'https://db.example'; process.env.SUPABASE_SERVICE_ROLE_KEY = 'server-only'; process.env.ADMIN_TOKEN = 'test-token'; process.env.PLATFORM_HOSTS='short.example'; process.env.AUTOSHORT_VERCEL_PROJECT_ID='prj_Test'; process.env.AUTOSHORT_VERCEL_TEAM_ID='team_Test'; calls=[]; });
-afterEach(() => { globalThis.fetch = realFetch; delete process.env.SUPABASE_URL; delete process.env.SUPABASE_SERVICE_ROLE_KEY; delete process.env.ADMIN_TOKEN; delete process.env.AUTOSHORT_VERCEL_PROJECT_ID; delete process.env.AUTOSHORT_VERCEL_TEAM_ID; delete process.env.VERCEL_DOMAINS_TOKEN; delete process.env.PLATFORM_HOSTS; });
+afterEach(() => { globalThis.fetch = realFetch; delete process.env.SUPABASE_URL; delete process.env.SUPABASE_SERVICE_ROLE_KEY; delete process.env.ADMIN_TOKEN; delete process.env.AUTOSHORT_VERCEL_PROJECT_ID; delete process.env.AUTOSHORT_VERCEL_TEAM_ID; delete process.env.VERCEL_DOMAINS_TOKEN; delete process.env.PLATFORM_HOSTS; delete process.env.RESEND_API_KEY; });
 function mock(fn) { globalThis.fetch = async (url, options) => { calls.push({url:String(url), options}); if(String(url).includes('/rest/v1/shared_domains?'))return json([]); return fn(String(url), options); }; }
 function json(value, status = 200) { return new Response(JSON.stringify(value), { status }); }
 test('URL validation rejects executable schemes; slugs reject reserved routes', () => {
@@ -330,4 +332,41 @@ test('Google login canonicalizes origin before PKCE and uses canonical callback 
   mock(()=>json({access_token:'test-access',refresh_token:'test-refresh',user:{id:'test-user'},expires_in:3600}));
   const callback=req('GET',null,{action:'callback',code:'test-code'});callback.headers.host='rigeel.id';callback.headers.cookie='as_pkce=test-verifier';const complete=response();await auth(callback,complete);assert.equal(complete.headers.location,'https://rigeel.id/#home');assert.match(complete.headers['set-cookie'].join(';'),/as_access=/);
  }finally{if(priorOrigin===undefined)delete process.env.AUTH_SITE_URL;else process.env.AUTH_SITE_URL=priorOrigin;if(priorGoogle===undefined)delete process.env.AUTH_GOOGLE_ENABLED;else process.env.AUTH_GOOGLE_ENABLED=priorGoogle;}
+});
+
+function mailReq(method='GET',body,query={}){const request=req(method,body,query);request.headers.authorization='Bearer user.jwt.signature';return request;}
+test('mailbox API requires individual user auth and never falls back to shared operator access',async()=>{
+ process.env.RESEND_API_KEY='test-resend-secret';mock(()=>json([]));const denied=response();await mail(req(),denied);assert.equal(denied.code,401);assert.equal(calls.length,0);
+ mock(url=>json(url.includes('/auth/v1/user')?{id:'user-a'}:[]));const off=response();delete process.env.RESEND_API_KEY;await mail(mailReq(),off);assert.equal(off.body.configured,false);assert.equal(off.body.userId,'user-a');assert.ok(!calls.some(c=>c.url.includes('/rest/v1/email_')));
+});
+test('mail overview is tenant scoped and omits provider identifiers and server credentials',async()=>{
+ process.env.RESEND_API_KEY='test-resend-secret';mock(url=>json(url.includes('/auth/v1/user')?{id:'user-a'}:url.includes('email_mailboxes')?[{id:'10000000-0000-4000-8000-000000000001',address:'admin@own.example',display_name:'Owner',provider_id:'private-provider-id'}]:[]));const out=response();await mail(mailReq(),out);assert.equal(out.code,200);assert.equal(out.body.mailboxes[0].ready,true);assert.ok(!JSON.stringify(out.body).includes('provider-id'));assert.ok(!JSON.stringify(out.body).includes('test-resend-secret'));assert.ok(calls.filter(c=>c.url.includes('/rest/v1/')).every(c=>c.url.includes('user_id=eq.user-a')));
+});
+test('foreign mailbox/domain IDs are denied before any email-provider request',async()=>{
+ process.env.RESEND_API_KEY='test-resend-secret';mock(url=>json(url.includes('/auth/v1/user')?{id:'user-a'}:[]));for(const input of [{action:'thread',mailbox_id:'10000000-0000-4000-8000-000000000002',thread_id:'foreign'},{action:'domain-details',id:'20000000-0000-4000-8000-000000000002'}]){const out=response();await mail(mailReq('GET',null,input),out);assert.equal(out.code,404);}assert.ok(!calls.some(c=>c.url.includes('api.resend.com')));
+});
+test('email DNS readiness requires verified sending and receiving records and detects CNAME conflicts',async()=>{
+ process.env.RESEND_API_KEY='test-resend-secret';const row={id:'20000000-0000-4000-8000-000000000001',user_id:'user-a',domain:'own.example',provider_id:'resend-domain'};const data={name:'own.example',status:'verified',capabilities:{sending:'enabled',receiving:'enabled'},records:[{type:'TXT',record:'DKIM',name:'resend._domainkey',value:'actual-key',status:'verified',ttl:'Auto'},{type:'MX',record:'Receiving',name:'@',value:'actual-mx',priority:10,status:'pending',ttl:'Auto'}]};mock(url=>json(url.includes('api.resend.com')?data:[]));let state=await refreshMailDomain(row,{lookup:async()=>[]});assert.equal(state.sendingReady,true);assert.equal(state.receivingReady,false);data.records[1].status='verified';state=await refreshMailDomain(row,{lookup:async()=>['shortlink.cname.example']});assert.equal(state.receivingReady,false);assert.equal(state.cnameConflict,true);state=await refreshMailDomain(row,{lookup:async()=>[]});assert.equal(state.receivingReady,true);assert.equal(state.records[1].value,'actual-mx');
+});
+test('mailbox creation cannot bypass a pending domain with a forged ready flag',async()=>{
+ process.env.RESEND_API_KEY='test-resend-secret';mock(url=>json(url.includes('/auth/v1/user')?{id:'user-a'}:[{id:'20000000-0000-4000-8000-000000000001',user_id:'user-a'}]));const handler=createMailHandler({refreshDomain:async()=>({sendingReady:false,receivingReady:false})});const out=response();await handler(mailReq('POST',{action:'mailbox-create',domain_id:'20000000-0000-4000-8000-000000000001',local_part:'admin',verified:true}),out);assert.equal(out.code,422);assert.ok(!calls.some(c=>c.url.includes('api.resend.com')));
+});
+test('mail sending uses the owned inbox, ignores forged From, and supplies stable idempotency keys',async()=>{
+ process.env.RESEND_API_KEY='test-resend-secret';const requestId='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';mock((url,options)=>{
+  if(url.includes('/auth/v1/user'))return json({id:'user-a'});
+  if(url.includes('email_mailboxes'))return json([{id:'10000000-0000-4000-8000-000000000001',user_id:'user-a',provider_id:'own-inbox',domain_id:'20000000-0000-4000-8000-000000000001'}]);
+  if(url.includes('email_domains'))return json([{id:'20000000-0000-4000-8000-000000000001',user_id:'user-a',domain:'own.example',provider_id:'own-provider-domain'}]);
+  if(url.includes('reserve_email_send'))return json({state:'pending'});
+  if(url.endsWith('/drafts'))return json({id:'draft-a'});
+  if(url.endsWith('/send'))return json({id:'message-a'});
+  return json([]);
+ });
+ const handler=createMailHandler({refreshDomain:async()=>({sendingReady:true,receivingReady:true})});const out=response();await handler(mailReq('POST',{action:'send',mailbox_id:'10000000-0000-4000-8000-000000000001',request_id:requestId,to:'recipient@example.com',subject:'Hello',text:'Body',from:'victim@example.com'}),out);assert.equal(out.code,200);assert.equal(out.body.accepted,true);
+ const draft=calls.find(c=>c.url.endsWith('/drafts'));assert.ok(draft.url.includes('/inboxes/own-inbox/'));assert.equal(JSON.parse(draft.options.body).from,undefined);assert.equal(draft.options.headers['Idempotency-Key'],'draft/'+requestId);assert.equal(calls.find(c=>c.url.endsWith('/send')).options.headers['Idempotency-Key'],'send/'+requestId);
+});
+test('mail sending rejects header injection and safely returns an already accepted result',async()=>{
+ process.env.RESEND_API_KEY='test-resend-secret';mock(url=>json(url.includes('/auth/v1/user')?{id:'user-a'}:url.includes('email_mailboxes')?[{id:'10000000-0000-4000-8000-000000000001',provider_id:'own-inbox',domain_id:'20000000-0000-4000-8000-000000000001'}]:url.includes('reserve_email_send')?{state:'accepted'}:[]));const payload={action:'send',mailbox_id:'10000000-0000-4000-8000-000000000001',request_id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',to:'to@example.com',subject:'Hello\r\nBcc: victim@example.com',text:'Body'};const rejected=response();await mail(mailReq('POST',payload),rejected);assert.equal(rejected.code,400);payload.subject='Hello';const accepted=response();await mail(mailReq('POST',payload),accepted);assert.equal(accepted.body.accepted,true);assert.ok(!calls.some(c=>c.url.includes('api.resend.com')));
+});
+test('untrusted email HTML is returned as plain text without executable markup',()=>{
+ const result=plainMessage({id:'message',direction:'inbound',html:'<script>alert(1)</script><p>Hello &lt;img src=x onerror=alert(2)&gt;</p>',attachments:[]});assert.ok(!('html' in result));assert.ok(!result.text.includes('<script>'));assert.match(result.text,/Hello/);
 });

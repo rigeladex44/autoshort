@@ -56,5 +56,10 @@
       "destination": "https://rigeel.id/:path*",
       "permanent": true
     }
-  ]
+  ],
+  "functions": {
+    "api/mail.js": {
+      "maxDuration": 60
+    }
+  }
 }

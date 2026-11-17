@@ -1,0 +1,514 @@
+// Email content stays in memory and is cleared on every account change.
+export function createMailUI({ api, getSession, notify }) {
+  const el = (id) => document.getElementById(id);
+  let generation = 0,
+    busy = false,
+    configured = false,
+    firstLoad = true,
+    domains = [],
+    boxes = [],
+    messages = [],
+    thread = null,
+    requestId = null,
+    reply = null,
+    next = null,
+    messageNext = null;
+  function node(tag, text, cls) {
+    const n = document.createElement(tag);
+    if (text !== undefined) n.textContent = text;
+    if (cls) n.className = cls;
+    return n;
+  }
+  function controls() {
+    const enabled = configured && Boolean(getSession().user) && !busy;
+    el("mailAddDomain").disabled = !enabled;
+    el("mailCreateBox").disabled = !enabled || !el("mailCreateDomain").value;
+    el("mailCompose").disabled = !enabled || !el("mailboxSelect").value;
+    el("mailSend").disabled = !enabled || !el("mailboxSelect").value;
+    el("mailboxSelect").disabled = !enabled;
+    el("mailFolder").disabled = !enabled;
+    el("mailLoadMore").disabled = !enabled;
+  }
+  async function call(query = {}, body) {
+    const id = getSession().user?.id,
+      g = generation;
+    const data = await api(
+      "/api/mail" + (body ? "" : "?" + new URLSearchParams(query)),
+      body ? { method: "POST", body: JSON.stringify(body) } : {},
+    );
+    if (g !== generation || id !== getSession().user?.id || data.userId !== id)
+      throw Object.assign(new Error("Sesi telah berubah."), { stale: true });
+    return data;
+  }
+  async function run(work) {
+    if (busy) return;
+    const g = generation;
+    busy = true;
+    controls();
+    if (configured) el("mailNotice").textContent = "Memproses…";
+    try {
+      await work();
+      if (el("mailNotice").textContent === "Memproses…")
+        el("mailNotice").textContent =
+          "Inbox dan alamat email hanya dapat diakses oleh akun Anda.";
+    } catch (error) {
+      if (!error.stale && g === generation) {
+        el("mailNotice").textContent = error.message;
+        if (el("mailComposeDialog").open)
+          el("mailComposeNotice").textContent = error.message;
+      }
+    } finally {
+      if (g === generation) {
+        busy = false;
+        controls();
+      }
+    }
+  }
+  function reset() {
+    generation++;
+    busy = false;
+    configured = false;
+    firstLoad = true;
+    domains = [];
+    boxes = [];
+    messages = [];
+    thread = null;
+    requestId = null;
+    reply = null;
+    next = null;
+    messageNext = null;
+    [
+      "mailDomainList",
+      "mailDns",
+      "mailThreads",
+      "mailMessage",
+      "mailboxSelect",
+      "mailCreateDomain",
+    ].forEach((id) => el(id).replaceChildren());
+    el("mailDomainForm").reset();
+    el("mailBoxForm").reset();
+    el("mailComposeForm").reset();
+    el("mailComposeDialog").close();
+    el("mailLoadMore").hidden = true;
+    el("mailSetup").open = true;
+    el("mailNotice").textContent = "Masuk untuk memakai inbox pribadi.";
+    controls();
+  }
+  async function overview() {
+    const previous = el("mailboxSelect").value;
+    const data = await call();
+    configured = data.configured === true;
+    domains = data.domains || [];
+    boxes = data.mailboxes || [];
+    if (firstLoad && configured) {
+      firstLoad = false;
+      el("mailSetup").open = !boxes.some((b) => b.ready);
+    }
+    el("mailNotice").textContent =
+      data.message ||
+      (configured
+        ? "Inbox dan alamat email hanya dapat diakses oleh akun Anda."
+        : "Layanan email belum diaktifkan.");
+    el("mailDomainList").replaceChildren();
+    for (const d of domains) {
+      const card = node("div", undefined, "mail-domain-row");
+      card.append(
+        node("strong", d.domain),
+        node(
+          "span",
+          (d.sending_ready ? "Kirim siap" : "Kirim menunggu DNS") +
+            " · " +
+            (d.receiving_ready ? "Terima siap" : "Terima menunggu DNS"),
+        ),
+      );
+      const inspect = node(
+        "button",
+        "Lihat DNS & Periksa",
+        "btn btn-outline btn-sm",
+      );
+      inspect.type = "button";
+      inspect.onclick = () => run(() => showDns(d.id, true));
+      card.append(inspect);
+      if (!d.sending_ready && !d.receiving_ready) {
+        const cancel = node(
+          "button",
+          "Batalkan Domain",
+          "btn btn-outline btn-sm",
+        );
+        cancel.type = "button";
+        cancel.onclick = () => {
+          if (
+            confirm(
+              "Batalkan domain email yang belum aktif ini? Record DNS eksternal tidak diubah.",
+            )
+          )
+            run(async () => {
+              await call({}, { action: "domain-remove", id: d.id });
+              el("mailDns").replaceChildren();
+              await overview();
+            });
+        };
+        card.append(cancel);
+      }
+      el("mailDomainList").append(card);
+    }
+    for (const box of boxes.filter((b) => !b.ready)) {
+      el("mailDomainList").append(
+        node(
+          "p",
+          "Pembuatan " +
+            box.address +
+            " belum selesai. Buat ulang alamat yang sama untuk mencoba lagi.",
+        ),
+      );
+    }
+    el("mailCreateDomain").replaceChildren();
+    const ready = domains.filter((d) => d.sending_ready && d.receiving_ready);
+    for (const d of ready) {
+      const option = node("option", d.domain);
+      option.value = d.id;
+      el("mailCreateDomain").append(option);
+    }
+    el("mailboxSelect").replaceChildren(
+      node(
+        "option",
+        boxes.some((b) => b.ready)
+          ? "Pilih alamat email"
+          : "Belum ada alamat aktif",
+      ),
+    );
+    el("mailboxSelect").firstChild.value = "";
+    for (const box of boxes.filter((b) => b.ready)) {
+      const option = node("option", box.address);
+      option.value = box.id;
+      el("mailboxSelect").append(option);
+    }
+    el("mailboxSelect").value = boxes.some((b) => b.ready && b.id === previous)
+      ? previous
+      : boxes.find((b) => b.ready)?.id || "";
+    controls();
+  }
+  async function open() {
+    const session = getSession();
+    if (
+      !el("mailDomainInput").value &&
+      session.user &&
+      (session.user.isOperator || session.domain !== session.shared)
+    )
+      el("mailDomainInput").value = session.domain || "";
+    if (!getSession().cloud || !getSession().user) {
+      reset();
+      el("mailNotice").textContent =
+        "Email tersedia setelah masuk pada mode cloud.";
+      return;
+    }
+    await run(async () => {
+      await overview();
+      if (el("mailboxSelect").value) await loadThreads();
+    });
+  }
+  async function showDns(id, verify = false) {
+    const result = await call(
+      { action: "domain-details", id },
+      verify ? { action: "domain-check", id } : undefined,
+    );
+    renderDns(result.domain);
+    if (verify) await overview();
+  }
+  function renderDns(d) {
+    const root = el("mailDns");
+    root.replaceChildren(node("h3", "DNS email " + d.domain));
+    root.append(
+      node(
+        "p",
+        "Pasang record ini pada penyedia DNS. Jangan mengganti MX existing sebelum siap memindahkan penerimaan email; pesan baru akan dikirim ke layanan yang ditunjuk MX.",
+      ),
+    );
+    if (d.cnameConflict)
+      root.append(
+        node(
+          "p",
+          "Hostname ini memakai CNAME. CNAME tidak dapat digabung dengan MX pada hostname yang sama. Gunakan domain akar atau hostname email lain yang Anda kuasai; jangan menghapus routing shortlink tanpa pengganti yang valid.",
+          "mail-warning",
+        ),
+      );
+    root.append(
+      node(
+        "p",
+        (d.sendingReady ? "Kirim siap" : "Kirim belum siap") +
+          " · " +
+          (d.receivingReady ? "Terima siap" : "Terima belum siap"),
+      ),
+    );
+    for (const r of d.records || []) {
+      const row = node("div", undefined, "mail-dns-record");
+      const host =
+        r.name === d.domain
+          ? "@"
+          : r.name.endsWith("." + d.domain)
+            ? r.name.slice(0, -d.domain.length - 1)
+            : r.name;
+      row.append(
+        node("strong", r.type + " · " + r.purpose),
+        node("p", "Nama/Host: " + host),
+        node("code", r.value),
+        node(
+          "small",
+          "TTL: " +
+            r.ttl +
+            (r.priority !== undefined ? " · Prioritas: " + r.priority : "") +
+            " · " +
+            r.status,
+        ),
+      );
+      for (const [label, value] of [
+        ["Salin Nama", host],
+        ["Salin Nilai", r.value],
+      ]) {
+        const button = node("button", label, "btn btn-outline btn-sm");
+        button.type = "button";
+        button.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(value);
+            notify("Disalin.", "success");
+          } catch {
+            notify("Salin teks record secara manual.", "warning");
+          }
+        };
+        row.append(button);
+      }
+      root.append(row);
+    }
+    const check = node("button", "Periksa DNS Email", "btn btn-outline btn-sm");
+    check.type = "button";
+    check.onclick = () => run(() => showDns(d.id, true));
+    root.append(check);
+  }
+  async function loadThreads(append = false) {
+    const box = el("mailboxSelect").value;
+    if (!box) {
+      el("mailThreads").replaceChildren(
+        node("p", "Buat alamat setelah DNS domain terverifikasi."),
+      );
+      return;
+    }
+    const data = await call({
+      action: "threads",
+      mailbox_id: box,
+      folder: el("mailFolder").value,
+      ...(append && next ? { after: next } : {}),
+    });
+    if (!append) {
+      el("mailThreads").replaceChildren();
+      el("mailMessage").replaceChildren(
+        node("p", "Pilih pesan untuk membacanya."),
+      );
+      thread = null;
+      messages = [];
+    }
+    next = data.next;
+    el("mailLoadMore").hidden = !data.hasMore;
+    for (const t of data.threads || []) {
+      const button = node(
+        "button",
+        undefined,
+        "mail-thread" + (!t.read ? " is-unread" : ""),
+      );
+      button.type = "button";
+      button.append(
+        node("strong", t.subject),
+        node("span", t.from || t.to.join(", ")),
+        node("small", new Date(t.received_at).toLocaleString("id-ID")),
+      );
+      button.onclick = () =>
+        run(async () => {
+          await loadMessage(t);
+          button.classList.remove("is-unread");
+        });
+      el("mailThreads").append(button);
+    }
+    if (!el("mailThreads").children.length)
+      el("mailThreads").append(node("p", "Belum ada pesan di folder ini."));
+  }
+  async function loadMessage(t, append = false) {
+    const data = await call({
+      action: "thread",
+      mailbox_id: el("mailboxSelect").value,
+      thread_id: t.id,
+      ...(append && messageNext ? { after: messageNext } : {}),
+    });
+    thread = t;
+    messages = append ? [...messages, ...data.messages] : data.messages;
+    messageNext = data.next;
+    renderMessage();
+    await call(
+      {},
+      {
+        action: "thread-update",
+        mailbox_id: el("mailboxSelect").value,
+        thread_id: t.id,
+        read: true,
+      },
+    );
+  }
+  function renderMessage() {
+    const root = el("mailMessage");
+    root.replaceChildren(node("h3", thread.subject));
+    const actions = node("div", undefined, "domain-actions");
+    for (const [label, folder] of [
+      ["Arsipkan", "archive"],
+      ["Ke Inbox", "inbox"],
+      ["Ke Sampah", "trash"],
+    ]) {
+      const b = node("button", label, "btn btn-outline btn-sm");
+      b.type = "button";
+      b.onclick = () =>
+        run(async () => {
+          await call(
+            {},
+            {
+              action: "thread-update",
+              mailbox_id: el("mailboxSelect").value,
+              thread_id: thread.id,
+              folder,
+            },
+          );
+          await loadThreads();
+        });
+      actions.append(b);
+    }
+    root.append(actions);
+    for (const m of [...messages].sort(
+      (a, b) => new Date(a.receivedAt) - new Date(b.receivedAt),
+    )) {
+      const article = node("article", undefined, "mail-message-body");
+      article.append(
+        node("strong", m.from),
+        node("small", new Date(m.receivedAt).toLocaleString("id-ID")),
+        node("pre", m.text || "(Pesan tanpa isi teks)"),
+      );
+      if (m.truncated)
+        article.append(
+          node("p", "Isi pesan dipersingkat karena ukurannya besar."),
+        );
+      if (m.attachments.length)
+        article.append(
+          node(
+            "p",
+            "Lampiran: " +
+              m.attachments.map((a) => a.filename).join(", ") +
+              ". Unduh lampiran belum tersedia pada versi ini.",
+          ),
+        );
+      if (m.direction === "inbound") {
+        const b = node("button", "Balas", "btn btn-outline btn-sm");
+        b.type = "button";
+        b.onclick = () => compose(m);
+        article.append(b);
+      }
+      root.append(article);
+    }
+    if (messageNext) {
+      const more = node(
+        "button",
+        "Muat pesan berikutnya",
+        "btn btn-outline btn-sm",
+      );
+      more.onclick = () => run(() => loadMessage(thread, true));
+      root.append(more);
+    }
+  }
+  function compose(message) {
+    el("mailComposeNotice").textContent = "";
+    el("mailComposeForm").reset();
+    requestId = null;
+    reply = message
+      ? { thread_id: thread.id, reply_to_email_id: message.id }
+      : null;
+    el("mailFrom").textContent =
+      boxes.find((b) => b.id === el("mailboxSelect").value)?.address || "";
+    if (message) {
+      el("mailTo").value = (
+        message.replyTo.length ? message.replyTo : [message.from]
+      )
+        .map((value) => value.match(/<([^<>\r\n]+)>/)?.[1] || value)
+        .join(", ");
+      el("mailSubject").value = /^re:/i.test(message.subject)
+        ? message.subject
+        : "Re: " + message.subject;
+    }
+    el("mailComposeDialog").showModal();
+    el(message ? "mailBody" : "mailTo").focus();
+  }
+  el("mailRefresh").onclick = open;
+  el("mailboxSelect").onchange = () => run(() => loadThreads());
+  el("mailFolder").onchange = () => run(() => loadThreads());
+  el("mailCreateDomain").onchange = controls;
+  el("mailLoadMore").onclick = () => run(() => loadThreads(true));
+  el("mailCompose").onclick = () => compose();
+  el("mailCancelCompose").onclick = () => el("mailComposeDialog").close();
+  el("mailComposeDialog").addEventListener("close", () => {
+    el("mailComposeForm").reset();
+    reply = null;
+    requestId = null;
+  });
+  el("mailComposeForm").addEventListener("input", () => {
+    requestId = null;
+  });
+  el("mailDomainForm").onsubmit = (event) => {
+    event.preventDefault();
+    run(async () => {
+      const data = await call(
+        {},
+        { action: "domain-add", domain: el("mailDomainInput").value },
+      );
+      renderDns(data.domain);
+      await overview();
+    });
+  };
+  el("mailBoxForm").onsubmit = (event) => {
+    event.preventDefault();
+    run(async () => {
+      await call(
+        {},
+        {
+          action: "mailbox-create",
+          domain_id: el("mailCreateDomain").value,
+          local_part: el("mailLocalPart").value,
+          display_name: el("mailDisplayName").value,
+        },
+      );
+      el("mailBoxForm").reset();
+      await overview();
+      el("mailSetup").open = false;
+      await loadThreads();
+      notify("Alamat email dibuat.", "success");
+    });
+  };
+  el("mailComposeForm").onsubmit = (event) => {
+    event.preventDefault();
+    run(async () => {
+      requestId ||= crypto.randomUUID();
+      const result = await call(
+        {},
+        {
+          action: "send",
+          mailbox_id: el("mailboxSelect").value,
+          request_id: requestId,
+          to: el("mailTo").value,
+          subject: el("mailSubject").value,
+          text: el("mailBody").value,
+          ...(reply || {}),
+        },
+      );
+      if (result.accepted) {
+        el("mailComposeDialog").close();
+        notify("Pesan diterima layanan pengiriman.", "success");
+        el("mailFolder").value = "sent";
+        await loadThreads();
+      }
+    });
+  };
+  reset();
+  return { open, reset, leave: () => el("mailComposeDialog").close() };
+}

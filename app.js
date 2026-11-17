@@ -1,3 +1,4 @@
+import { createMailUI } from './mail-client.js';
 import { buildAnalyticsBuckets } from './lib/analytics.js';
 import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from './lib/validation.js';
 /**
@@ -12,6 +13,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
 
   // --- CONFIGURATION & STATE ---
   let cloudMode = false;
+  let mailUI;
   let adminConnected = false;
   let currentUser = null;
   let authMode = 'login';
@@ -128,6 +130,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     await consumeAuthCallback();
     initTheme();
     initCalendar();
+    mailUI=createMailUI({api,getSession:()=>({cloud:cloudMode,user:currentUser,domain:customDomain,shared:platformDomain}),notify:showToast});
     initEventListeners();
     initExtraControls();
     setupRouting();
@@ -243,6 +246,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       }
       if(cloudMode&&currentUser)await syncWithBackend().catch(error=>showToast(error.message,'warning'));
       else status(cloudMode?'Belum masuk':'Mode Lokal');
+      if(currentView==='mail')mailUI?.open();
     }catch(error){status('Server tidak terhubung');const notice=document.getElementById('storageNotice');notice.hidden=false;notice.textContent='Server tidak dapat dimuat. Periksa koneksi dan muat ulang.';throw error;}
     if(!pollTimer)pollTimer=setInterval(()=>{if(cloudMode&&currentUser&&!document.hidden&&!saving)syncWithBackend().catch(()=>{});},15000);
   }
@@ -302,7 +306,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     }
     if (['login','signup','recover','reset'].includes(viewName)){authMode=viewName;viewName='auth';}
     if (['beranda', 'dashboard'].includes(viewName)) viewName = 'home';
-    if (!['auth','home', 'analytics', 'shortener', 'qr-studio', 'activity', 'domains', 'settings'].includes(viewName)) viewName = 'home';
+    if (!['auth','home', 'analytics', 'shortener', 'qr-studio', 'activity', 'domains', 'mail', 'settings'].includes(viewName)) viewName = 'home';
+    if(viewName!=='mail')mailUI?.leave();
     document.body.dataset.view = viewName;
     closeMenu();
     window.scrollTo(0, 0);
@@ -315,6 +320,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
       'qr-studio': document.getElementById('viewQrStudio'),
       activity: document.getElementById('viewActivity'),
       domains: document.getElementById('viewDomains'),
+      mail: document.getElementById('viewMail'),
       settings: document.getElementById('viewSettings')
     };
 
@@ -336,7 +342,8 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     });
     for (const [name, view] of Object.entries(views)) view?.setAttribute('aria-hidden', String(name !== viewName));
 
-    if(viewName==='auth'){views.auth.style.display='block';topTitle.textContent='Akun';topIcon.className='fa-solid fa-user title-icon';renderAuthForm();}
+    if(viewName==='mail'){views.mail.style.display='block';topTitle.textContent='Email';topIcon.className='fa-solid fa-envelope title-icon';mailUI?.open();}
+    else if(viewName==='auth'){views.auth.style.display='block';topTitle.textContent='Akun';topIcon.className='fa-solid fa-user title-icon';renderAuthForm();}
     else if (viewName === 'home') {
       views.home.style.display = 'block';
       topTitle.textContent = 'Beranda';
@@ -1498,6 +1505,7 @@ import { normalizeLink, normalizeUrl, normalizeSlug, linkState, csvCell } from '
     document.getElementById('btnExportJsonBackup').disabled=cloudMode&&!adminConnected;
   }
   function clearAccountData() {
+    mailUI?.reset();
     syncPromise=null;domainsLoadedFor=null;currentUser=null;adminConnected=false;links=[];clicksHistory=[];selectedLinkId=null;searchTerm='';activeLinkFilter='all';vercelConnected=false;customDomain=platformDomain;
     document.getElementById('searchInput').value='';document.getElementById('domainList').replaceChildren();document.getElementById('domainDetails').hidden=true;
     document.getElementById('linkDetailsModal').style.display='none';document.getElementById('modalLink').style.display='none';document.body.classList.remove('modal-open');

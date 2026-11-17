@@ -343,4 +343,41 @@ try {
   console.log('PASS: chart summary follows date/link filters and deduplicates visitors across hours.');
   await listContext.close();console.log('PASS: stacked cards, detail isolation, copy URL, home totals, empty activity, home create action and focus restoration.');
 
+  const mailContext=await browser.newContext({viewport:{width:390,height:900},reducedMotion:'reduce'});
+  let mailUser={id:'mail-user-a',email:'a@example.test',isOperator:false},mailOn=false,domainAdded=false,mailReady=false,boxCreated=false,sendFailure=true,loadOlder=false;
+  const sentPayloads=[];
+  await mailContext.route('**/api/**',async route=>{
+    const url=new URL(route.request().url());const method=route.request().method();const payload=method==='POST'?route.request().postDataJSON():Object.fromEntries(url.searchParams);
+    if(url.pathname==='/api/config')return route.fulfill({json:{configured:true,user:mailUser,platformDomain:'short.example',customDomain:'short.example',googleEnabled:true}});
+    if(url.pathname==='/api/auth'){if(url.searchParams.get('action')==='logout')mailUser=null;return route.fulfill({json:{success:true,user:mailUser}});}
+    if(url.pathname==='/api/links')return route.fulfill({json:{links:[]}});
+    if(url.pathname==='/api/analytics')return route.fulfill({json:{recentClicks:[]}});
+    if(url.pathname==='/api/domains')return route.fulfill({json:{connected:false,domains:[]}});
+    if(url.pathname!=='/api/mail')return route.continue();
+    const userId=mailUser?.id;const isA=userId==='mail-user-a';const domain={id:'mail-domain',domain:'own.example',sendingReady:mailReady,receivingReady:mailReady,cnameConflict:!mailReady,records:[{type:'TXT',name:'resend._domainkey',value:'provider-real-value-example',purpose:'DKIM',status:mailReady?'verified':'pending',ttl:'Auto'},{type:'MX',name:'@',value:'provider-mx-example',purpose:'Receiving',priority:10,status:mailReady?'verified':'pending',ttl:'Auto'}]};
+    const action=payload.action||'overview';let data;
+    if(action==='overview')data={configured:mailOn,domains:isA&&domainAdded?[{id:domain.id,domain:domain.domain,sending_ready:mailReady,receiving_ready:mailReady}]:[],mailboxes:boxCreated?[{id:isA?'mail-box-a':'mail-box-b',address:isA?'admin@own.example':'admin@other.example',display_name:'Admin',ready:true}]:[],message:mailOn?'Inbox siap':'Layanan email belum aktif.'};
+    else if(action==='domain-add'){domainAdded=true;data={domain};}
+    else if(action==='domain-details')data={domain};
+    else if(action==='domain-check'){mailReady=true;data={domain:{...domain,sendingReady:true,receivingReady:true,cnameConflict:false}};}
+    else if(action==='mailbox-create'){boxCreated=true;data={mailbox:{id:'mail-box-a',address:'admin@own.example',ready:true}};}
+    else if(action==='threads')data={threads:isA?[{id:payload.after?'older':'thread-a',subject:payload.after?'Older A':'Private A',from:'sender@example.com',to:['admin@own.example'],read:false,received_at:'2026-11-17T08:00:00Z'}]:[],hasMore:isA&&!payload.after&&!loadOlder,next:isA&&!payload.after?'older':null};
+    else if(action==='thread')data={messages:[{id:'message-a',direction:'inbound',from:'sender@example.com',replyTo:[],to:['admin@own.example'],subject:'Private A',text:'Secret A <img src=x onerror="window.emailXss=true">',attachments:[],receivedAt:'2026-11-17T08:00:00Z'}],hasMore:false};
+    else if(action==='send'){sentPayloads.push(payload);if(sendFailure)return route.fulfill({status:502,json:{error:'Gagal sementara. Coba lagi.'}});data={accepted:true};loadOlder=true;}
+    else data={success:true};
+    return route.fulfill({json:{userId,...data}});
+  });
+  const mailPage=await mailContext.newPage();mailPage.on('pageerror',e=>errors.push(e.message));await mailPage.goto(base+'/#mail');await mailPage.locator('#mailNotice').filter({hasText:'Layanan email belum aktif'}).waitFor();assert.equal(await mailPage.locator('#mailAddDomain').isDisabled(),true);
+  mailOn=true;await mailPage.click('#mailRefresh');await mailPage.waitForFunction(()=>!document.getElementById('mailAddDomain').disabled);
+  await mailPage.fill('#mailDomainInput','own.example');await mailPage.click('#mailAddDomain');await mailPage.locator('#mailDns').filter({hasText:'provider-real-value-example'}).waitFor();assert.equal(await mailPage.locator('#mailCreateBox').isDisabled(),true);assert.match(await mailPage.locator('#mailDns').textContent(),/CNAME/);
+  await mailPage.locator('#mailDns').getByRole('button',{name:'Periksa DNS Email',exact:true}).click();await mailPage.waitForFunction(()=>!document.getElementById('mailCreateBox').disabled);await mailPage.fill('#mailLocalPart','admin');await mailPage.click('#mailCreateBox');await mailPage.locator('#mailThreads').getByText('Private A',{exact:true}).waitFor();
+  await mailPage.click('#mailLoadMore');await mailPage.locator('.mail-thread').nth(1).waitFor();assert.equal(await mailPage.locator('.mail-thread').count(),2);
+  await mailPage.locator('#mailThreads').getByText('Private A',{exact:true}).click();await mailPage.locator('#mailMessage').filter({hasText:'Secret A'}).waitFor();assert.equal(await mailPage.locator('#mailMessage img').count(),0);assert.equal(await mailPage.evaluate(()=>window.emailXss),undefined);
+  await mailPage.locator('#mailMessage').getByRole('button',{name:'Balas',exact:true}).click();await mailPage.locator('#mailComposeDialog').waitFor({state:'visible'});assert.equal(await mailPage.locator('#mailTo').inputValue(),'sender@example.com');assert.equal(await mailPage.locator('#mailSubject').inputValue(),'Re: Private A');await mailPage.fill('#mailBody','Reply text');await mailPage.click('#mailSend');await mailPage.locator('#mailComposeNotice').filter({hasText:'Gagal sementara'}).waitFor();assert.equal(await mailPage.locator('#mailBody').inputValue(),'Reply text');sendFailure=false;await mailPage.click('#mailSend');await mailPage.locator('#mailComposeDialog').waitFor({state:'hidden'});assert.equal(sentPayloads.length,2);assert.equal(sentPayloads[0].request_id,sentPayloads[1].request_id);assert.equal(sentPayloads[1].thread_id,'thread-a');
+  for(const width of [320,390,768,1440]){await mailPage.setViewportSize({width,height:950});for(const theme of ['light','dark']){await mailPage.evaluate(t=>document.documentElement.dataset.theme=t,theme);assert.equal(await mailPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Mail overflow '+width);await mailPage.screenshot({path:`test-results/mail-${width}-${theme}.png`,fullPage:true,animations:'disabled'});}}
+  assert.equal(await mailPage.evaluate(()=>Object.values(localStorage).some(v=>v.includes('Secret A'))),false);
+  await mailPage.goto(base+'/#settings');await mailPage.click('#btnLogoutAdmin');await mailPage.locator('#viewAuth').waitFor({state:'visible'});assert.equal(await mailPage.locator('#mailThreads').textContent(),'');assert.equal(await mailPage.locator('#mailMessage').textContent(),'');
+  mailUser={id:'mail-user-b',email:'b@example.test',isOperator:false};await mailPage.reload();await mailPage.locator('#cloudStatusText').filter({hasText:'Cloud Terhubung'}).waitFor({state:'attached'});await mailPage.goto(base+'/#mail');await mailPage.locator('#mailboxSelect').filter({hasText:'admin@other.example'}).waitFor();assert.ok(!(await mailPage.locator('#viewMail').textContent()).includes('Secret A'));assert.ok(!(await mailPage.locator('#mailThreads').textContent()).includes('Private A'));assert.deepEqual(errors,[]);await mailContext.close();
+  console.log('PASS: private email setup, DNS gating, inbox/reply, idempotent retry, safe text rendering, pagination, logout isolation and responsive light/dark views.');
+
 } finally { await browser?.close(); server.kill(); }

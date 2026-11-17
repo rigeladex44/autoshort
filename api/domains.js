@@ -55,6 +55,7 @@ export function createDomainHandler({verify=verifyDomain}={}){return async funct
   if(action==='add')return res.status(200).json({domain:{...await addDomain(name),shared:isShared(name)}});
   if(action==='clear_redirect')return res.status(200).json({domain:{...await clearDomainRedirect(name),shared:isShared(name)}});
   if(action==='remove'){
+   if(process.env.RESEND_API_KEY&&(await db(`email_domains?domain=eq.${encodeURIComponent(name)}&select=id&limit=1`))?.length)return res.status(409).json({error:'Domain masih terhubung ke layanan email. Hubungi pengelola sebelum melepasnya.'});
    const references=await db(`links?short_domain=eq.${encodeURIComponent(name)}&select=id&limit=1`);
    if(references?.length||name===await savedDomain(user)||name===req.headers.host?.split(':')[0])return res.status(409).json({error:'Domain masih digunakan tautan atau akun. Domain tidak dilepas agar alamat yang sudah dibagikan tetap bekerja.'});
    try{await removeDomain(name);}catch(error){if(error.status!==404)throw error;}
